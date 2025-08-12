@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Операции со складом 1</h1>
+
+<div class="list-group">
+    <a href="{% url 'incoming_operation' %}" class="list-group-item list-group-item-action">
+        <h5>Прием материала</h5>
+        <p>Добавление новых материалов на склад</p>
+    </a>
+    <a href="{% url 'outgoing_operation' %}" class="list-group-item list-group-item-action">
+        <h5>Выдача материала</h5>
+        <p>Выдача материалов со склада</p>
+    </a>
+    <a href="{% url 'inventory_operation' %}" class="list-group-item list-group-item-action">
+        <h5>Инвентаризация</h5>
+        <p>Корректировка количества материалов</p>
+    </a>
+    <a href="{% url 'material_list' %}" class="list-group-item list-group-item-action">
+        <h5>Каталог материалов</h5>
+        <p>Просмотр всех материалов на складе</p>
+    </a>
+</div>
+{% endblock %}

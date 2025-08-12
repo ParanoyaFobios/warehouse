@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Каталог материалов</h1>
+<a href="{% url 'material_create' %}" class="btn btn-primary">Добавить материал</a>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Артикул</th>
+            <th>Категория</th>
+            <th>Количество</th>
+            <th>Штрихкод</th>
+            <th>Поставщик</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for material in materials %}
+        <tr>
+            <td>{{ material.name }}</td>
+            <td>{{ material.article }}</td>
+            <td>{{ material.category.name }}</td>
+            <td>{{ material.quantity }} {{ material.unit.short_name }}</td>
+            <td>{{ material.barcode }}</td>
+            <td>{{ material.supplier.name }}</td>
+            <td>
+                <a href="{% url 'incoming_operation' %}" class="btn btn-sm btn-warning">Принять</a>
+                <a href="{% url 'outgoing_operation' %}" class="btn btn-sm btn-warning">Выдать</a>
+                <a href="{% url 'material_update' material.pk %}" class="btn btn-sm btn-warning">Редактировать</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
