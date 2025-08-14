@@ -5,6 +5,11 @@ from django.urls import reverse_lazy
 from .models import Material, MaterialCategory
 from .forms import MaterialForm
 from django.db import models
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
+import barcode # импортируем библиотеку
+from barcode.writer import ImageWriter # для генерации PNG
+import io # для работы с данными в памяти
 
 
 class MaterialListView(LoginRequiredMixin, ListView):
@@ -43,6 +48,27 @@ class MaterialCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         # Дополнительные действия перед сохранением
         return super().form_valid(form)
+    
+def material_barcode_view(request, pk):
+    """
+    Генерирует и отдает изображение штрихкода для материала.
+    """
+    material = get_object_or_404(Material, pk=pk)
+    
+    # 1. Выбираем формат штрихкода (Code128 - хороший универсальный выбор)
+    CODE128 = barcode.get_barcode_class('code128')
+    
+    # 2. Создаем штрихкод с данными из нашего поля, используя writer для PNG
+    # Writer можно настроить (шрифты, размеры и т.д.)
+    writer = ImageWriter(format='PNG')
+    code = CODE128(material.barcode, writer=writer)
+    
+    # 3. Генерируем изображение в памяти, а не в файл
+    buffer = io.BytesIO()
+    code.write(buffer)
+    
+    # 4. Возвращаем изображение как HTTP-ответ
+    return HttpResponse(buffer.getvalue(), content_type='image/png')
 
 class MaterialUpdateView(LoginRequiredMixin, UpdateView):
     model = Material

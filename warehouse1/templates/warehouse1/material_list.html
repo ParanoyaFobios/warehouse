@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-
+{% load static %}
 {% block content %}
 <h1>Каталог материалов</h1>
 <a href="{% url 'material_create' %}" class="btn btn-primary">Добавить материал</a>
@@ -46,7 +46,7 @@
             <td>{{ material.article }}</td>
             <td>{{ material.category.name }}</td>
             <td>{{ material.quantity }} {{ material.unit.short_name }}</td>
-            <td>{{ material.barcode }}</td>
+            <td>{{ material.barcode }}<a href="{% url 'material_barcode' material.pk %}">Code</a></td>
             <td>
                 <a href="{% url 'material_update' material.pk %}" class="btn btn-sm btn-warning">Редактировать</a>
             </td>

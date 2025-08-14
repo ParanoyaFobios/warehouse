@@ -6,19 +6,12 @@ class MaterialForm(forms.ModelForm):
     class Meta:
         model = Material
         fields = [
-            'name', 'article', 'category', 'barcode', 
-            'quantity', 'unit', 'image', 'description'
+            'name', 'article', 'category', 'quantity', 'unit', 'image', 'description'
         ]
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
         }
-    
-    def clean_barcode(self):
-        barcode = self.cleaned_data['barcode']
-        if Material.objects.filter(barcode=barcode).exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError("Материал с таким штрихкодом уже существует")
-        return barcode
-    
+        
     def clean_article(self):
         article = self.cleaned_data['article']
         if Material.objects.filter(article=article).exclude(pk=self.instance.pk).exists():

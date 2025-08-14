@@ -14,7 +14,7 @@
                 <small>{{ item.material.article }}</small>
             </div>
             <p class="mb-1">
-                <strong>Штрихкод:</strong> {{ item.material.barcode }}<br>
+                <strong>Штрихкод:</strong> {{ item.material.barcode }}<a href="{% url 'material_barcode' item.material.pk %}">Code</a><br>
                 <strong>Категория:</strong> {{ item.material.category.name }}<br>
                 <strong>На складе:</strong> {{ item.material.quantity }} {{ item.material.unit.short_name }}
             </p>

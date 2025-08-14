@@ -1,5 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import User
+import uuid
+
+def generate_unique_barcode():
+    """
+    Генерирует уникальный 12-значный код и проверяет его на уникальность в БД.
+    """
+    while True:
+        barcode = uuid.uuid4().hex[:12].upper()
+        if not Material.objects.filter(barcode=barcode).exists():
+            return barcode
 
 class MaterialCategory(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Название категории")
@@ -29,7 +39,7 @@ class Material(models.Model):
     name = models.CharField(max_length=200, verbose_name="Название материала")
     article = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
     category = models.ForeignKey(MaterialCategory, on_delete=models.PROTECT, verbose_name="Категория")
-    barcode = models.CharField(max_length=50, unique=True, verbose_name="Штрихкод")
+    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод", default=generate_unique_barcode, editable=False)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Количество")
     unit = models.ForeignKey(UnitOfMeasure, on_delete=models.PROTECT, verbose_name="Единица измерения")
     image = models.ImageField(upload_to='photos/', blank=True, null=True, verbose_name="Изображение")
