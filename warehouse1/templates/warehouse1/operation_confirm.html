@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Подтверждение {{ operation_name }} товара</h1>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="list-group mb-4">
+        {% for item in material_forms %}
+        <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">{{ item.material.name }}</h5>
+                <small>{{ item.material.article }}</small>
+            </div>
+            <p class="mb-1">
+                <strong>Штрихкод:</strong> {{ item.material.barcode }}<br>
+                <strong>Категория:</strong> {{ item.material.category.name }}<br>
+                <strong>На складе:</strong> {{ item.material.quantity }} {{ item.material.unit.short_name }}
+            </p>
+            
+            <div class="row mt-2">
+                <div class="col-md-4">
+                    {{ item.form.quantity.label_tag }}
+                    <div class="input-group">
+                        {{ item.form.quantity }}
+                        <span class="input-group-text">{{ item.material.unit.short_name }}</span>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    {{ item.form.comment.label_tag }}
+                    {{ item.form.comment }}
+                </div>
+            </div>
+            {{ item.form.material_id }}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <button type="submit" class="btn btn-primary">Подтвердить {{ operation_name }}</button>
+</form>
+{% endblock %}

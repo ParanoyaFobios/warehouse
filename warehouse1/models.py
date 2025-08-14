@@ -24,27 +24,15 @@ class UnitOfMeasure(models.Model):
         verbose_name_plural = "Единицы измерения"
 
 
-class Supplier(models.Model):
-    name = models.CharField(max_length=200, verbose_name="Название поставщика")
-    contact_info = models.TextField(blank=True, verbose_name="Контактная информация")
-    
-    def __str__(self):
-        return self.name
-    
-    class Meta:
-        verbose_name = "Поставщик"
-        verbose_name_plural = "Поставщики"
-
 
 class Material(models.Model):
     name = models.CharField(max_length=200, verbose_name="Название материала")
     article = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
     category = models.ForeignKey(MaterialCategory, on_delete=models.PROTECT, verbose_name="Категория")
-    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, verbose_name="Поставщик")
     barcode = models.CharField(max_length=50, unique=True, verbose_name="Штрихкод")
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Количество")
     unit = models.ForeignKey(UnitOfMeasure, on_delete=models.PROTECT, verbose_name="Единица измерения")
-    image = models.ImageField(upload_to='materials/', blank=True, null=True, verbose_name="Изображение")
+    image = models.ImageField(upload_to='photos/', blank=True, null=True, verbose_name="Изображение")
     description = models.TextField(blank=True, verbose_name="Описание")
 
     def add_quantity(self, quantity, user, comment=''):
@@ -73,19 +61,6 @@ class Material(models.Model):
             comment=comment
         )
     
-    def inventory_adjustment(self, new_quantity, user, comment=''):
-        """Корректировка количества при инвентаризации"""
-        difference = new_quantity - self.quantity
-        self.quantity = new_quantity
-        self.save()
-        MaterialOperation.objects.create(
-            material=self,
-            operation_type='inventory',
-            quantity=difference,
-            user=user,
-            comment=comment
-        )
-        return difference
     
     def __str__(self):
         return f"{self.name} ({self.article})"
@@ -99,7 +74,6 @@ class MaterialOperation(models.Model):
     OPERATION_TYPES = (
         ('incoming', 'Приход'),
         ('outgoing', 'Расход'),
-        ('inventory', 'Инвентаризация'),
     )
     
     material = models.ForeignKey(Material, on_delete=models.CASCADE, verbose_name="Материал")

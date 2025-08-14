@@ -1,33 +1,55 @@
 # warehouse1/views.py
-from rest_framework import viewsets
-from .models import MaterialCategory, UnitOfMeasure, Supplier, Material, MaterialOperation
-from .serializers import (
-    MaterialCategorySerializer,
-    UnitOfMeasureSerializer,
-    SupplierSerializer,
-    MaterialSerializer,
-    MaterialOperationSerializer
-)
+from django.views.generic import ListView, CreateView, UpdateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from .models import Material, MaterialCategory
+from .forms import MaterialForm
+from django.db import models
 
-class MaterialCategoryViewSet(viewsets.ModelViewSet):
-    queryset = MaterialCategory.objects.all()
-    serializer_class = MaterialCategorySerializer
 
-class UnitOfMeasureViewSet(viewsets.ModelViewSet):
-    queryset = UnitOfMeasure.objects.all()
-    serializer_class = UnitOfMeasureSerializer
+class MaterialListView(LoginRequiredMixin, ListView):
+    model = Material
+    template_name = 'warehouse1/material_list.html'
+    context_object_name = 'materials'
+    paginate_by = 20
 
-class SupplierViewSet(viewsets.ModelViewSet):
-    queryset = Supplier.objects.all()
-    serializer_class = SupplierSerializer
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Фильтр по категории
+        category = self.request.GET.get('category')
+        if category:
+            queryset = queryset.filter(category_id=category)
+        # Поиск по названию или артикулу
+        search = self.request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                models.Q(name__icontains=search) | 
+                models.Q(article__icontains=search) |
+                models.Q(barcode__icontains=search))
+        
+        return queryset
 
-class MaterialViewSet(viewsets.ModelViewSet):
-    queryset = Material.objects.all()
-    serializer_class = MaterialSerializer
-    filterset_fields = ['category', 'unit', 'supplier']
-    search_fields = ['name', 'article', 'barcode']
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['categories'] = MaterialCategory.objects.all()
+        return context
 
-class MaterialOperationViewSet(viewsets.ModelViewSet):
-    queryset = MaterialOperation.objects.all()
-    serializer_class = MaterialOperationSerializer
-    filterset_fields = ['operation_type', 'material', 'user']
+class MaterialCreateView(LoginRequiredMixin, CreateView):
+    model = Material
+    form_class = MaterialForm
+    template_name = 'warehouse1/material_form.html'
+    success_url = reverse_lazy('material_list')
+
+    def form_valid(self, form):
+        # Дополнительные действия перед сохранением
+        return super().form_valid(form)
+
+class MaterialUpdateView(LoginRequiredMixin, UpdateView):
+    model = Material
+    form_class = MaterialForm
+    template_name = 'warehouse1/material_form.html'
+    success_url = reverse_lazy('material_list')
+
+    def form_valid(self, form):
+        # Дополнительные действия перед сохранением
+        return super().form_valid(form)

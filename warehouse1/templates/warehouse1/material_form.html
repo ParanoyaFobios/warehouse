@@ -1,10 +1,27 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>{% if form.instance.pk %}Редактирование{% else %}Создание{% endif %} материала</h1>
+<h1>
+    {% if object %}Редактирование материала{% else %}Создание материала{% endif %}
+</h1>
+
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
-    {{ form.as_p }}
+    
+    {% for field in form %}
+    <div class="form-group">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+        {% endif %}
+        {% for error in field.errors %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    
     <button type="submit" class="btn btn-primary">Сохранить</button>
+    <a href="{% url 'material_list' %}" class="btn btn-secondary">Отмена</a>
 </form>
 {% endblock %}

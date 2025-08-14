@@ -1,24 +1,15 @@
-# warehouse1/urls.py
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import (
-    MaterialCategoryViewSet,
-    UnitOfMeasureViewSet,
-    SupplierViewSet,
-    MaterialViewSet,
-    MaterialOperationViewSet
-)
-from .views_api import api_incoming, api_outgoing
-
-router = DefaultRouter()
-router.register(r'categories', MaterialCategoryViewSet)
-router.register(r'units', UnitOfMeasureViewSet)
-router.register(r'suppliers', SupplierViewSet)
-router.register(r'materials', MaterialViewSet)
-router.register(r'operations', MaterialOperationViewSet)
+from django.urls import path
+from .views import (MaterialListView, MaterialCreateView, MaterialUpdateView)
+from .views_operations import IncomingSearchView, IncomingConfirmView, OutgoingSearchView, OutgoingConfirmView
+from django.views.generic import TemplateView
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('api/operations/incoming/', api_incoming, name='api_incoming'),
-    path('api/operations/outgoing/', api_outgoing, name='api_outgoing'),
+    path('materials/', MaterialListView.as_view(), name='material_list'),
+    path('materials/create/', MaterialCreateView.as_view(), name='material_create'),
+    path('materials/update/<int:pk>/', MaterialUpdateView.as_view(), name='material_update'),
+    
+    path('operations/incoming/', IncomingSearchView.as_view(), name='incoming_operation'),
+    path('operations/incoming/confirm/', IncomingConfirmView.as_view(), name='operation_confirm'),
+    path('operations/outgoing/', OutgoingSearchView.as_view(), name='outgoing_operation'),
+    path('operations/outgoing/confirm/', OutgoingConfirmView.as_view(), name='operation_confirm'),
 ]

@@ -22,7 +22,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('main.urls')),  # Include the main app's URLs
         # API
-    path('api/warehouse1/', include('warehouse1.urls')),
-    # UI
-    path('warehouse1/', include('warehouse1.urls_ui')),
+    path('warehouse1/', include('warehouse1.urls')),
 ]
