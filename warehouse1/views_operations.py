@@ -126,6 +126,11 @@ class OperationConfirmView(OperationBaseView, TemplateView):
                     messages.error(request, f"Ошибка с материалом {material.name}: {str(e)}")
                 except Exception as e:
                     messages.error(request, f"Ошибка с материалом {material.name}: {str(e)}")
+                
+                if operation_type == 'incoming':
+                    operation_type = 'принято'
+                else:
+                    operation_type = 'выдано'
         
         if success_count > 0:
             messages.success(request, f"Успешно {operation_type} {material.name}: {quantity}{material.unit.short_name}")
