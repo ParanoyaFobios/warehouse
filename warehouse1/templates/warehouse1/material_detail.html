@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>{{ material.name }}</h2>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                {% if material.image %}
+                <img src="{{ material.image.url }}" class="img-fluid mb-3" alt="{{ material.name }}">
+                {% endif %}
+                
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>Штрихкод</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        {{ barcode_img }}
+                        <p class="mt-2">{{ material.barcode }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>Артикул:</strong> {{ material.article }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Категория:</strong> {{ material.category.name }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>Количество:</strong> {{ material.quantity }} {{ material.unit.short_name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Единица измерения:</strong> {{ material.unit.name }}</p>
+                    </div>
+                </div>
+                
+                {% if material.description %}
+                <div class="mb-3">
+                    <h5>Описание</h5>
+                    <p>{{ material.description }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex gap-2">
+                    <a href="{% url 'material_update' material.pk %}" class="btn btn-warning">Редактировать</a>
+                    <a href="{% url 'material_list' %}" class="btn btn-secondary" onclick="history.back(); return false;">Назад</a>
+                </div>
+            </div>
+        </div>
+        
+        <hr>
+        
+        <h4>Последние операции</h4>
+        {% if operations %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Тип операции</th>
+                        <th>Количество</th>
+                        <th>Пользователь</th>
+                        <th>Комментарий</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for operation in operations %}
+                    <tr>
+                        <td>{{ operation.date|date:"d.m.Y H:i" }}</td>
+                        <td>{{ operation.get_operation_type_display }}</td>
+                        <td>{{ operation.quantity }} {{ material.unit.short_name }}</td>
+                        <td>{{ operation.user.username }}</td>
+                        <td>{{ operation.comment|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>Нет данных об операциях</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

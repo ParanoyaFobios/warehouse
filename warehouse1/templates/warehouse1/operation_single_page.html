@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ operation_name }} материала</h2>
+    <hr>
+
+    <form method="get" class="mb-4">
+        <div class="row">
+            <div class="col-md-4">{{ search_form.name.label_tag }} {{ search_form.name }}</div>
+            <div class="col-md-4">{{ search_form.article.label_tag }} {{ search_form.article }}</div>
+            <div class="col-md-4">{{ search_form.barcode.label_tag }} {{ search_form.barcode }}</div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Найти</button>
+    </form>
+
+    {% if material_forms %}
+        <h4 class="mt-5">Результаты поиска:</h4>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Название</th>
+                    <th>Артикул</th>
+                    <th>На складе</th>
+                    <th>Количество</th>
+                    <th>Комментарий</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in material_forms %}
+                <tr>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="material_id" value="{{ item.material.id }}">
+                        
+                        <td><a href="{% url 'material_detail' item.material.pk %}">{{ item.material.name }}</a></td>
+                        <td>{{ item.material.article }}</td>
+                        <td>{{ item.material.quantity }} {{ item.material.unit.short_name }}</td>
+                        
+                        <td>{{ item.form.quantity }}</td>
+                        <td>{{ item.form.comment }}</td>
+                        
+                        <td>
+                            <button type="submit" class="btn btn-success">
+                                {% if operation_type == 'incoming' %}Принять{% else %}Выдать{% endif %}
+                            </button>
+                        </td>
+                    </form>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% elif request.GET.name or request.GET.article or request.GET.barcode %}
+        <p class="text-muted">Материалы не найдены.</p>
+    {% endif %}
+</div>
+{% if request.GET.search_form.barcode %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('id_barcode').value = "{{ request.GET.scan }}";
+        document.getElementById('id_quantity').focus();
+    });
+</script>
+{% endif %}
+{% endblock %}

@@ -1,7 +1,7 @@
 # warehouse1/views.py
-from django.views.generic import ListView, CreateView, UpdateView
+from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from .models import Material, MaterialCategory
 from .forms import MaterialForm
 from django.db import models
@@ -10,6 +10,7 @@ from django.http import HttpResponse
 import barcode
 from barcode.writer import ImageWriter # для генерации PNG
 import io # для работы с данными в памяти
+from django.utils.safestring import mark_safe
 
 
 class MaterialListView(LoginRequiredMixin, ListView):
@@ -69,6 +70,26 @@ def material_barcode_view(request, pk):
     
     # 4. Возвращаем изображение как HTTP-ответ
     return HttpResponse(buffer.getvalue(), content_type='image/png')
+
+
+class MaterialDetailView(LoginRequiredMixin, DetailView):
+    model = Material
+    template_name = 'warehouse1/material_detail.html'
+    context_object_name = 'material'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Добавляем историю операций
+        context['operations'] = self.object.materialoperation_set.order_by('-date')[:10]
+        
+        # Генерируем HTML для отображения штрихкода
+        barcode_url = reverse('material_barcode', kwargs={'pk': self.object.pk})
+        context['barcode_img'] = mark_safe(
+            f'<img src="{barcode_url}" alt="{self.object.barcode}" class="img-fluid">'
+        )
+        
+        return context
+    
 
 class MaterialUpdateView(LoginRequiredMixin, UpdateView):
     model = Material

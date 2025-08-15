@@ -42,7 +42,9 @@
     <tbody>
         {% for material in object_list %}
         <tr>
-            <td>{{ material.name }}</td>
+            <td>
+                <a href="{% url 'material_detail' material.pk %}">{{ material.name }}</a>
+            </td>
             <td>{{ material.article }}</td>
             <td>{{ material.category.name }}</td>
             <td>{{ material.quantity }} {{ material.unit.short_name }}</td>
