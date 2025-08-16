@@ -1,6 +1,5 @@
 from django import forms
-from .models import Material
-
+from .models import Material, OperationOutgoingCategory
 
 class MaterialForm(forms.ModelForm):
     class Meta:
@@ -38,7 +37,19 @@ class MaterialSearchForm(forms.Form):
         widget=forms.TextInput(attrs={'placeholder': 'Введите артикул'})
     )
 
+
+
 class MaterialOperationForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Динамически заполняем choices для outgoing_category
+        self.fields['outgoing_category'] = forms.ModelChoiceField(
+            label='Категория выдачи',
+            queryset=OperationOutgoingCategory.objects.all(),
+            empty_label="Выберите категорию",
+            required=False
+        )
+
     quantity = forms.DecimalField(
         label='Количество',
         max_digits=10,

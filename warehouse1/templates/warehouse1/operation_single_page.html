@@ -23,6 +23,9 @@
                     <th>Артикул</th>
                     <th>На складе</th>
                     <th>Количество</th>
+                    {% if operation_type == 'outgoing' %}
+                    <th>Куда выдаем</th>
+                    {% endif %}
                     <th>Комментарий</th>
                     <th>Действие</th>
                 </tr>
@@ -37,8 +40,10 @@
                         <td><a href="{% url 'material_detail' item.material.pk %}">{{ item.material.name }}</a></td>
                         <td>{{ item.material.article }}</td>
                         <td>{{ item.material.quantity }} {{ item.material.unit.short_name }}</td>
-                        
                         <td>{{ item.form.quantity }}</td>
+                        {% if operation_type == 'outgoing' %}
+                        <td>{{ item.form.outgoing_category }}</td>
+                        {% endif %}
                         <td>{{ item.form.comment }}</td>
                         
                         <td>

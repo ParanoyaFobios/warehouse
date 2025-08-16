@@ -80,8 +80,7 @@ class MaterialDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Добавляем историю операций
-        context['operations'] = self.object.materialoperation_set.order_by('-date')[:10]
-        
+        context['operations'] = self.object.materialoperation_set.order_by('-date')[:15]
         # Генерируем HTML для отображения штрихкода
         barcode_url = reverse('material_barcode', kwargs={'pk': self.object.pk})
         context['barcode_img'] = mark_safe(

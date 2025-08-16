@@ -3,7 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.db.models import Q
-from .models import Material
+from .models import Material, OperationOutgoingCategory, MaterialOperation
 from .forms import MaterialSearchForm, MaterialOperationForm
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, get_object_or_404
@@ -19,6 +19,7 @@ class MaterialOperationView(LoginRequiredMixin, TemplateView):
         
         # Определяем название операции для шаблона
         context['operation_type'] = self.operation_type
+        context['operation_category'] = OperationOutgoingCategory.objects.all()
         context['operation_name'] = 'Прием' if self.operation_type == 'incoming' else 'Выдача'
         
         # Форма для поиска всегда в контексте
@@ -49,7 +50,6 @@ class MaterialOperationView(LoginRequiredMixin, TemplateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        # Получаем ID материала из скрытого поля в форме
         material_id = request.POST.get('material_id')
         if not material_id:
             messages.error(request, "Не удалось определить материал.")
@@ -61,25 +61,35 @@ class MaterialOperationView(LoginRequiredMixin, TemplateView):
         if form.is_valid():
             quantity = form.cleaned_data['quantity']
             comment = form.cleaned_data['comment']
+            outgoing_category = form.cleaned_data.get('outgoing_category')
             
             try:
-                op_name_past = '' # для сообщения об успехе
+                op_name_past = ''
                 if self.operation_type == 'incoming':
                     material.add_quantity(quantity, request.user, comment)
                     op_name_past = 'принято'
                 elif self.operation_type == 'outgoing':
                     material.subtract_quantity(quantity, request.user, comment)
+                    # Создаем операцию с категорией выдачи
+                    MaterialOperation.objects.create(
+                        material=material,
+                        operation_type='outgoing',
+                        outgoing_category=outgoing_category,
+                        quantity=quantity,
+                        user=request.user,
+                        comment=comment
+                    )
                     op_name_past = 'выдано'
                 
-                messages.success(request, f"Успешно {op_name_past} {material.name}: {quantity} {material.unit.short_name}")
+                messages.success(request, 
+                    f"Успешно {op_name_past} {material.name}: {quantity} {material.unit.short_name}на{outgoing_category.name if outgoing_category else ' '}"
+                )
             
             except ValueError as e:
                 messages.error(request, f"Ошибка с материалом {material.name}: {str(e)}")
         
         else:
-            # Если форма невалидна, выводим ошибки
             for error in form.errors.values():
                 messages.error(request, error)
 
-        # Перенаправляем обратно на ту же страницу с теми же параметрами поиска
         return redirect(f"{request.path}?{request.GET.urlencode()}")

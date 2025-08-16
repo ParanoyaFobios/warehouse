@@ -75,7 +75,7 @@
                     {% for operation in operations %}
                     <tr>
                         <td>{{ operation.date|date:"d.m.Y H:i" }}</td>
-                        <td>{{ operation.get_operation_type_display }}</td>
+                        <td>{{ operation.get_operation_type_display }}{% if operation.outgoing_category %} {{ operation.outgoing_category }}{% else %} {% endif %}</td>
                         <td>{{ operation.quantity }} {{ material.unit.short_name }}</td>
                         <td>{{ operation.user.username }}</td>
                         <td>{{ operation.comment|default:"-" }}</td>

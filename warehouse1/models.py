@@ -79,6 +79,15 @@ class Material(models.Model):
         verbose_name = "Материал"
         verbose_name_plural = "Материалы"
 
+class OperationOutgoingCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name="Название категории выдачи")
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        verbose_name = "Категория выдачи"
+        verbose_name_plural = "Категории выдачи"
 
 class MaterialOperation(models.Model):
     OPERATION_TYPES = (
@@ -88,6 +97,7 @@ class MaterialOperation(models.Model):
     
     material = models.ForeignKey(Material, on_delete=models.CASCADE, verbose_name="Материал")
     operation_type = models.CharField(max_length=20, choices=OPERATION_TYPES, verbose_name="Тип операции")
+    outgoing_category = models.ForeignKey(OperationOutgoingCategory, on_delete=models.PROTECT, null=True, blank=True, verbose_name="Назначение выдачи")
     quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Количество")
     date = models.DateTimeField(auto_now_add=True, verbose_name="Дата операции")
     user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Пользователь")
