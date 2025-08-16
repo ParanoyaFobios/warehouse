@@ -24,6 +24,6 @@ class MaterialAdmin(admin.ModelAdmin):
 
 @admin.register(MaterialOperation)
 class MaterialOperationAdmin(admin.ModelAdmin):
-    list_display = ('material', 'operation_type', 'quantity', 'date', 'user')
-    list_filter = ('operation_type', 'date')
+    list_display = ('material', 'operation_type', 'outgoing_category', 'quantity', 'date', 'user')
+    list_filter = ('operation_type', 'outgoing_category', 'date')
     search_fields = ('material__name', 'material__article')
