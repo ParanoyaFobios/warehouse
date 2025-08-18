@@ -1,18 +1,30 @@
 {% extends 'base.html' %}
-
 {% block content %}
+
 <div class="container mt-4">
     <h2>{{ operation_name }} материала</h2>
     <hr>
 
     <form method="get" class="mb-4">
         <div class="row">
-            <div class="col-md-4">{{ search_form.name.label_tag }} {{ search_form.name }}</div>
-            <div class="col-md-4">{{ search_form.article.label_tag }} {{ search_form.article }}</div>
-            <div class="col-md-4">{{ search_form.barcode.label_tag }} {{ search_form.barcode }}</div>
+            <div class="col-md-4"> {{ search_form.name }}</div>
+            <div class="col-md-4"> {{ search_form.article }}</div>
+            <div class="col-md-4">
+                
+                <div class="input-group">
+                    <input type="text" name="barcode" class="form-control" placeholder="Введите штрихкод" id="id_barcode">
+                    <button type="button" class="btn btn-outline-secondary" id="scan-btn">
+                        📸 Сканировать
+                    </button>
+                </div>
+            </div>
         </div>
         <button type="submit" class="btn btn-primary mt-3">Найти</button>
     </form>
+    <div id="scanner-status" class="small text-muted mt-1" style="display: none;">
+        Сканирование... Наведите камеру на штрихкод
+    </div>
+    <video id="video-stream" style="display: none; width: 100%; max-width: 400px; border-radius: 8px;"></video>
 
     {% if material_forms %}
         <h4 class="mt-5">Результаты поиска:</h4>
@@ -60,12 +72,83 @@
         <p class="text-muted">Материалы не найдены.</p>
     {% endif %}
 </div>
-{% if request.GET.search_form.barcode %}
-<script>
+<script type="text/javascript">
     document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('id_barcode').value = "{{ request.GET.scan }}";
-        document.getElementById('id_quantity').focus();
+        console.log("Scanner script initialized");
+        
+        const scanButton = document.getElementById('scan-btn');
+        const barcodeInput = document.getElementById('id_barcode');
+        const videoElement = document.getElementById('video-stream');
+        const searchForm = document.querySelector('form[method="get"]');
+        
+        if (!scanButton || !barcodeInput || !videoElement || !searchForm) {
+            console.error("Required elements not found");
+            return;
+        }
+        
+        // Проверка наличия библиотеки
+        if (typeof ZXing === 'undefined') {
+            console.error("ZXing library not loaded");
+            alert("Библиотека сканера не загружена. Пожалуйста, обновите страницу.");
+            return;
+        }
+        
+        const codeReader = new ZXing.BrowserMultiFormatReader();
+        let isScanning = false;
+        
+        scanButton.addEventListener('click', async function() {
+            if (isScanning) {
+                // Если уже сканируем, остановить
+                codeReader.reset();
+                videoElement.style.display = 'none';
+                scanButton.textContent = '📸 Сканировать';
+                isScanning = false;
+                return;
+            }
+            
+            try {
+                console.log("Starting scanner...");
+                scanButton.textContent = '⏹ Остановить';
+                videoElement.style.display = 'block';
+                isScanning = true;
+                
+                // Настройки сканера (можно настроить под ваши нужды)
+                const hints = new Map();
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                    ZXing.BarcodeFormat.EAN_13,
+                    ZXing.BarcodeFormat.CODE_128,
+                    ZXing.BarcodeFormat.QR_CODE
+                ]);
+                
+                // Запуск сканера
+                const result = await codeReader.decodeFromVideoDevice(
+                    null, 
+                    videoElement, 
+                    (result, error) => {
+                        if (result) {
+                            console.log("Scanned barcode:", result.text);
+                            barcodeInput.value = result.text;
+                            codeReader.reset();
+                            videoElement.style.display = 'none';
+                            scanButton.textContent = '📸 Сканировать';
+                            isScanning = false;
+                            searchForm.submit();
+                        }
+                        if (error && !(error instanceof ZXing.NotFoundException)) {
+                            console.error("Scan error:", error);
+                        }
+                    },
+                    hints
+                );
+            } catch (error) {
+                console.error("Scanner error:", error);
+                alert("Ошибка сканера: " + error.message);
+                codeReader.reset();
+                videoElement.style.display = 'none';
+                scanButton.textContent = '📸 Сканировать';
+                isScanning = false;
+            }
+        });
     });
 </script>
-{% endif %}
 {% endblock %}

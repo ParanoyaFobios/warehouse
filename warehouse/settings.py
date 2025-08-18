@@ -27,6 +27,7 @@ SECRET_KEY = 'django-insecure-&@^flt1z9*d8u-$hlhm#-e&)tv)+6q(0jp9_q0kl4l9w3^8ll6
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = ['https://*.ngrok-free.app', 'http://127.0.0.1']
 
 
 # Application definition

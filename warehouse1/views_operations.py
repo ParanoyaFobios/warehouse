@@ -82,7 +82,7 @@ class MaterialOperationView(LoginRequiredMixin, TemplateView):
                     op_name_past = 'выдано'
                 
                 messages.success(request, 
-                    f"Успешно {op_name_past} {material.name}: {quantity} {material.unit.short_name}на{outgoing_category.name if outgoing_category else ' '}"
+                    f"Успешно {op_name_past} {material.name}: {quantity} {material.unit.short_name} {outgoing_category.name if outgoing_category else ' '}"
                 )
             
             except ValueError as e:
