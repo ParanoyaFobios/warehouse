@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (MaterialListView, MaterialCreateView, material_barcode_view, MaterialUpdateView, MaterialDetailView)
-from .views_operations import MaterialOperationView
+from .views_operations import MaterialOperationView, IncomingOperationView, OutgoingOperationView
 
 urlpatterns = [
     path('materials/', MaterialListView.as_view(), name='material_list'),
@@ -11,4 +11,6 @@ urlpatterns = [
     
     path('operations/incoming/', MaterialOperationView.as_view(operation_type='incoming'), name='incoming_operation'),
     path('operations/outgoing/', MaterialOperationView.as_view(operation_type='outgoing'), name='outgoing_operation'),
+    path('operations/incoming/<int:material_id>/', IncomingOperationView.as_view(), name='incoming_with_material'),
+    path('operations/outgoing/<int:material_id>/', OutgoingOperationView.as_view(), name='outgoing_with_material'),
 ]

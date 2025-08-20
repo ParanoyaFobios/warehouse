@@ -22,23 +22,17 @@ class MaterialOperationView(LoginRequiredMixin, TemplateView):
         context['operation_category'] = OperationOutgoingCategory.objects.all()
         context['operation_name'] = 'Прием' if self.operation_type == 'incoming' else 'Выдача'
         
-        # Форма для поиска всегда в контексте
-        context['search_form'] = MaterialSearchForm(self.request.GET or None)
-        
-        # Если в GET-запросе есть параметры поиска, выполняем его
-        search_query = self.request.GET.get('name') or self.request.GET.get('article') or self.request.GET.get('barcode')
-        if search_query:
-            query = Q()
-            if self.request.GET.get('barcode'):
-                query &= Q(barcode__icontains=self.request.GET.get('barcode'))
-            if self.request.GET.get('name'):
-                query &= Q(name__icontains=self.request.GET.get('name'))
-            if self.request.GET.get('article'):
-                query &= Q(article__icontains=self.request.GET.get('article'))
+        # Обрабатываем предвыбранный материал (ДОЛЖНО БЫТЬ ПЕРВЫМ!)
+        material_id = self.kwargs.get('material_id')
+        if material_id:
+            material = get_object_or_404(Material, id=material_id)
+            context['preselected_material'] = material
+            # Автоматически заполняем форму поиска по штрихкоду
+            initial_data = {'barcode': material.barcode}
+            context['search_form'] = MaterialSearchForm(initial=initial_data)
             
-            materials = Material.objects.filter(query)
-            
-            # Добавляем к каждому материалу свою форму операции
+            # Немедленно выполняем поиск по этому штрихкоду
+            materials = Material.objects.filter(barcode=material.barcode)
             material_forms = []
             for material in materials:
                 material_forms.append({
@@ -46,6 +40,29 @@ class MaterialOperationView(LoginRequiredMixin, TemplateView):
                     'form': MaterialOperationForm()
                 })
             context['material_forms'] = material_forms
+        else:
+            # Стандартная логика поиска (только если нет предвыбранного материала)
+            context['search_form'] = MaterialSearchForm(self.request.GET or None)
+            
+            search_query = self.request.GET.get('name') or self.request.GET.get('article') or self.request.GET.get('barcode')
+            if search_query:
+                query = Q()
+                if self.request.GET.get('barcode'):
+                    query &= Q(barcode__icontains=self.request.GET.get('barcode'))
+                if self.request.GET.get('name'):
+                    query &= Q(name__icontains=self.request.GET.get('name'))
+                if self.request.GET.get('article'):
+                    query &= Q(article__icontains=self.request.GET.get('article'))
+                
+                materials = Material.objects.filter(query)
+                
+                material_forms = []
+                for material in materials:
+                    material_forms.append({
+                        'material': material,
+                        'form': MaterialOperationForm()
+                    })
+                context['material_forms'] = material_forms
 
         return context
 
@@ -93,3 +110,10 @@ class MaterialOperationView(LoginRequiredMixin, TemplateView):
                 messages.error(request, error)
 
         return redirect(f"{request.path}?{request.GET.urlencode()}")
+
+
+class IncomingOperationView(MaterialOperationView):
+    operation_type = 'incoming'
+
+class OutgoingOperationView(MaterialOperationView):
+    operation_type = 'outgoing'

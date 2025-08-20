@@ -55,7 +55,18 @@
             <td>{{ material.quantity }} {{ material.unit.short_name }}</td>
             <td>{{ material.barcode }}<a href="{% url 'material_barcode' material.pk %}">Code</a></td>
             <td>
-                <a href="{% url 'material_update' material.pk %}" class="btn btn-sm btn-warning">Редактировать</a>
+                <a href="{% url 'incoming_with_material' material.pk %}" 
+                class="btn btn-success" 
+                title="Принять материал">
+                 ➕ Прием
+             </a>
+            </td>
+            <td>
+                <a href="{% url 'outgoing_with_material' material.pk %}" 
+             class="btn btn-danger" 
+             title="Выдать материал">
+              ➖ Выдача
+          </a>
             </td>
         </tr>
         {% endfor %}
