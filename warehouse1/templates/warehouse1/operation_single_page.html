@@ -94,6 +94,11 @@
         }
         
         const codeReader = new ZXing.BrowserMultiFormatReader();
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        if (isMobile) {
+            console.log("Mobile device detected - adjusting scanner settings");
+        }
         let isScanning = false;
         
         scanButton.addEventListener('click', async function() {
@@ -115,11 +120,38 @@
                 // Настройки сканера (можно настроить под ваши нужды)
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                    ZXing.BarcodeFormat.CODE_128,  // Основной формат для операций
                     ZXing.BarcodeFormat.EAN_13,
-                    ZXing.BarcodeFormat.CODE_128,
                     ZXing.BarcodeFormat.QR_CODE
                 ]);
-                
+
+                if (isMobile) {
+                    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                    hints.set(ZXing.DecodeHintType.ASSUME_GS1, true);
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: "environment",
+                        width: { min: 640, ideal: 1280 },
+                        height: { min: 480, ideal: 720 }
+                    }
+                };
+
+                if (isSafari) {
+                    constraints.video.focusMode = "continuous";
+                    constraints.video.advanced = [{ focusMode: "continuous" }];
+                }
+
+                await codeReader.decodeFromVideoDevice(
+                    null,
+                    videoElement,
+                    (result, error) => {
+                        // Существующий код обработчика...
+                    },
+                    hints,
+                    constraints  // Добавленный параметр
+                );              
                 // Запуск сканера
                 const result = await codeReader.decodeFromVideoDevice(
                     null, 
@@ -150,5 +182,17 @@
             }
         });
     });
+
+    if (isMobile) {
+    // Увеличиваем область сканирования
+    videoElement.style.width = '100%';
+    videoElement.style.maxWidth = '100%';
+    videoElement.style.objectFit = 'cover';
+    
+    // Добавляем подсказку для пользователя
+    const hint = document.createElement('div');
+    hint.innerHTML = '<p class="text-center small mt-2">Держите устройство на расстоянии 15-30 см от штрихкода</p>';
+    videoElement.parentNode.insertBefore(hint, videoElement.nextSibling);
+}
 </script>
 {% endblock %}

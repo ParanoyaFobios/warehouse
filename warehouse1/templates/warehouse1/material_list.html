@@ -108,6 +108,12 @@
         }
         
         const codeReader = new ZXing.BrowserMultiFormatReader();
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        if (isIOS || isSafari) {
+            console.log("iOS/Safari detected - applying optimizations");
+        }
         let isScanning = false;
         
         // Создаем элемент для статуса сканирования
@@ -136,9 +142,29 @@
                 // Настройки для распознавания штрихкодов
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-                    ZXing.BarcodeFormat.CODE_128, // Штрихкоды Code 128
+                    ZXing.BarcodeFormat.EAN_13,
+                    ZXing.BarcodeFormat.CODE_128,
+                    ZXing.BarcodeFormat.UPC_A
                 ]);
-                
+
+                // Оптимизации для iOS
+                if (isIOS || isSafari) {
+                    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                    hints.set(ZXing.DecodeHintType.PURE_BARCODE, true);
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                if (isIOS || isSafari) {
+                    constraints.video.focusMode = "continuous";
+                    constraints.video.advanced = [{ focusMode: "continuous" }];
+                }
                 // Запуск сканера
                 await codeReader.decodeFromVideoDevice(
                     null, 
@@ -155,7 +181,8 @@
                             statusElement.textContent = 'Ошибка сканирования: ' + error.message;
                         }
                     },
-                    hints
+                    hints,
+                    constraints
                 );
                 
             } catch (error) {
@@ -188,5 +215,16 @@
             statusElement.style.display = 'block';
         }
     });
+    if (isMobile) {
+    // Увеличиваем область сканирования
+    videoElement.style.width = '100%';
+    videoElement.style.maxWidth = '100%';
+    videoElement.style.objectFit = 'cover';
+    
+    // Добавляем подсказку для пользователя
+    const hint = document.createElement('div');
+    hint.innerHTML = '<p class="text-center small mt-2">Держите устройство на расстоянии 15-30 см от штрихкода</p>';
+    videoElement.parentNode.insertBefore(hint, videoElement.nextSibling);
+}
     </script>
 {% endblock %}
