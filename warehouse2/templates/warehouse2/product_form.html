@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>{% if object %}Редактирование{% else %}Создание{% endif %} продукта</h2>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label class="form-label">Название</label>
+                {{ form.name }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Артикул</label>
+                {{ form.sku }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Категория</label>
+                {{ form.category }}
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label class="form-label">Размер</label>
+                {{ form.size }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Цвет</label>
+                {{ form.color }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Вес (кг)</label>
+                {{ form.weight }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Изображение</label>
+                {{ form.image }}
+            </div>
+        </div>
+    </div>
+    
+    <button type="submit" class="btn btn-success">Сохранить</button>
+    <a href="{% url 'product_list' %}" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}
