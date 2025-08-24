@@ -1,8 +1,9 @@
-import uuid
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.contrib.contenttypes.models import ContentType # Импортируем ContentType
+import uuid
 
 # ==============================================================================
 # Справочники (Catalogs)
@@ -45,31 +46,32 @@ class ProductColor(models.Model):
 # Основная модель: Product (Готовая продукция)
 # ==============================================================================
 
-def generate_unique_barcode():
-    """Генерирует уникальный 12-значный код для штрихкода."""
+def generate_unique_barcode_for_model(model_class):
+    """
+    Универсальная функция для генерации уникального штрихкода для любой модели.
+    """
     while True:
         barcode = uuid.uuid4().hex[:12].upper()
-        if not Product.objects.filter(barcode=barcode).exists():
+        if not model_class.objects.filter(barcode=barcode).exists():
             return barcode
 
 class Product(models.Model):
     """Модель готовой продукции."""
     name = models.CharField(max_length=200, verbose_name="Название продукции")
     sku = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
-    barcode = models.CharField(max_length=50, unique=True, default=generate_unique_barcode, editable=False, verbose_name="Штрихкод")
+    barcode = models.CharField(max_length=50, unique=True, default=lambda: generate_unique_barcode_for_model(Product), editable=False, verbose_name="Штрихкод"
+    )
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория")
     size = models.ForeignKey(ProductSize, on_delete=models.PROTECT, verbose_name="Размер", blank=True, null=True)
     color = models.ForeignKey(ProductColor, on_delete=models.PROTECT, verbose_name="Цвет", blank=True, null=True)
     weight = models.DecimalField(max_digits=10, decimal_places=3, verbose_name="Вес (кг)", blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Изображение")
     
-    # Поля для учета остатков
     total_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Общее количество")
     reserved_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Зарезервировано")
 
     @property
     def available_quantity(self):
-        """Доступное для продажи количество."""
         return self.total_quantity - self.reserved_quantity
 
     def __str__(self):
@@ -78,7 +80,6 @@ class Product(models.Model):
     class Meta:
         verbose_name = "Готовая продукция"
         verbose_name_plural = "Готовая продукция"
-
 # ==============================================================================
 # Производство: WorkOrder (Производственный заказ)
 # ==============================================================================
@@ -173,7 +174,11 @@ class ShipmentItem(models.Model):
 class Package(models.Model):
     """Упаковка (баул/ящик) с уникальным штрихкодом."""
     shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, verbose_name="Привязан к отгрузке")
-    barcode = models.CharField(max_length=50, unique=True, default=uuid.uuid4, editable=False, verbose_name="Штрихкод упаковки")
+    barcode = models.CharField(
+        max_length=50, unique=True, 
+        default=lambda: generate_unique_barcode_for_model(Package), 
+        editable=False, verbose_name="Штрихкод упаковки"
+    )
 
     def __str__(self):
         return f"Упаковка {self.barcode} для отгрузки №{self.shipment.id}"
