@@ -30,7 +30,10 @@
             </td>
             <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
             <td>
+                <a href="{% url 'workorder_detail' order.pk %}" class="btn btn-sm btn-info">Просмотр</a>
                 {% if order.status != 'completed' %}
+                <a href="{% url 'workorder_edit' order.pk %}" class="btn btn-sm btn-warning">Редактировать</a>
+                <a href="{% url 'workorder_delete' order.pk %}" class="btn btn-sm btn-danger">Удалить</a>
                 <a href="{% url 'workorder_complete' order.pk %}" class="btn btn-sm btn-success">Завершить</a>
                 {% endif %}
             </td>

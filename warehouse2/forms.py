@@ -16,13 +16,34 @@ class ProductForm(forms.ModelForm):
         }
 
 class WorkOrderForm(forms.ModelForm):
+    product_search = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Поиск по названию, артикулу или штрихкоду...',
+            'id': 'product-search'
+        }),
+        label='Поиск продукта'
+    )
+    
     class Meta:
         model = WorkOrder
         fields = ['product', 'quantity_to_produce']
         widgets = {
-            'product': forms.Select(attrs={'class': 'form-control'}),
-            'quantity_to_produce': forms.NumberInput(attrs={'class': 'form-control'}),
+            'product': forms.Select(attrs={
+                'class': 'form-control',
+                'id': 'product-select'
+            }),
+            'quantity_to_produce': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 1
+            }),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['product'].widget.attrs['style'] = 'display: none;'
+        self.fields['product'].label = ''
 
 class ShipmentForm(forms.ModelForm):
     class Meta:
