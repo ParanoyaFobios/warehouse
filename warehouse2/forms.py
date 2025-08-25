@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, WorkOrder, Shipment
+from .models import Product, WorkOrder, Shipment, ShipmentItem, Package
 
 class ProductForm(forms.ModelForm):
     class Meta:
@@ -48,4 +48,34 @@ class WorkOrderForm(forms.ModelForm):
 class ShipmentForm(forms.ModelForm):
     class Meta:
         model = Shipment
-        fields = []  # Пока только статус, можно добавить клиента и т.д.
+        fields = []  # Пока без дополнительных полей
+        # Можно добавить поля: client, address, etc.
+
+class ShipmentItemForm(forms.ModelForm):
+    product_search = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Поиск по названию, артикулу или штрихкоду...',
+            'autocomplete': 'off'
+        }),
+        label='Поиск продукта'
+    )
+    
+    class Meta:
+        model = ShipmentItem
+        fields = ['product', 'quantity']
+        widgets = {
+            'product': forms.Select(attrs={'class': 'form-control', 'style': 'display: none;'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['product'].label = ''
+        self.fields['product'].required = False
+
+class PackageForm(forms.ModelForm):
+    class Meta:
+        model = Package
+        fields = []  # Штрихкод генерируется автоматически

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2>{% if object %}Редактирование{% else %}Создание{% endif %} отгрузки</h2>
+        
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Пока форма пустая, но можно добавить поля позже -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        Основная информация об отгрузке. Товары и упаковки добавляются после создания.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Примечание (можно добавить позже)</label>
+                        <textarea class="form-control" rows="3" placeholder="Дополнительная информация..."></textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">
+                            {% if object %}Сохранить{% else %}Создать отгрузку{% endif %}
+                        </button>
+                        <a href="{% url 'shipment_list' %}" class="btn btn-secondary">Отмена</a>
+                        
+                        {% if object %}
+                        <a href="{% url 'shipment_items' object.pk %}" class="btn btn-primary ms-auto">Управление товарами</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {% if object %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Информация об отгрузке</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr>
+                        <th>Номер отгрузки:</th>
+                        <td>{{ object.id }}</td>
+                    </tr>
+                    <tr>
+                        <th>Статус:</th>
+                        <td>
+                            <span class="badge bg-{% if object.status == 'shipped' %}success{% elif object.status == 'packaged' %}warning{% else %}secondary{% endif %}">
+                                {{ object.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Создана:</th>
+                        <td>{{ object.created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Товаров:</th>
+                        <td>{{ object.get_total_items }} шт.</td>
+                    </tr>
+                    <tr>
+                        <th>Позиций:</th>
+                        <td>{{ object.get_total_products }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

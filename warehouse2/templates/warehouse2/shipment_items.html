@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h2>Управление товарами отгрузки №{{ shipment.id }}</h2>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Добавить товар</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" id="shipment-item-form">
+                    {% csrf_token %}
+                    
+                    <!-- Поле поиска -->
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.product_search.label }}</label>
+                        {{ form.product_search }}
+                        <div id="search-results" class="mt-2" style="display: none;">
+                            <div class="list-group" id="search-results-list"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Скрытое поле выбора продукта -->
+                    {{ form.product }}
+                    
+                    <!-- Информация о выбранном продукте -->
+                    <div id="selected-product-info" class="card mb-3" style="display: none;">
+                        <div class="card-body">
+                            <h6 class="card-title">Выбранный продукт:</h6>
+                            <p id="selected-product-name" class="mb-1"></p>
+                            <p id="selected-product-sku" class="mb-1 text-muted small"></p>
+                            <p id="selected-product-barcode" class="mb-1 text-muted small"></p>
+                            <p id="selected-product-available" class="mb-0 text-muted small"></p>
+                        </div>
+                    </div>
+                    
+                    <!-- Количество -->
+                    <div class="mb-3">
+                        <label class="form-label">Количество</label>
+                        {{ form.quantity }}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">Добавить товар</button>
+                    <a href="{% url 'shipment_detail' shipment.pk %}" class="btn btn-secondary">Назад к отгрузке</a>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>Товары в отгрузке</h5>
+            </div>
+            <div class="card-body">
+                {% if items %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Продукт</th>
+                                <th>Артикул</th>
+                                <th>Штрихкод</th>
+                                <th>Количество</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ item.product.name }}</td>
+                                <td>{{ item.product.sku }}</td>
+                                <td>{{ item.product.barcode }}</td>
+                                <td>{{ item.quantity }} шт.</td>
+                                <td>
+                                    <a href="{% url 'delete_shipment_item' item.pk %}" class="btn btn-sm btn-danger" 
+                                       onclick="return confirm('Удалить товар из отгрузки?')">
+                                        Удалить
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-primary">
+                                <td colspan="3" class="text-end"><strong>Итого:</strong></td>
+                                <td><strong>{{ shipment.get_total_items }} шт.</strong></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mt-2">Товары не добавлены в отгрузку</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Информация об отгрузке</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr>
+                        <th>Номер:</th>
+                        <td>{{ shipment.id }}</td>
+                    </tr>
+                    <tr>
+                        <th>Статус:</th>
+                        <td>
+                            <span class="badge bg-{% if shipment.status == 'shipped' %}success{% elif shipment.status == 'packaged' %}warning{% else %}secondary{% endif %}">
+                                {{ shipment.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Создана:</th>
+                        <td>{{ shipment.created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Товаров:</th>
+                        <td>{{ shipment.get_total_items }} шт.</td>
+                    </tr>
+                    <tr>
+                        <th>Позиций:</th>
+                        <td>{{ shipment.get_total_products }}</td>
+                    </tr>
+                </table>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'shipment_detail' shipment.pk %}" class="btn btn-info">Просмотр отгрузки</a>
+                    <a href="{% url 'shipment_list' %}" class="btn btn-secondary">К списку отгрузок</a>
+                    
+                    {% if shipment.can_be_shipped %}
+                    <a href="{% url 'shipment_ship' shipment.pk %}" class="btn btn-success mt-2">
+                        Выполнить отгрузку
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('id_product_search');
+    const searchResults = document.getElementById('search-results');
+    const resultsList = document.getElementById('search-results-list');
+    const productSelect = document.getElementById('id_product');
+    const selectedProductInfo = document.getElementById('selected-product-info');
+    const selectedProductName = document.getElementById('selected-product-name');
+    const selectedProductSku = document.getElementById('selected-product-sku');
+    const selectedProductBarcode = document.getElementById('selected-product-barcode');
+    const selectedProductAvailable = document.getElementById('selected-product-available');
+    
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(() => {
+            fetch(`{% url 'available_product_search' %}?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    resultsList.innerHTML = '';
+                    
+                    if (data.results.length === 0) {
+                        resultsList.innerHTML = `
+                            <div class="list-group-item text-muted">
+                                Товары не найдены или нет в наличии
+                            </div>`;
+                    } else {
+                        data.results.forEach(product => {
+                            const item = document.createElement('button');
+                            item.type = 'button';
+                            item.className = 'list-group-item list-group-item-action';
+                            item.innerHTML = `
+                                <strong>${product.name}</strong><br>
+                                <small>Артикул: ${product.sku}</small><br>
+                                <small>Штрихкод: ${product.barcode}</small><br>
+                                <small>Доступно: ${product.available_quantity} (Резерв: ${product.reserved_quantity})</small>
+                            `;
+                            item.addEventListener('click', () => {
+                                selectProduct(product);
+                            });
+                            resultsList.appendChild(item);
+                        });
+                    }
+                    
+                    searchResults.style.display = 'block';
+                });
+        }, 300);
+    });
+    
+    function selectProduct(product) {
+        productSelect.value = product.id;
+        selectedProductName.textContent = product.name;
+        selectedProductSku.textContent = `Артикул: ${product.sku}`;
+        selectedProductBarcode.textContent = `Штрихкод: ${product.barcode}`;
+        selectedProductAvailable.textContent = `Доступно: ${product.available_quantity} | В резерве: ${product.reserved_quantity}`;
+        selectedProductInfo.style.display = 'block';
+        searchResults.style.display = 'none';
+        searchInput.value = '';
+    }
+    
+    // Закрытие результатов при клике вне области
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -18,7 +18,16 @@ urlpatterns = [
     path('workorders/<int:pk>/complete/', views.complete_workorder, name='workorder_complete'),
     path('product-search/', views.product_search, name='product_search'),
     
-    # Отгрузки
+    # Shipment URLs
     path('shipments/', views.ShipmentListView.as_view(), name='shipment_list'),
+    path('shipments/create/', views.ShipmentCreateView.as_view(), name='shipment_create'),
+    path('shipments/<int:pk>/', views.ShipmentDetailView.as_view(), name='shipment_detail'),
+    path('shipments/<int:pk>/edit/', views.ShipmentUpdateView.as_view(), name='shipment_edit'),
+    path('shipments/<int:pk>/delete/', views.ShipmentDeleteView.as_view(), name='shipment_delete'),
     path('shipments/<int:pk>/ship/', views.ship_shipment, name='shipment_ship'),
+    path('shipments/<int:pk>/items/', views.ShipmentItemsView.as_view(), name='shipment_items'),
+    path('shipments/items/<int:pk>/delete/', views.delete_shipment_item, name='delete_shipment_item'),
+    path('shipments/<int:pk>/add-package/', views.add_package, name='add_package'),
+    path('packages/<int:pk>/delete/', views.delete_package, name='delete_package'),
+    path('available-product-search/', views.available_product_search, name='available_product_search'),
 ]

@@ -131,6 +131,21 @@ class Shipment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
     # Можно добавить поля: клиент, адрес доставки и т.д.
+    def get_total_items(self):
+        """Возвращает общее количество товаров в отгрузке"""
+        return self.shipmentitem_set.aggregate(total=models.Sum('quantity'))['total'] or 0
+    
+    def get_total_products(self):
+        """Возвращает количество уникальных продуктов"""
+        return self.shipmentitem_set.count()
+    
+    def can_be_edited(self):
+        """Можно ли редактировать отгрузку"""
+        return self.status != 'shipped'
+    
+    def can_be_shipped(self):
+        """Можно ли отгрузить"""
+        return self.status != 'shipped' and self.shipmentitem_set.exists()
 
     def ship(self):
         """Отгружает товар и списывает его с баланса."""
@@ -158,6 +173,13 @@ class ShipmentItem(models.Model):
     shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, verbose_name="Отгрузка")
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="Продукция")
     quantity = models.PositiveIntegerField(verbose_name="Количество")
+
+    def delete(self, *args, **kwargs):
+        """При удалении строки снимаем резерв"""
+        if self.product:
+            self.product.reserved_quantity -= self.quantity
+            self.product.save()
+        super().delete(*args, **kwargs)
 
     def save(self, *args, **kwargs):
         """При добавлении товара в накладную, резервируем его."""
