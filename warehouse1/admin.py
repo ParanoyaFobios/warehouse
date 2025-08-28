@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import MaterialCategory, UnitOfMeasure, Material, MaterialOperation, OperationOutgoingCategory
+from .models import MaterialCategory, UnitOfMeasure, Material, MaterialOperation, OperationOutgoingCategory, MaterialColor
 
 @admin.register(MaterialCategory)
 class MaterialCategoryAdmin(admin.ModelAdmin):
@@ -10,6 +10,11 @@ class MaterialCategoryAdmin(admin.ModelAdmin):
 class UnitOfMeasureAdmin(admin.ModelAdmin):
     list_display = ('name', 'short_name')
     search_fields = ('name', 'short_name')
+
+@admin.register(MaterialColor)
+class MaterialColorAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
 
 @admin.register(OperationOutgoingCategory)
 class OperationOutgoingCategoryAdmin(admin.ModelAdmin):

@@ -2,14 +2,15 @@ from django.db import models
 from django.contrib.auth.models import User
 import uuid
 
-def generate_unique_barcode():
-    """
-    Генерирует уникальный 12-значный код и проверяет его на уникальность в БД.
-    """
+def generate_unique_barcode_for_model(model_class):
+    """Универсальная функция для генерации уникального штрихкода для любой модели."""
     while True:
         barcode = uuid.uuid4().hex[:12].upper()
-        if not Material.objects.filter(barcode=barcode).exists():
+        if not model_class.objects.filter(barcode=barcode).exists():
             return barcode
+
+def generate_material_barcode():
+    return generate_unique_barcode_for_model(Material)
 
 class MaterialCategory(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Название категории")
@@ -33,16 +34,26 @@ class UnitOfMeasure(models.Model):
         verbose_name = "Единица измерения"
         verbose_name_plural = "Единицы измерения"
 
+class MaterialColor(models.Model):
+    """Цвета продукции (например, Белый, Синий)."""
+    name = models.CharField(max_length=50, unique=True, verbose_name="Цвет")
 
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "Цвет материала"
+        verbose_name_plural = "Цвета материала"
 
 class Material(models.Model):
     name = models.CharField(max_length=200, verbose_name="Название материала")
     article = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
     category = models.ForeignKey(MaterialCategory, on_delete=models.PROTECT, verbose_name="Категория")
-    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод", default=generate_unique_barcode, editable=False)
+    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод", default=generate_material_barcode, editable=False)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Количество")
+    color = models.ForeignKey(MaterialColor, on_delete=models.PROTECT, verbose_name="Цвет", blank=True, null=True)
     unit = models.ForeignKey(UnitOfMeasure, on_delete=models.PROTECT, verbose_name="Единица измерения")
-    image = models.ImageField(upload_to='photos/', blank=True, null=True, verbose_name="Изображение")
+    image = models.ImageField(upload_to='material/', blank=True, null=True, verbose_name="Изображение")
     description = models.TextField(blank=True, verbose_name="Описание")
 
     def add_quantity(self, quantity, user, comment=''):

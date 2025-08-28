@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>Накладная №{{ document.id }}</h2>
+        <div>
+            <button onclick="window.print()" class="btn btn-outline-secondary">🖨️ Печать</button>
+            <a href="{% url 'shipment_document_list' %}" class="btn btn-secondary">К списку</a>
+        </div>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-md-6">
+            <p><strong>Получатель:</strong> {{ document.destination }}</p>
+        </div>
+        <div class="col-md-6 text-md-end">
+            <p><strong>Дата создания:</strong> {{ document.created_at|date:"d.m.Y H:i" }}</p>
+            <p><strong>Статус:</strong> <span class="badge bg-success">{{ document.get_status_display }}</span></p>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Содержимое накладной</h4>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>№ Упаковки</th>
+                        <th>Штрихкод упаковки</th>
+                        <th>Товар</th>
+                        <th>Артикул</th>
+                        <th>Кол-во</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for shipment in document.shipments.all %}
+                        {% for item in shipment.shipmentitem_set.all %}
+                        <tr>
+                            {% if forloop.first %}
+                            <td rowspan="{{ shipment.shipmentitem_set.count }}">{{ shipment.id }}</td>
+                            <td rowspan="{{ shipment.shipmentitem_set.count }}">{{ shipment.package.barcode }}</td>
+                            {% endif %}
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.product.sku }}</td>
+                            <td>{{ item.quantity }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">В накладной нет упаковок.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

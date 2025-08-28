@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h3>Управление Накладной №{{ document.id }}</h3>
+    <p><strong>Получатель:</strong> {{ document.destination }}</p>
+    
+    <div class="card my-4">
+        <div class="card-header">Добавить упаковку в накладную</div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="input-group">
+                    <input type="text" name="package_barcode" class="form-control" placeholder="Введите или сканируйте штрихкод упаковки...">
+                    <button type="button" class="btn btn-outline-secondary" id="scan-package-btn">📸 Сканировать</button>
+                    <button type="submit" class="btn btn-primary">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <h4>Упаковки в накладной:</h4>
+    <ul>
+    {% for shipment in document.shipments.all %}
+        <li><a href="{% url 'shipment_detail' shipment.pk %}">Отгрузка №{{ shipment.id }}</a> (Упаковка: {{ shipment.package.barcode }})</li>
+    {% empty %}
+        <p>В накладную еще не добавлены упаковки.</p>
+    {% endfor %}
+    </ul>
+    
+    </div>
+
+{% endblock %}

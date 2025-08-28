@@ -1,14 +1,15 @@
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
-from .models import Product, WorkOrder, Shipment, ShipmentItem, Package
-from .forms import ProductForm, WorkOrderForm, ShipmentForm, ShipmentItemForm, PackageForm
+from .models import Product, WorkOrder, Shipment, ShipmentItem, Package, ShipmentDocument
+from .forms import ProductForm, WorkOrderForm, ShipmentForm, ShipmentItemForm, ShipmentDocumentForm
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.http import JsonResponse
 from django.db import models
 from django.views.generic.edit import FormView
 from django.forms import inlineformset_factory
+
 
 # ==============================================================================
 # Продукция
@@ -297,3 +298,58 @@ def available_product_search(request):
         })
     
     return JsonResponse({'results': results})
+
+
+# ==============================================================================
+# Shipment Document (Накладные)
+# ==============================================================================
+
+class ShipmentDocumentListView(ListView):
+    model = ShipmentDocument
+    template_name = 'warehouse2/shipment_document_list.html'
+    context_object_name = 'documents'
+    ordering = ['-created_at']
+
+class ShipmentDocumentCreateView(CreateView):
+    model = ShipmentDocument
+    form_class = ShipmentDocumentForm
+    template_name = 'warehouse2/shipment_document_form.html'
+    
+    def get_success_url(self):
+        # После создания накладной, переходим на страницу управления ею
+        return reverse_lazy('shipment_document_manage', kwargs={'pk': self.object.pk})
+
+class ShipmentDocumentDetailView(DetailView):
+    model = ShipmentDocument
+    template_name = 'warehouse2/shipment_document_detail.html'
+    context_object_name = 'document'
+
+# НОВЫЙ ВАЖНЫЙ VIEW
+@login_required
+def manage_shipment_document(request, pk):
+    document = get_object_or_404(ShipmentDocument, pk=pk)
+    
+    if request.method == 'POST':
+        package_barcode = request.POST.get('package_barcode')
+        try:
+            package = Package.objects.get(barcode=package_barcode)
+            shipment = package.shipment
+            if shipment.status == 'packaged' and shipment.document is None:
+                shipment.document = document
+                shipment.status = 'assigned'
+                shipment.save()
+                messages.success(request, f"Упаковка {package_barcode} добавлена в накладную.")
+            else:
+                messages.error(request, "Эта упаковка уже в другой накладной или не готова к добавлению.")
+        except Package.DoesNotExist:
+            messages.error(request, "Упаковка с таким штрихкодом не найдена.")
+        return redirect('shipment_document_manage', pk=pk)
+            
+    # Отгрузки, которые готовы к добавлению в накладную
+    available_shipments = Shipment.objects.filter(status='packaged', document__isnull=True)
+    
+    context = {
+        'document': document,
+        'available_shipments': available_shipments
+    }
+    return render(request, 'warehouse2/shipment_document_manage.html', context)

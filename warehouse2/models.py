@@ -5,6 +5,20 @@ from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType # Импортируем ContentType
 import uuid
 
+def generate_unique_barcode_for_model(model_class):
+    """Универсальная функция для генерации уникального штрихкода для любой модели."""
+    while True:
+        barcode = uuid.uuid4().hex[:12].upper()
+        if not model_class.objects.filter(barcode=barcode).exists():
+            return barcode
+
+# 👇 НОВАЯ ИМЕНОВАННАЯ ФУНКЦИЯ ДЛЯ Product 👇
+def generate_product_barcode():
+    return generate_unique_barcode_for_model(Product)
+
+# 👇 НОВАЯ ИМЕНОВАННАЯ ФУНКЦИЯ ДЛЯ Package 👇
+def generate_package_barcode():
+    return generate_unique_barcode_for_model(Package)
 # ==============================================================================
 # Справочники (Catalogs)
 # ==============================================================================
@@ -46,27 +60,16 @@ class ProductColor(models.Model):
 # Основная модель: Product (Готовая продукция)
 # ==============================================================================
 
-def generate_unique_barcode_for_model(model_class):
-    """
-    Универсальная функция для генерации уникального штрихкода для любой модели.
-    """
-    while True:
-        barcode = uuid.uuid4().hex[:12].upper()
-        if not model_class.objects.filter(barcode=barcode).exists():
-            return barcode
-
 class Product(models.Model):
     """Модель готовой продукции."""
     name = models.CharField(max_length=200, verbose_name="Название продукции")
     sku = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
-    barcode = models.CharField(max_length=50, unique=True, default=lambda: generate_unique_barcode_for_model(Product), editable=False, verbose_name="Штрихкод"
-    )
+    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод продукции", default=generate_product_barcode, editable=False)
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория")
     size = models.ForeignKey(ProductSize, on_delete=models.PROTECT, verbose_name="Размер", blank=True, null=True)
     color = models.ForeignKey(ProductColor, on_delete=models.PROTECT, verbose_name="Цвет", blank=True, null=True)
     weight = models.DecimalField(max_digits=10, decimal_places=3, verbose_name="Вес (кг)", blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Изображение")
-    
     total_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Общее количество")
     reserved_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Зарезервировано")
 
@@ -120,17 +123,36 @@ class WorkOrder(models.Model):
 # ==============================================================================
 # Отгрузки: Shipment и Package (Накладная и Упаковка)
 # ==============================================================================
+class ShipmentDocument(models.Model):
+    """Накладная, объединяющая несколько отгрузок (упаковок)."""
+    STATUS_CHOICES = [
+        ('draft', 'Черновик'),
+        ('finalized', 'Сформирована'),
+        ('shipped', 'Отправлена'),
+    ]
+    destination = models.CharField(max_length=255, verbose_name="Адрес/Получатель")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
+
+    def __str__(self):
+        return f"Накладная №{self.id} для '{self.destination}'"
+    
+    class Meta:
+        verbose_name = "Накладная"
+        verbose_name_plural = "Накладные"
 
 class Shipment(models.Model):
     """Отгрузка (накладная)."""
     STATUS_CHOICES = [
-        ('pending', 'Ожидание'),
-        ('packaged', 'Собрано'),
-        ('shipped', 'Отгружено'),
+        ('pending', 'В процессе сборки'),
+        ('packaged', 'Собрано и упаковано'),
+        ('assigned', 'Включено в накладную'),
+        ('shipped', 'Отгружено'), # Этот статус будет наследоваться от накладной
     ]
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
-    # Можно добавить поля: клиент, адрес доставки и т.д.
+    document = models.ForeignKey(ShipmentDocument, on_delete=models.SET_NULL, null=True, blank=True, related_name='shipments', verbose_name="Накладная")
+
     def get_total_items(self):
         """Возвращает общее количество товаров в отгрузке"""
         return self.shipmentitem_set.aggregate(total=models.Sum('quantity'))['total'] or 0
@@ -166,7 +188,7 @@ class Shipment(models.Model):
 
     class Meta:
         verbose_name = "Отгрузка (накладная)"
-        verbose_name_plural = "Отгрузки (накладные)"
+        verbose_name_plural = "Отгрузки (баулы/коробки)"
 
 class ShipmentItem(models.Model):
     """Строка в накладной."""
@@ -196,11 +218,7 @@ class ShipmentItem(models.Model):
 class Package(models.Model):
     """Упаковка (баул/ящик) с уникальным штрихкодом."""
     shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, verbose_name="Привязан к отгрузке")
-    barcode = models.CharField(
-        max_length=50, unique=True, 
-        default=lambda: generate_unique_barcode_for_model(Package), 
-        editable=False, verbose_name="Штрихкод упаковки"
-    )
+    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод упаковки", default=generate_package_barcode, editable=False)
 
     def __str__(self):
         return f"Упаковка {self.barcode} для отгрузки №{self.shipment.id}"

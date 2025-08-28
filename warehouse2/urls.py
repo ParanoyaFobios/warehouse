@@ -30,4 +30,9 @@ urlpatterns = [
     path('shipments/<int:pk>/add-package/', views.add_package, name='add_package'),
     path('packages/<int:pk>/delete/', views.delete_package, name='delete_package'),
     path('available-product-search/', views.available_product_search, name='available_product_search'),
+    # Shipment Document URLs
+    path('documents/', views.ShipmentDocumentListView.as_view(), name='shipment_document_list'),
+    path('documents/create/', views.ShipmentDocumentCreateView.as_view(), name='shipment_document_create'),
+    path('documents/<int:pk>/', views.ShipmentDocumentDetailView.as_view(), name='shipment_document_detail'),
+    path('documents/<int:pk>/manage/', views.manage_shipment_document, name='shipment_document_manage'),
 ]

@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, WorkOrder, Shipment, ShipmentItem, Package
+from .models import Product, WorkOrder, Shipment, ShipmentItem, Package, ShipmentDocument
 
 class ProductForm(forms.ModelForm):
     class Meta:
@@ -45,6 +45,8 @@ class WorkOrderForm(forms.ModelForm):
         self.fields['product'].widget.attrs['style'] = 'display: none;'
         self.fields['product'].label = ''
 
+#================= Shipment and ShipmentItem Forms =================#
+        
 class ShipmentForm(forms.ModelForm):
     class Meta:
         model = Shipment
@@ -63,12 +65,12 @@ class ShipmentItemForm(forms.ModelForm):
     )
     
     class Meta:
-        model = ShipmentItem
-        fields = ['product', 'quantity']
-        widgets = {
-            'product': forms.Select(attrs={'class': 'form-control', 'style': 'display: none;'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
-        }
+            model = ShipmentItem
+            fields = ['product', 'quantity']
+            widgets = {
+                'product': forms.HiddenInput(), # Скрываем стандартный выбор
+                'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -79,3 +81,15 @@ class PackageForm(forms.ModelForm):
     class Meta:
         model = Package
         fields = []  # Штрихкод генерируется автоматически
+
+class ShipmentDocumentForm(forms.ModelForm):
+    class Meta:
+        model = ShipmentDocument
+        fields = ['destination']
+        widgets = {
+            'destination': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
+        }
+        labels = {
+            'destination': 'Получатель / Адрес доставки'
+        }
+
