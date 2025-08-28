@@ -26,10 +26,8 @@ urlpatterns = [
     path('shipments/<int:pk>/delete/', views.ShipmentDeleteView.as_view(), name='shipment_delete'),
     path('shipments/<int:pk>/ship/', views.ship_shipment, name='shipment_ship'),
     path('shipments/<int:pk>/items/', views.ShipmentItemsView.as_view(), name='shipment_items'),
-    path('shipments/items/<int:pk>/delete/', views.delete_shipment_item, name='delete_shipment_item'),
-    path('shipments/<int:pk>/add-package/', views.add_package, name='add_package'),
-    path('packages/<int:pk>/delete/', views.delete_package, name='delete_package'),
     path('available-product-search/', views.available_product_search, name='available_product_search'),
+    path('shipments/items/<int:pk>/delete/', views.delete_shipment_item, name='delete_shipment_item'),
     # Shipment Document URLs
     path('documents/', views.ShipmentDocumentListView.as_view(), name='shipment_document_list'),
     path('documents/create/', views.ShipmentDocumentCreateView.as_view(), name='shipment_document_create'),

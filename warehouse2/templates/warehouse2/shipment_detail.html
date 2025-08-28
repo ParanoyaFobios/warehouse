@@ -5,6 +5,7 @@
 <div class="row">
     <div class="col-md-8">
         <h2>Отгрузка №{{ shipment.id }}</h2>
+        <h2>Штрихкод {{ shipment.barcode }}</h2>
         
         <div class="card mb-4">
             <div class="card-body">
@@ -76,45 +77,13 @@
         </div>
 
         <div class="card">
-            <div class="card-header">
-                <h5>Упаковки</h5>
-            </div>
-            <div class="card-body">
-                {% if packages %}
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Штрихкод упаковки</th>
-                            {% if shipment.can_be_edited %}
-                            <th>Действия</th>
-                            {% endif %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for package in packages %}
-                        <tr>
-                            <td>{{ package.barcode }}</td>
-                            {% if shipment.can_be_edited %}
-                            <td>
-                                <a href="{% url 'delete_package' package.pk %}" class="btn btn-sm btn-danger">Удалить</a>
-                            </td>
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <p class="text-muted">Упаковки не созданы</p>
-                {% endif %}
-                
-                {% if shipment.can_be_edited %}
-                <a href="{% url 'add_package' shipment.pk %}" class="btn btn-primary">Добавить упаковку</a>
-                {% endif %}
-            </div>
-        </div>
     </div>
 </div>
-
+<div class="card-body text-center">
+    <img src="{% url 'generate_barcode' content_type_id=shipment|get_content_type_id object_id=shipment.pk %}" 
+         alt="Штрихкод для упаковки №{{ shipment.pk }}" class="img-fluid mb-2">
+    <p class="mt-2 font-monospace">{{ shipment.barcode }}</p>
+</div>
 <div class="mt-3">
     <a href="{% url 'shipment_list' %}" class="btn btn-secondary">Назад к списку</a>
     {% if shipment.can_be_shipped %}

@@ -12,13 +12,13 @@ def generate_unique_barcode_for_model(model_class):
         if not model_class.objects.filter(barcode=barcode).exists():
             return barcode
 
-# 👇 НОВАЯ ИМЕНОВАННАЯ ФУНКЦИЯ ДЛЯ Product 👇
+# 👇 ИМЕНОВАННАЯ ФУНКЦИЯ ДЛЯ Product 👇
 def generate_product_barcode():
     return generate_unique_barcode_for_model(Product)
 
-# 👇 НОВАЯ ИМЕНОВАННАЯ ФУНКЦИЯ ДЛЯ Package 👇
-def generate_package_barcode():
-    return generate_unique_barcode_for_model(Package)
+# 👇 ИМЕНОВАННАЯ ФУНКЦИЯ ДЛЯ Package 👇
+def generate_shipment_barcode():
+    return generate_unique_barcode_for_model(Shipment)
 # ==============================================================================
 # Справочники (Catalogs)
 # ==============================================================================
@@ -121,7 +121,7 @@ class WorkOrder(models.Model):
         verbose_name_plural = "Производственные заказы"
 
 # ==============================================================================
-# Отгрузки: Shipment и Package (Накладная и Упаковка)
+# Отгрузки: Shipment
 # ==============================================================================
 class ShipmentDocument(models.Model):
     """Накладная, объединяющая несколько отгрузок (упаковок)."""
@@ -151,6 +151,7 @@ class Shipment(models.Model):
     ]
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
+    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод отгрузки", default=generate_shipment_barcode, editable=False)
     document = models.ForeignKey(ShipmentDocument, on_delete=models.SET_NULL, null=True, blank=True, related_name='shipments', verbose_name="Накладная")
 
     def get_total_items(self):
@@ -187,7 +188,7 @@ class Shipment(models.Model):
         return f"Отгрузка №{self.id} от {self.created_at.strftime('%Y-%m-%d')}"
 
     class Meta:
-        verbose_name = "Отгрузка (накладная)"
+        verbose_name = "Отгрузка"
         verbose_name_plural = "Отгрузки (баулы/коробки)"
 
 class ShipmentItem(models.Model):
@@ -214,15 +215,3 @@ class ShipmentItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} - {self.quantity} шт."
-
-class Package(models.Model):
-    """Упаковка (баул/ящик) с уникальным штрихкодом."""
-    shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, verbose_name="Привязан к отгрузке")
-    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод упаковки", default=generate_package_barcode, editable=False)
-
-    def __str__(self):
-        return f"Упаковка {self.barcode} для отгрузки №{self.shipment.id}"
-    
-    class Meta:
-        verbose_name = "Упаковка (баул)"
-        verbose_name_plural = "Упаковки (баулы)"

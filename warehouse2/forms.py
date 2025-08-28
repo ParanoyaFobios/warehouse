@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, WorkOrder, Shipment, ShipmentItem, Package, ShipmentDocument
+from .models import Product, WorkOrder, Shipment, ShipmentItem, ShipmentDocument
 
 class ProductForm(forms.ModelForm):
     class Meta:
@@ -77,10 +77,6 @@ class ShipmentItemForm(forms.ModelForm):
         self.fields['product'].label = ''
         self.fields['product'].required = False
 
-class PackageForm(forms.ModelForm):
-    class Meta:
-        model = Package
-        fields = []  # Штрихкод генерируется автоматически
 
 class ShipmentDocumentForm(forms.ModelForm):
     class Meta:

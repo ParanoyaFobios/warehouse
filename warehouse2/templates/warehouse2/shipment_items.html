@@ -1,167 +1,186 @@
 {% extends "base.html" %}
-
+{% load static %}
 {% block content %}
 
-<div class="row">
-    <div class="col-md-8">
-        <h2>Управление товарами Упаковки №{{ shipment.id }}</h2>
-        
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5>Добавить товар</h5>
-            </div>
-            <div class="card-body">
-                <form method="post" id="shipment-item-form">
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.product_search.label }}</label>
-                        <div class="input-group">
-                            {{ form.product_search }}
-                            <button type="button" class="btn btn-outline-secondary" id="scan-product-btn">📸</button>
-                        </div>
-                        <div id="search-results" class="mt-2" style="display: none; position: absolute; z-index: 1000; width: 95%;">
-                            <div class="list-group" id="search-results-list"></div>
-                        </div>
-                    </div>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@latest"></script>
 
-                    <video id="video-stream" style="display: none; width: 100%; max-width: 400px; border-radius: 8px;"></video>
-                    
-                    {{ form.product }}
-                    
-                    <div id="selected-product-info" class="card bg-light mb-3" style="display: none;">
-                        <div class="card-body">
-                            <h6 class="card-title">Выбранный продукт:</h6>
-                            <p id="selected-product-name" class="mb-1"></p>
-                            <p id="selected-product-available" class="mb-0 text-muted small"></p>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Управление Упаковкой №{{ shipment.id }} <small class="text-muted">({{shipment.barcode}})</small></h2>
+            
+            <div class="card mb-4">
+                <div class="card-header"><h5>Добавить товар</h5></div>
+                <div class="card-body">
+                    <form method="post" id="shipment-item-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.product_search.label }}</label>
+                            <div class="input-group">
+                                {{ form.product_search }}
+                                <button type="button" class="btn btn-outline-secondary" id="scan-product-btn">📸</button>
+                            </div>
+                            <div id="search-results" class="mt-2" style="display: none; position: absolute; z-index: 1000; width: 95%;">
+                                <div class="list-group" id="search-results-list"></div>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Количество</label>
-                        {{ form.quantity }}
-                    </div>
-                    
-                    <button type="submit" class="btn btn-success">Добавить товар</button>
-                    <a href="{% url 'shipment_detail' shipment.pk %}" class="btn btn-secondary">Назад к отгрузке</a>
-                </form>
-            </div>
-        </div>
 
-        <div class="card">
+                        <video id="video-stream" style="display: none; width: 100%; max-width: 400px; border-radius: 8px;"></video>
+                        {{ form.product }}
+                        
+                        <div id="selected-product-info" class="card bg-light mb-3" style="display: none;">
+                            <div class="card-body">
+                                <h6 id="selected-product-name" class="card-title"></h6>
+                                <p id="selected-product-available" class="mb-0 text-muted small"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Количество</label>
+                            {{ form.quantity }}
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success">Добавить товар</button>
+                        <a href="{% url 'shipment_detail' shipment.pk %}" class="btn btn-secondary">Назад к упаковке</a>
+                    </form>
+                </div>
+            </div>
+            </div>
+        <div class="col-md-4">
             </div>
     </div>
-    
-    <div class="col-md-4">
-        <div class="card">
-            </div>
-    </div>
+    {% if items %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Продукт</th>
+                <th>Артикул</th>
+                <th>Количество</th>
+                {% if shipment.can_be_edited %}
+                <th>Действия</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in shipment.shipmentitem_set.all %}
+            <tr>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.product.sku }}</td>
+                <td>{{ item.quantity }} шт.</td>
+                {% if shipment.can_be_edited %}
+                <td>
+                    <a href="{% url 'delete_shipment_item' item.pk %}" class="btn btn-sm btn-danger">Удалить</a>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">Товары не добавлены</p>
+    {% endif %}
 </div>
 
 <script type="text/javascript">
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('id_product_search');
-    const searchResults = document.getElementById('search-results');
-    const resultsList = document.getElementById('search-results-list');
-    const productSelect = document.getElementById('id_product'); // Скрытый <select>
-    
-    const selectedProductInfo = document.getElementById('selected-product-info');
-    const selectedProductName = document.getElementById('selected-product-name');
-    const selectedProductAvailable = document.getElementById('selected-product-available');
-    
-    let searchTimeout;
-
-    // --- ФУНКЦИЯ ВЫБОРА ПРОДУКТА (КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ) ---
-    function selectProduct(product) {
-        // 1. Создаем новый <option>
-        const newOption = new Option(product.name, product.id, true, true);
-        // 2. Очищаем старые и добавляем новый. Теперь форма будет валидна!
-        productSelect.innerHTML = '';
-        productSelect.appendChild(newOption);
-
-        // Показываем информацию о выбранном товаре
-        selectedProductName.textContent = product.name;
-        selectedProductAvailable.textContent = `Доступно: ${product.available_quantity} шт.`;
-        selectedProductInfo.style.display = 'block';
+    document.addEventListener('DOMContentLoaded', function() {
+        // Переименуем переменную для ясности, так как это не <select>
+        const productInput = document.getElementById('id_product'); // Скрытый <input>
         
-        // Сбрасываем поиск
-        searchResults.style.display = 'none';
-        searchInput.value = '';
-    }
-
-    // --- ПОИСК ПО ТЕКСТУ ---
-    searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        const query = this.value.trim();
+        // Остальные переменные без изменений
+        const searchInput = document.getElementById('id_product_search');
+        const searchResults = document.getElementById('search-results');
+        const resultsList = document.getElementById('search-results-list');
+        const selectedProductInfo = document.getElementById('selected-product-info');
+        const selectedProductName = document.getElementById('selected-product-name');
+        const selectedProductAvailable = document.getElementById('selected-product-available');
         
-        if (query.length < 2) {
+        let searchTimeout;
+    
+        // --- ФУНКЦИЯ ВЫБОРА ПРОДУКТА (КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ) ---
+        function selectProduct(product) {
+            // 👇👇👇 ВОТ ИСПРАВЛЕНИЕ 👇👇👇
+            // Просто устанавливаем значение ID в наш скрытый инпут.
+            productInput.value = product.id;
+            
+            // Показываем информацию о выбранном товаре (этот код работает правильно)
+            selectedProductName.textContent = product.name;
+            selectedProductAvailable.textContent = `Доступно: ${product.available_quantity} шт.`;
+            selectedProductInfo.style.display = 'block';
+            
+            // Сбрасываем поиск
             searchResults.style.display = 'none';
-            return;
+            searchInput.value = '';
+            console.log(`Product with ID ${productInput.value} selected.`); // Для отладки
         }
-        
-        searchTimeout = setTimeout(() => {
-            fetch(`{% url 'available_product_search' %}?q=${encodeURIComponent(query)}`)
-                .then(response => response.json())
-                .then(data => {
-                    resultsList.innerHTML = '';
-                    if (data.results && data.results.length > 0) {
-                        data.results.forEach(product => {
-                            const item = document.createElement('button');
-                            item.type = 'button';
-                            item.className = 'list-group-item list-group-item-action';
-                            item.innerHTML = `<strong>${product.name}</strong> <small class="text-muted">(${product.sku})</small>`;
-                            item.addEventListener('click', () => selectProduct(product));
-                            resultsList.appendChild(item);
-                        });
-                    } else {
-                        resultsList.innerHTML = `<div class="list-group-item text-muted">Товары не найдены</div>`;
-                    }
-                    searchResults.style.display = 'block';
-                })
-                .catch(error => console.error('Ошибка при поиске:', error));
-        }, 300);
-    });
-
-    // --- ЛОГИКА СКАНЕРА ---
-    const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
-    const scanButton = document.getElementById('scan-product-btn');
-    const videoElement = document.getElementById('video-stream');
-
-    scanButton.addEventListener('click', () => {
-        videoElement.style.display = 'block';
-        codeReader.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
-            if (result) {
-                const barcode = result.getText();
-                console.log('Найден штрихкод:', barcode);
-
-                // Останавливаем камеру
-                codeReader.reset();
-                videoElement.style.display = 'none';
-
-                // Ищем товар по найденному штрихкоду
-                fetch(`{% url 'available_product_search' %}?q=${encodeURIComponent(barcode)}`)
+    
+        // --- ПОИСК ПО ТЕКСТУ (без изменений) ---
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                fetch(`{% url 'available_product_search' %}?q=${encodeURIComponent(query)}`)
                     .then(response => response.json())
                     .then(data => {
+                        resultsList.innerHTML = '';
                         if (data.results && data.results.length > 0) {
-                            // Если найден, выбираем первый товар
-                            selectProduct(data.results[0]);
+                            data.results.forEach(product => {
+                                const item = document.createElement('button');
+                                item.type = 'button';
+                                item.className = 'list-group-item list-group-item-action';
+                                item.innerHTML = `<strong>${product.name}</strong>`;
+                                item.addEventListener('click', () => selectProduct(product));
+                                resultsList.appendChild(item);
+                            });
                         } else {
-                            alert('Товар с таким штрихкодом не найден или недоступен.');
+                            resultsList.innerHTML = `<div class="list-group-item text-muted">Товары не найдены</div>`;
                         }
-                    });
-            }
-            if (err && !(err instanceof ZXingBrowser.NotFoundException)) {
-                console.error(err);
+                        searchResults.style.display = 'block';
+                    })
+                    .catch(error => console.error('Ошибка при поиске:', error));
+            }, 300);
+        });
+    
+        // --- ЛОГИКА СКАНЕРА (без изменений) ---
+        const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
+        const scanButton = document.getElementById('scan-product-btn');
+        const videoElement = document.getElementById('video-stream');
+    
+        scanButton.addEventListener('click', () => {
+            videoElement.style.display = 'block';
+            codeReader.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
+                if (result) {
+                    const barcode = result.getText();
+                    codeReader.reset();
+                    videoElement.style.display = 'none';
+    
+                    fetch(`{% url 'available_product_search' %}?q=${encodeURIComponent(barcode)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.results && data.results.length > 0) {
+                                selectProduct(data.results[0]);
+                            } else {
+                                alert('Товар с таким штрихкодом не найден или недоступен.');
+                            }
+                        });
+                }
+                if (err && !(err instanceof ZXingBrowser.NotFoundException)) {
+                    console.error(err);
+                }
+            });
+        });
+    
+        // --- Закрытие результатов (без изменений) ---
+        document.addEventListener('click', (e) => {
+            if (!searchResults.contains(e.target) && !searchInput.contains(e.target)) {
+                searchResults.style.display = 'none';
             }
         });
     });
-
-    // Закрытие результатов при клике вне области
-    document.addEventListener('click', (e) => {
-        if (!searchResults.contains(e.target) && !searchInput.contains(e.target)) {
-            searchResults.style.display = 'none';
-        }
-    });
-});
-</script>
+    </script>
 {% endblock %}

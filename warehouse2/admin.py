@@ -1,8 +1,10 @@
 from django.contrib import admin
 from .models import (
     ProductCategory, ProductSize, ProductColor, Product,
-    WorkOrder, Shipment, ShipmentItem, Package
+    WorkOrder, Shipment, ShipmentItem, ShipmentDocument
 )
+from django.urls import reverse
+from django.utils.html import format_html
 
 # ==============================================================================
 # Справочники
@@ -32,10 +34,6 @@ class ShipmentItemInline(admin.TabularInline):
     extra = 1
     fields = ('product', 'quantity')
 
-class PackageInline(admin.TabularInline):
-    model = Package
-    extra = 0
-    readonly_fields = ('barcode',)
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -74,7 +72,7 @@ class ShipmentAdmin(admin.ModelAdmin):
     list_display = ('id', 'created_at', 'status')
     list_filter = ('status', 'created_at')
     readonly_fields = ('created_at',)
-    inlines = [ShipmentItemInline, PackageInline]
+    inlines = [ShipmentItemInline]
     actions = ['mark_as_shipped']
     
     def mark_as_shipped(self, request, queryset):
@@ -86,8 +84,26 @@ class ShipmentAdmin(admin.ModelAdmin):
         self.message_user(request, "Выбранные отгрузки помечены как отгруженные")
     mark_as_shipped.short_description = "Пометить как отгруженные"
 
-@admin.register(Package)
-class PackageAdmin(admin.ModelAdmin):
-    list_display = ('barcode', 'shipment')
-    readonly_fields = ('barcode',)
-    search_fields = ('barcode',)
+class ShipmentInline(admin.TabularInline):
+    """Отображает связанные отгрузки внутри накладной."""
+    model = Shipment
+    extra = 0 # Не показывать пустые формы для добавления
+    fields = ('id', 'barcode', 'status', 'view_shipment_link')
+    readonly_fields = ('id', 'barcode', 'status', 'view_shipment_link')
+    can_delete = False
+
+    def view_shipment_link(self, obj):
+        if obj.pk:
+            url = reverse('admin:warehouse2_shipment_change', args=[obj.pk])
+            return format_html('<a href="{}">Смотреть</a>', url)
+        return "-"
+    view_shipment_link.short_description = 'Ссылка'
+
+@admin.register(ShipmentDocument)
+class ShipmentDocumentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'destination', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('destination', 'id')
+    
+    # Добавляем инлайн для отображения содержимого
+    inlines = [ShipmentInline]

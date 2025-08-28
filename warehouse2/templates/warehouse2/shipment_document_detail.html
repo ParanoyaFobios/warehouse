@@ -41,7 +41,6 @@
                         <tr>
                             {% if forloop.first %}
                             <td rowspan="{{ shipment.shipmentitem_set.count }}">{{ shipment.id }}</td>
-                            <td rowspan="{{ shipment.shipmentitem_set.count }}">{{ shipment.package.barcode }}</td>
                             {% endif %}
                             <td>{{ item.product.name }}</td>
                             <td>{{ item.product.sku }}</td>

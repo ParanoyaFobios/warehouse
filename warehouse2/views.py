@@ -2,13 +2,15 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
-from .models import Product, WorkOrder, Shipment, ShipmentItem, Package, ShipmentDocument
+from .models import Product, WorkOrder, Shipment, ShipmentItem, ShipmentDocument
 from .forms import ProductForm, WorkOrderForm, ShipmentForm, ShipmentItemForm, ShipmentDocumentForm
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.http import JsonResponse
 from django.db import models
 from django.views.generic.edit import FormView
 from django.forms import inlineformset_factory
+from django.db.models import F
+from django.db.models import Sum, Q
 
 
 # ==============================================================================
@@ -145,7 +147,6 @@ class ShipmentDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['items'] = self.object.shipmentitem_set.all()
-        context['packages'] = self.object.package_set.all()
         return context
 
 class ShipmentCreateView(CreateView):
@@ -239,35 +240,6 @@ def delete_shipment_item(request, pk):
     return redirect('shipment_items', pk=shipment.pk)
 
 # ==============================================================================
-# Package Management
-# ==============================================================================
-
-@login_required
-def add_package(request, pk):
-    shipment = get_object_or_404(Shipment, pk=pk)
-    
-    if not shipment.can_be_edited():
-        messages.error(request, 'Невозможно изменить отгруженную отгрузку')
-        return redirect('shipment_list')
-    
-    Package.objects.create(shipment=shipment)
-    messages.success(request, 'Упаковка добавлена')
-    return redirect('shipment_detail', pk=pk)
-
-@login_required
-def delete_package(request, pk):
-    package = get_object_or_404(Package, pk=pk)
-    shipment = package.shipment
-    
-    if not shipment.can_be_edited():
-        messages.error(request, 'Невозможно изменить отгруженную отгрузку')
-        return redirect('shipment_list')
-    
-    package.delete()
-    messages.success(request, 'Упаковка удалена')
-    return redirect('shipment_detail', pk=shipment.pk)
-
-# ==============================================================================
 # Product Search (только доступные товары)
 # ==============================================================================
 
@@ -275,26 +247,20 @@ def delete_package(request, pk):
 def available_product_search(request):
     query = request.GET.get('q', '')
     
-    # Ищем только товары с доступным количеством > 0
-    products = Product.objects.filter(
-        models.Q(available_quantity__gt=0) &
-        (
-            models.Q(name__icontains=query) |
-            models.Q(sku__icontains=query) |
-            models.Q(barcode__icontains=query)
-        )
+    # Ищем товары, у которых (total_quantity - reserved_quantity) > 0
+    products = Product.objects.annotate(
+        available=F('total_quantity') - F('reserved_quantity')
+    ).filter(
+        available__gt=0,
+        name__icontains=query
     )[:10]
     
     results = []
     for product in products:
         results.append({
             'id': product.id,
-            'name': product.name,
-            'sku': product.sku,
-            'barcode': product.barcode,
-            'category': str(product.category),
+            'name': f"{product.name} ({product.sku})", # Добавим артикул для наглядности
             'available_quantity': float(product.available_quantity),
-            'reserved_quantity': float(product.reserved_quantity)
         })
     
     return JsonResponse({'results': results})
@@ -324,29 +290,51 @@ class ShipmentDocumentDetailView(DetailView):
     template_name = 'warehouse2/shipment_document_detail.html'
     context_object_name = 'document'
 
-# НОВЫЙ ВАЖНЫЙ VIEW
+# Управление накладной: добавление отгрузок по штрихкоду
 @login_required
 def manage_shipment_document(request, pk):
     document = get_object_or_404(ShipmentDocument, pk=pk)
     
     if request.method == 'POST':
-        package_barcode = request.POST.get('package_barcode')
-        try:
-            package = Package.objects.get(barcode=package_barcode)
-            shipment = package.shipment
-            if shipment.status == 'packaged' and shipment.document is None:
-                shipment.document = document
-                shipment.status = 'assigned'
-                shipment.save()
-                messages.success(request, f"Упаковка {package_barcode} добавлена в накладную.")
-            else:
-                messages.error(request, "Эта упаковка уже в другой накладной или не готова к добавлению.")
-        except Package.DoesNotExist:
-            messages.error(request, "Упаковка с таким штрихкодом не найдена.")
+        shipment_barcode = request.POST.get('shipment_barcode')
+        shipment_id = request.POST.get('shipment_id')
+        
+        # Строим запрос, который найдет отгрузку или по штрихкоду, или по ID
+        query = Q()
+        if shipment_barcode:
+            query |= Q(barcode=shipment_barcode)
+        elif shipment_id:
+            query |= Q(pk=shipment_id)
+        
+        if query:
+            try:
+                shipment_to_add = Shipment.objects.get(query)
+                
+                # Проверяем, что отгрузка готова и еще не в другой накладной
+                if shipment_to_add.status == 'pending' and shipment_to_add.document is None:
+                    shipment_to_add.document = document
+                    shipment_to_add.status = 'assigned'
+                    shipment_to_add.save()
+                    messages.success(request, f"Отгрузка №{shipment_to_add.id} добавлена в накладную.")
+                else:
+                    messages.error(request, "Эта отгрузка уже в другой накладной или еще не собрана.")
+            
+            except Shipment.DoesNotExist:
+                messages.error(request, "Отгрузка с таким штрихкодом или ID не найдена.")
+            except Shipment.MultipleObjectsReturned:
+                messages.error(request, "Найдено несколько отгрузок, уточните запрос.")
+        else:
+            messages.error(request, "Не указан ID или штрихкод отгрузки.")
+            
         return redirect('shipment_document_manage', pk=pk)
             
-    # Отгрузки, которые готовы к добавлению в накладную
-    available_shipments = Shipment.objects.filter(status='packaged', document__isnull=True)
+    # Аннотируем queryset, чтобы посчитать общее кол-во товаров в каждой отгрузке
+    available_shipments = Shipment.objects.filter(
+        status='pending', 
+        document__isnull=True
+    ).annotate(
+        total_items=Sum('shipmentitem__quantity')
+    )
     
     context = {
         'document': document,
