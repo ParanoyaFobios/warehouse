@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="col-md-6 offset-md-3">
+        <h2>Редактировать упаковку</h2>
+        <p>Для товара: <strong>{{ package.product.name }}</strong></p>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-success">Сохранить изменения</button>
+            <a href="{% url 'product_detail' package.product.pk %}" class="btn btn-secondary">Отмена</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

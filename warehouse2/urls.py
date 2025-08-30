@@ -8,7 +8,9 @@ urlpatterns = [
     path('products/create/', views.ProductCreateView.as_view(), name='product_create'),
     path('products/<int:pk>/', views.ProductDetailView.as_view(), name='product_detail'),
     path('products/<int:pk>/edit/', views.ProductUpdateView.as_view(), name='product_edit'),
-    
+
+    path('package/<int:pk>/edit/', views.PackageUpdateView.as_view(), name='package_edit'),
+    path('package/<int:pk>/delete/', views.PackageDeleteView.as_view(), name='package_delete'),
     # Производственные заказы
     path('workorders/', views.WorkOrderListView.as_view(), name='workorder_list'),
     path('workorders/create/', views.WorkOrderCreateView.as_view(), name='workorder_create'),
@@ -26,11 +28,7 @@ urlpatterns = [
     path('shipments/<int:pk>/delete/', views.ShipmentDeleteView.as_view(), name='shipment_delete'),
     path('shipments/<int:pk>/ship/', views.ship_shipment, name='shipment_ship'),
     path('shipments/<int:pk>/items/', views.ShipmentItemsView.as_view(), name='shipment_items'),
-    path('available-product-search/', views.available_product_search, name='available_product_search'),
+    path('available-product-search/', views.stock_search, name='stock_search'),
     path('shipments/items/<int:pk>/delete/', views.delete_shipment_item, name='delete_shipment_item'),
-    # Shipment Document URLs
-    path('documents/', views.ShipmentDocumentListView.as_view(), name='shipment_document_list'),
-    path('documents/create/', views.ShipmentDocumentCreateView.as_view(), name='shipment_document_create'),
-    path('documents/<int:pk>/', views.ShipmentDocumentDetailView.as_view(), name='shipment_document_detail'),
-    path('documents/<int:pk>/manage/', views.manage_shipment_document, name='shipment_document_manage'),
+    path('shipment/<int:pk>/mark_packaged/', views.mark_shipment_as_packaged, name='shipment_mark_packaged'),
 ]

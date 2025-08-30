@@ -1,76 +1,74 @@
+# warehouse2/models.py
+
 from django.db import models
+from django.db.models import F, Sum
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from django.contrib.contenttypes.models import ContentType # Импортируем ContentType
 import uuid
+from decimal import Decimal
 
-def generate_unique_barcode_for_model(model_class):
-    """Универсальная функция для генерации уникального штрихкода для любой модели."""
+# ==============================================================================
+# Генераторы штрихкодов
+# ==============================================================================
+
+def generate_unique_barcode(model_class):
+    """Универсальная функция для генерации уникального штрихкода."""
     while True:
         barcode = uuid.uuid4().hex[:12].upper()
         if not model_class.objects.filter(barcode=barcode).exists():
             return barcode
 
-# 👇 ИМЕНОВАННАЯ ФУНКЦИЯ ДЛЯ Product 👇
 def generate_product_barcode():
-    return generate_unique_barcode_for_model(Product)
+    return generate_unique_barcode(Product)
 
-# 👇 ИМЕНОВАННАЯ ФУНКЦИЯ ДЛЯ Package 👇
-def generate_shipment_barcode():
-    return generate_unique_barcode_for_model(Shipment)
+def generate_package_barcode():
+    # Используем ту же универсальную функцию, но для модели Package
+    return generate_unique_barcode(Package)
+
+
 # ==============================================================================
 # Справочники (Catalogs)
 # ==============================================================================
 
 class ProductCategory(models.Model):
-    """Категории готовой продукции (например, Подушки, Одеяла)."""
     name = models.CharField(max_length=100, unique=True, verbose_name="Название категории")
-
-    def __str__(self):
-        return self.name
-
+    def __str__(self): return self.name
     class Meta:
         verbose_name = "Категория продукции"
         verbose_name_plural = "Категории продукции"
 
 class ProductSize(models.Model):
-    """Размеры продукции (например, 40x55, 150x200)."""
     name = models.CharField(max_length=50, unique=True, verbose_name="Размер")
-
-    def __str__(self):
-        return self.name
-
+    def __str__(self): return self.name
     class Meta:
         verbose_name = "Размер продукции"
         verbose_name_plural = "Размеры продукции"
 
 class ProductColor(models.Model):
-    """Цвета продукции (например, Белый, Синий)."""
     name = models.CharField(max_length=50, unique=True, verbose_name="Цвет")
-
-    def __str__(self):
-        return self.name
-
+    def __str__(self): return self.name
     class Meta:
         verbose_name = "Цвет продукции"
         verbose_name_plural = "Цвета продукции"
 
 # ==============================================================================
-# Основная модель: Product (Готовая продукция)
+# Продукция и Упаковки
 # ==============================================================================
 
 class Product(models.Model):
-    """Модель готовой продукции."""
+    """Модель ПОШТУЧНОЙ готовой продукции. Только у нее есть остаток на складе."""
     name = models.CharField(max_length=200, verbose_name="Название продукции")
     sku = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
-    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод продукции", default=generate_product_barcode, editable=False)
+    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод (штучный)", default=generate_product_barcode, editable=True)
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за единицу", default=0)
     size = models.ForeignKey(ProductSize, on_delete=models.PROTECT, verbose_name="Размер", blank=True, null=True)
     color = models.ForeignKey(ProductColor, on_delete=models.PROTECT, verbose_name="Цвет", blank=True, null=True)
     weight = models.DecimalField(max_digits=10, decimal_places=3, verbose_name="Вес (кг)", blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Изображение")
-    total_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Общее количество")
+    # === Складской учет ===
+    total_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="На балансе")
     reserved_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Зарезервировано")
 
     @property
@@ -81,19 +79,48 @@ class Product(models.Model):
         return f"{self.name} ({self.sku})"
 
     class Meta:
-        verbose_name = "Готовая продукция"
-        verbose_name_plural = "Готовая продукция"
+        verbose_name = "Штучный товар"
+        verbose_name_plural = "Штучные товары"
+
+class Package(models.Model):
+    """
+    Упаковка НЕ имеет своего остатка на складе, она ссылается на `Product`.
+    """
+    name = models.CharField(max_length=255, verbose_name="Название упаковки (опционально)", help_text="Например, 'Коробка (10 шт.)'. Если пусто, будет сгенерировано автоматически.")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='packages', verbose_name="Базовый продукт")
+    quantity = models.PositiveIntegerField(verbose_name="Количество товара в упаковке")
+    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод упаковки", default=generate_package_barcode, editable=False)
+
+    @property
+    def price(self):
+        """Цена упаковки рассчитывается динамически."""
+        return self.product.price * self.quantity
+
+    @property
+    def available_packages(self):
+        """Сколько таких упаковок можно собрать из доступных товаров."""
+        if self.quantity > 0:
+            return self.product.available_quantity // self.quantity
+        return 0
+
+    def __str__(self):
+        if self.name:
+            return f"{self.name} - {self.product.name}"
+        return f"Упаковка: {self.product.name} ({self.quantity} шт.)"
+
+    class Meta:
+        verbose_name = "Упаковка"
+        verbose_name_plural = "Упаковки"
+        # Ограничение, чтобы не было двух одинаковых упаковок для одного товара
+        unique_together = ('product', 'quantity')
+
+
 # ==============================================================================
-# Производство: WorkOrder (Производственный заказ)
+# Производство: WorkOrder
 # ==============================================================================
 
 class WorkOrder(models.Model):
-    """Производственное задание."""
-    STATUS_CHOICES = [
-        ('new', 'Новый'),
-        ('in_progress', 'В работе'),
-        ('completed', 'Выполнен'),
-    ]
+    STATUS_CHOICES = [('new', 'Новый'), ('in_progress', 'В работе'), ('completed', 'Выполнен')]
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="Продукция")
     quantity_to_produce = models.PositiveIntegerField(verbose_name="Количество к производству")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
@@ -101,21 +128,16 @@ class WorkOrder(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new', verbose_name="Статус")
 
     def complete_order(self):
-        """Завершает заказ и ставит продукцию на баланс."""
         if self.status != 'completed':
             self.product.total_quantity += self.quantity_to_produce
             self.product.save()
             self.status = 'completed'
             self.completed_at = timezone.now()
             self.save()
-            # Здесь можно добавить логику для списания материалов со склада 1
-            # и создания записи в журнале операций
             return True
         return False
-
     def __str__(self):
         return f"Заказ №{self.id} на {self.product.name} ({self.quantity_to_produce} шт.)"
-
     class Meta:
         verbose_name = "Производственный заказ"
         verbose_name_plural = "Производственные заказы"
@@ -123,95 +145,96 @@ class WorkOrder(models.Model):
 # ==============================================================================
 # Отгрузки: Shipment
 # ==============================================================================
-class ShipmentDocument(models.Model):
-    """Накладная, объединяющая несколько отгрузок (упаковок)."""
-    STATUS_CHOICES = [
-        ('draft', 'Черновик'),
-        ('finalized', 'Сформирована'),
-        ('shipped', 'Отправлена'),
-    ]
-    destination = models.CharField(max_length=255, verbose_name="Адрес/Получатель")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
-
-    def __str__(self):
-        return f"Накладная №{self.id} для '{self.destination}'"
-    
-    class Meta:
-        verbose_name = "Накладная"
-        verbose_name_plural = "Накладные"
 
 class Shipment(models.Model):
-    """Отгрузка (накладная)."""
-    STATUS_CHOICES = [
-        ('pending', 'В процессе сборки'),
-        ('packaged', 'Собрано и упаковано'),
-        ('assigned', 'Включено в накладную'),
-        ('shipped', 'Отгружено'), # Этот статус будет наследоваться от накладной
-    ]
+    """Отгрузка (накладная). Логика не изменилась."""
+    STATUS_CHOICES = [('pending', 'В процессе сборки'), ('packaged', 'Собрано'), ('shipped', 'Отгружено')]
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_shipments', verbose_name="Кем создана")
+    processed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_shipments', verbose_name="Кем собрана/отгружена")
+    destination = models.CharField(max_length=255, verbose_name="Адрес отгрузки", blank=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    shipped_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата отгрузки")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
-    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод отгрузки", default=generate_shipment_barcode, editable=False)
-    document = models.ForeignKey(ShipmentDocument, on_delete=models.SET_NULL, null=True, blank=True, related_name='shipments', verbose_name="Накладная")
-
-    def get_total_items(self):
-        """Возвращает общее количество товаров в отгрузке"""
-        return self.shipmentitem_set.aggregate(total=models.Sum('quantity'))['total'] or 0
     
-    def get_total_products(self):
-        """Возвращает количество уникальных продуктов"""
-        return self.shipmentitem_set.count()
+    @property
+    def grand_total_price(self):
+        """Возвращает общую сумму по всей накладной."""
+        total = self.items.aggregate(total_price=Sum(F('price') * F('quantity')))['total_price']
+        return total or Decimal('0.00')
     
-    def can_be_edited(self):
-        """Можно ли редактировать отгрузку"""
-        return self.status != 'shipped'
-    
-    def can_be_shipped(self):
-        """Можно ли отгрузить"""
-        return self.status != 'shipped' and self.shipmentitem_set.exists()
-
-    def ship(self):
-        """Отгружает товар и списывает его с баланса."""
-        if self.status == 'shipped':
-            raise ValidationError("Этот заказ уже отгружен.")
-        
-        for item in self.shipmentitem_set.all():
-            product = item.product
-            product.total_quantity -= item.quantity
-            product.reserved_quantity -= item.quantity
-            product.save()
-        
-        self.status = 'shipped'
-        self.save()
-
     def __str__(self):
         return f"Отгрузка №{self.id} от {self.created_at.strftime('%Y-%m-%d')}"
 
     class Meta:
         verbose_name = "Отгрузка"
-        verbose_name_plural = "Отгрузки (баулы/коробки)"
+        verbose_name_plural = "Отгрузки"
+        ordering = ['-created_at']
 
 class ShipmentItem(models.Model):
-    """Строка в накладной."""
-    shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, verbose_name="Отгрузка")
-    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="Продукция")
-    quantity = models.PositiveIntegerField(verbose_name="Количество")
+    """Строка в накладной. Теперь может содержать или штучный товар, или упаковку."""
+    shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name='items', verbose_name="Отгрузка")
+    # <<< Одно из двух полей должно быть заполнено >>>
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, blank=True, verbose_name="Штучный товар")
+    package = models.ForeignKey(Package, on_delete=models.PROTECT, null=True, blank=True, verbose_name="Упаковка")
+    quantity = models.PositiveIntegerField(verbose_name="Количество (товаров или упаковок)")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Фиксированная цена за ед.")
 
-    def delete(self, *args, **kwargs):
-        """При удалении строки снимаем резерв"""
+    def clean(self):
+        """Проверка, что заполнено только одно поле: или товар, или упаковка."""
+        if self.product and self.package:
+            raise ValidationError("Позиция не может содержать одновременно и товар, и упаковку.")
+        if not self.product and not self.package:
+            raise ValidationError("Необходимо указать товар или упаковку для этой позиции.")
+    
+    @property
+    def base_product_units(self):
+        """Возвращает, сколько ШТУК базового товара представляет эта строка."""
         if self.product:
-            self.product.reserved_quantity -= self.quantity
-            self.product.save()
-        super().delete(*args, **kwargs)
+            return self.quantity
+        if self.package:
+            return self.quantity * self.package.quantity
+        return 0
+    
+    @property
+    def stock_product(self):
+        """Возвращает товар, у которого нужно проверять остатки на складе."""
+        return self.product or self.package.product
 
     def save(self, *args, **kwargs):
-        """При добавлении товара в накладную, резервируем его."""
-        if self.pk is None: # Выполняется только при создании новой строки
-            if self.product.available_quantity < self.quantity:
-                raise ValidationError(f"Недостаточно товара '{self.product.name}' на складе. Доступно: {self.product.available_quantity}")
-            self.product.reserved_quantity += self.quantity
-            self.product.save()
+        self.clean()
+        is_new = self.pk is None
+        
+        # Фиксируем цену при первом сохранении
+        if is_new:
+            self.price = self.product.price if self.product else self.package.price
+            old_units = 0
+        else:
+            old_item = ShipmentItem.objects.get(pk=self.pk)
+            old_units = old_item.base_product_units
+        
+        new_units = self.base_product_units
+        difference = new_units - old_units
+        
+        # Обновляем резерв
+        product_to_reserve = self.stock_product
+        if difference > 0:
+            if product_to_reserve.available_quantity < difference:
+                raise ValidationError(f"Недостаточно товара '{product_to_reserve.name}'. Доступно: {product_to_reserve.available_quantity}")
+            product_to_reserve.reserved_quantity += difference
+        elif difference < 0:
+            product_to_reserve.reserved_quantity -= abs(difference)
+            
+        product_to_reserve.save()
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f"{self.product.name} - {self.quantity} шт."
+    def delete(self, *args, **kwargs):
+        # Снимаем с резерва
+        units_to_release = self.base_product_units
+        product_to_release = self.stock_product
+        product_to_release.reserved_quantity -= units_to_release
+        product_to_release.save()
+        super().delete(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "Позиция отгрузки"
+        verbose_name_plural = "Позиции отгрузки"

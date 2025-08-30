@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, WorkOrder, Shipment, ShipmentItem, ShipmentDocument
+from .models import Product, WorkOrder, Shipment, Package
 
 class ProductForm(forms.ModelForm):
     class Meta:
@@ -13,6 +13,19 @@ class ProductForm(forms.ModelForm):
             'color': forms.Select(attrs={'class': 'form-control'}),
             'weight': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'}),
             'image': forms.FileInput(attrs={'class': 'form-control'}),
+        }
+
+class PackageForm(forms.ModelForm):
+    class Meta:
+        model = Package
+        fields = ['name', 'quantity']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Например, Коробка (опционально)'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Кол-во штук в упаковке'}),
+        }
+        labels = {
+            'name': 'Название упаковки',
+            'quantity': 'Количество',
         }
 
 class WorkOrderForm(forms.ModelForm):
@@ -50,42 +63,22 @@ class WorkOrderForm(forms.ModelForm):
 class ShipmentForm(forms.ModelForm):
     class Meta:
         model = Shipment
-        fields = []  # Пока без дополнительных полей
-        # Можно добавить поля: client, address, etc.
-
-class ShipmentItemForm(forms.ModelForm):
-    product_search = forms.CharField(
-        required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Поиск по названию, артикулу или штрихкоду...',
-            'autocomplete': 'off'
-        }),
-        label='Поиск продукта'
-    )
-    
-    class Meta:
-            model = ShipmentItem
-            fields = ['product', 'quantity']
-            widgets = {
-                'product': forms.HiddenInput(), # Скрываем стандартный выбор
-                'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
-            }
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['product'].label = ''
-        self.fields['product'].required = False
-
-
-class ShipmentDocumentForm(forms.ModelForm):
-    class Meta:
-        model = ShipmentDocument
-        fields = ['destination']
+        fields = ['destination'] # Оставляем только те поля, что заполняет пользователь
         widgets = {
-            'destination': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
+            'destination': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Город, адрес склада и т.д.'}),
         }
         labels = {
-            'destination': 'Получатель / Адрес доставки'
+            'destination': 'Пункт назначения',
         }
 
+# 👇 Новая форма для добавления позиций в отгрузку 👇
+class ShipmentItemForm(forms.Form):
+    # Это поле будет скрытым, его заполнит JavaScript после выбора в поиске
+    # Оно будет хранить строку вида "product-1" или "package-5"
+    item_identifier = forms.CharField(widget=forms.HiddenInput())
+    
+    quantity = forms.IntegerField(
+        min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'value': 1}),
+        label="Количество"
+    )

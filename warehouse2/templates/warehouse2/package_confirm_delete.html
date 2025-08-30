@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="col-md-6 offset-md-3">
+        <h2>Подтверждение удаления</h2>
+        <p>Вы уверены, что хотите удалить упаковку "{{ object }}"?</p>
+        <p>Это действие нельзя будет отменить.</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Да, удалить</button>
+            <a href="{% url 'product_detail' object.product.pk %}" class="btn btn-secondary">Отмена</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,8 +1,7 @@
 from django.contrib import admin
 from .models import (
     ProductCategory, ProductSize, ProductColor, Product,
-    WorkOrder, Shipment, ShipmentItem, ShipmentDocument
-)
+    WorkOrder, Shipment, ShipmentItem)
 from django.urls import reverse
 from django.utils.html import format_html
 
@@ -99,11 +98,3 @@ class ShipmentInline(admin.TabularInline):
         return "-"
     view_shipment_link.short_description = 'Ссылка'
 
-@admin.register(ShipmentDocument)
-class ShipmentDocumentAdmin(admin.ModelAdmin):
-    list_display = ('id', 'destination', 'status', 'created_at')
-    list_filter = ('status', 'created_at')
-    search_fields = ('destination', 'id')
-    
-    # Добавляем инлайн для отображения содержимого
-    inlines = [ShipmentInline]

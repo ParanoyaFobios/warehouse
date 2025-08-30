@@ -2,15 +2,16 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
-from .models import Product, WorkOrder, Shipment, ShipmentItem, ShipmentDocument
-from .forms import ProductForm, WorkOrderForm, ShipmentForm, ShipmentItemForm, ShipmentDocumentForm
+from .models import Product, WorkOrder, Shipment, ShipmentItem, Package
+from .forms import ProductForm, WorkOrderForm, ShipmentForm, ShipmentItemForm, PackageForm
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.http import JsonResponse
 from django.db import models
 from django.views.generic.edit import FormView
-from django.forms import inlineformset_factory
 from django.db.models import F
-from django.db.models import Sum, Q
+from django.views.generic.edit import FormMixin
+from django.core.exceptions import ValidationError
+from django.db.models import Q
 
 
 # ==============================================================================
@@ -43,10 +44,70 @@ class ProductUpdateView(UpdateView):
         messages.success(self.request, 'Продукт успешно обновлен')
         return super().form_valid(form)
 
-class ProductDetailView(DetailView):
+class ProductDetailView(FormMixin, DetailView):
     model = Product
     template_name = 'warehouse2/product_detail.html'
     context_object_name = 'product'
+    form_class = PackageForm # Указываем форму для создания упаковки
+
+    def get_success_url(self):
+        # После успешного создания упаковки, перенаправляем на эту же страницу
+        return reverse_lazy('product_detail', kwargs={'pk': self.object.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Передаем в шаблон список существующих упаковок для этого товара
+        context['packages'] = self.object.packages.all().order_by('quantity')
+        # Передаем форму для создания новой упаковки
+        context['form'] = self.get_form()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        # Этот метод вызывается, когда пользователь отправляет форму
+        self.object = self.get_object()
+        form = self.get_form()
+        if form.is_valid():
+            return self.form_valid(form)
+        else:
+            return self.form_invalid(form)
+
+    def form_valid(self, form):
+        # Если форма валидна, создаем упаковку
+        package = form.save(commit=False)
+        package.product = self.object  # Привязываем упаковку к текущему товару
+        package.save()
+        messages.success(self.request, f'Упаковка на {package.quantity} шт. успешно создана!')
+        return super().form_valid(form)
+
+# ==============================================================================
+# Упаковки - Package
+# ==============================================================================
+
+class PackageUpdateView(UpdateView):
+    model = Package
+    form_class = PackageForm
+    template_name = 'warehouse2/package_form.html'
+
+    def get_success_url(self):
+        # После редактирования возвращаемся на страницу базового товара
+        return reverse_lazy('product_detail', kwargs={'pk': self.object.product.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Упаковка успешно обновлена')
+        return super().form_valid(form)
+
+
+class PackageDeleteView(DeleteView):
+    model = Package
+    template_name = 'warehouse2/package_confirm_delete.html' # И этот тоже создадим
+
+    def get_success_url(self):
+        # После удаления также возвращаемся на страницу товара
+        return reverse_lazy('product_detail', kwargs={'pk': self.object.product.pk})
+    
+    def form_valid(self, form):
+        messages.success(self.request, f'Упаковка "{self.object}" была удалена.')
+        return super().form_valid(form)
 
 # ==============================================================================
 # Производственные заказы
@@ -146,24 +207,32 @@ class ShipmentDetailView(DetailView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['items'] = self.object.shipmentitem_set.all()
+        # Правильный способ доступа к связанным объектам через related_name
+        context['items'] = self.object.items.all()
         return context
 
 class ShipmentCreateView(CreateView):
     model = Shipment
     form_class = ShipmentForm
     template_name = 'warehouse2/shipment_form.html'
-    success_url = reverse_lazy('shipment_list')
     
     def form_valid(self, form):
-        messages.success(self.request, 'Отгрузка создана')
+        # Присваиваем текущего пользователя как создателя отгрузки
+        form.instance.created_by = self.request.user
+        messages.success(self.request, 'Отгрузка успешно создана. Теперь можно добавить товары.')
         return super().form_valid(form)
+
+    def get_success_url(self):
+        # После создания сразу переходим на страницу добавления товаров
+        return reverse_lazy('shipment_items', kwargs={'pk': self.object.pk})
 
 class ShipmentUpdateView(UpdateView):
     model = Shipment
     form_class = ShipmentForm
     template_name = 'warehouse2/shipment_form.html'
-    success_url = reverse_lazy('shipment_list')
+    
+    def get_success_url(self):
+        return reverse_lazy('shipment_detail', kwargs={'pk': self.object.pk})
     
     def form_valid(self, form):
         messages.success(self.request, 'Отгрузка обновлена')
@@ -174,9 +243,9 @@ class ShipmentDeleteView(DeleteView):
     template_name = 'warehouse2/shipment_confirm_delete.html'
     success_url = reverse_lazy('shipment_list')
     
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Отгрузка удалена')
-        return super().delete(request, *args, **kwargs)
+    def form_valid(self, form):
+        messages.success(self.request, f'Отгрузка №{self.object.id} была удалена.')
+        return super().form_valid(form)
 
 @login_required
 def ship_shipment(request, pk):
@@ -200,28 +269,39 @@ class ShipmentItemsView(FormView):
     form_class = ShipmentItemForm
     
     def get_success_url(self):
+        # После добавления товара остаемся на этой же странице
         return reverse_lazy('shipment_items', kwargs={'pk': self.kwargs['pk']})
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         shipment = get_object_or_404(Shipment, pk=self.kwargs['pk'])
         context['shipment'] = shipment
-        context['items'] = shipment.shipmentitem_set.all()
-        context['can_edit'] = shipment.can_be_edited()
+        context['items'] = shipment.items.all() # Используем 'items'
         return context
     
     def form_valid(self, form):
         shipment = get_object_or_404(Shipment, pk=self.kwargs['pk'])
-        if not shipment.can_be_edited():
-            messages.error(self.request, 'Невозможно изменить отгруженную отгрузку')
-            return redirect('shipment_list')
+        identifier = form.cleaned_data['item_identifier']
+        quantity = form.cleaned_data['quantity']
         
         try:
-            item = form.save(commit=False)
-            item.shipment = shipment
-            item.save()
-            messages.success(self.request, 'Товар добавлен в отгрузку')
-        except Exception as e:
+            item_type, item_id = identifier.split('-')
+            item_id = int(item_id)
+            
+            # Создаем новую позицию ShipmentItem вручную
+            new_item = ShipmentItem(shipment=shipment, quantity=quantity)
+            if item_type == 'product':
+                new_item.product = get_object_or_404(Product, pk=item_id)
+            elif item_type == 'package':
+                new_item.package = get_object_or_404(Package, pk=item_id)
+            else:
+                raise ValidationError('Неверный тип товара.')
+            
+            # Метод save() в модели ShipmentItem сам обработает резервирование
+            new_item.save()
+            messages.success(self.request, f'Позиция "{new_item}" добавлена в отгрузку.')
+
+        except (ValueError, ValidationError) as e:
             messages.error(self.request, f'Ошибка: {str(e)}')
         
         return super().form_valid(form)
@@ -229,115 +309,79 @@ class ShipmentItemsView(FormView):
 @login_required
 def delete_shipment_item(request, pk):
     item = get_object_or_404(ShipmentItem, pk=pk)
-    shipment = item.shipment
-    
-    if not shipment.can_be_edited():
-        messages.error(request, 'Невозможно изменить отгруженную отгрузку')
-        return redirect('shipment_list')
-    
+    shipment_pk = item.shipment.pk
+    item_name = str(item) # Запоминаем имя до удаления
     item.delete()
-    messages.success(request, 'Товар удален из отгрузки')
-    return redirect('shipment_items', pk=shipment.pk)
+    messages.success(request, f'Позиция "{item_name}" удалена из отгрузки.')
+    return redirect('shipment_items', pk=shipment_pk)
 
 # ==============================================================================
 # Product Search (только доступные товары)
 # ==============================================================================
 
 @login_required
-def available_product_search(request):
-    query = request.GET.get('q', '')
-    
-    # Ищем товары, у которых (total_quantity - reserved_quantity) > 0
+def stock_search(request):
+    query = request.GET.get('q', '').strip()
+    results = []
+
+    if len(query) < 2:
+        return JsonResponse({'results': results})
+
+    # --- Создаем Q-объекты для гибкого поиска ---
+    # Для штучных товаров: ищем по названию, артикулу ИЛИ штрихкоду
+    product_query = (
+        Q(name__icontains=query) |
+        Q(sku__icontains=query) |
+        Q(barcode__icontains=query)
+    )
+
+    # Для упаковок: ищем по названию упаковки, штрихкоду упаковки,
+    # ИЛИ по названию/артикулу связанного товара.
+    package_query = (
+        Q(name__icontains=query) |
+        Q(barcode__icontains=query) |
+        Q(product__name__icontains=query) |
+        Q(product__sku__icontains=query)
+    )
+
+    # 1. Ищем штучные товары
     products = Product.objects.annotate(
         available=F('total_quantity') - F('reserved_quantity')
-    ).filter(
-        available__gt=0,
-        name__icontains=query
-    )[:10]
-    
-    results = []
-    for product in products:
+    ).filter(product_query, available__gt=0)[:5]
+
+    for p in products:
         results.append({
-            'id': product.id,
-            'name': f"{product.name} ({product.sku})", # Добавим артикул для наглядности
-            'available_quantity': float(product.available_quantity),
+            'id': f"product-{p.id}",
+            'name': f"{p.name} (Штучный товар)",
+            'info': f"Арт: {p.sku} | Доступно: {int(p.available_quantity)} шт.",
         })
+
+    # 2. Ищем упаковки
+    packages = Package.objects.select_related('product').filter(
+        package_query,
+        product__total_quantity__gt=F('product__reserved_quantity')
+    )[:5]
     
+    for pkg in packages:
+        available_packages = int(pkg.product.available_quantity // pkg.quantity)
+        if available_packages > 0:
+            results.append({
+                'id': f"package-{pkg.id}",
+                'name': str(pkg),
+                'info': f"Арт: {pkg.product.sku} | Можно собрать: {available_packages} уп.",
+            })
+
     return JsonResponse({'results': results})
 
-
-# ==============================================================================
-# Shipment Document (Накладные)
-# ==============================================================================
-
-class ShipmentDocumentListView(ListView):
-    model = ShipmentDocument
-    template_name = 'warehouse2/shipment_document_list.html'
-    context_object_name = 'documents'
-    ordering = ['-created_at']
-
-class ShipmentDocumentCreateView(CreateView):
-    model = ShipmentDocument
-    form_class = ShipmentDocumentForm
-    template_name = 'warehouse2/shipment_document_form.html'
-    
-    def get_success_url(self):
-        # После создания накладной, переходим на страницу управления ею
-        return reverse_lazy('shipment_document_manage', kwargs={'pk': self.object.pk})
-
-class ShipmentDocumentDetailView(DetailView):
-    model = ShipmentDocument
-    template_name = 'warehouse2/shipment_document_detail.html'
-    context_object_name = 'document'
-
-# Управление накладной: добавление отгрузок по штрихкоду
 @login_required
-def manage_shipment_document(request, pk):
-    document = get_object_or_404(ShipmentDocument, pk=pk)
-    
+def mark_shipment_as_packaged(request, pk):
+    shipment = get_object_or_404(Shipment, pk=pk)
     if request.method == 'POST':
-        shipment_barcode = request.POST.get('shipment_barcode')
-        shipment_id = request.POST.get('shipment_id')
-        
-        # Строим запрос, который найдет отгрузку или по штрихкоду, или по ID
-        query = Q()
-        if shipment_barcode:
-            query |= Q(barcode=shipment_barcode)
-        elif shipment_id:
-            query |= Q(pk=shipment_id)
-        
-        if query:
-            try:
-                shipment_to_add = Shipment.objects.get(query)
-                
-                # Проверяем, что отгрузка готова и еще не в другой накладной
-                if shipment_to_add.status == 'pending' and shipment_to_add.document is None:
-                    shipment_to_add.document = document
-                    shipment_to_add.status = 'assigned'
-                    shipment_to_add.save()
-                    messages.success(request, f"Отгрузка №{shipment_to_add.id} добавлена в накладную.")
-                else:
-                    messages.error(request, "Эта отгрузка уже в другой накладной или еще не собрана.")
-            
-            except Shipment.DoesNotExist:
-                messages.error(request, "Отгрузка с таким штрихкодом или ID не найдена.")
-            except Shipment.MultipleObjectsReturned:
-                messages.error(request, "Найдено несколько отгрузок, уточните запрос.")
+        if shipment.status == 'pending':
+            shipment.status = 'packaged'
+            shipment.processed_by = request.user # Фиксируем, кто собрал
+            shipment.save()
+            messages.success(request, f'Отгрузка №{shipment.id} отмечена как "Собрано".')
         else:
-            messages.error(request, "Не указан ID или штрихкод отгрузки.")
-            
-        return redirect('shipment_document_manage', pk=pk)
-            
-    # Аннотируем queryset, чтобы посчитать общее кол-во товаров в каждой отгрузке
-    available_shipments = Shipment.objects.filter(
-        status='pending', 
-        document__isnull=True
-    ).annotate(
-        total_items=Sum('shipmentitem__quantity')
-    )
-    
-    context = {
-        'document': document,
-        'available_shipments': available_shipments
-    }
-    return render(request, 'warehouse2/shipment_document_manage.html', context)
+            messages.warning(request, 'Статус этой отгрузки уже был изменен.')
+    return redirect('shipment_detail', pk=pk)
