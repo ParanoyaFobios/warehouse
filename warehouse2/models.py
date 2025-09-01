@@ -127,6 +127,24 @@ class WorkOrder(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата выполнения")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new', verbose_name="Статус")
 
+    @property
+    def status_badge_class(self):
+        """Возвращает класс для бейджа статуса."""
+        return {
+            'new': 'secondary',
+            'in_progress': 'warning',
+            'completed': 'success'
+        }.get(self.status, 'secondary')
+    
+    @property
+    def status_display_short(self):
+        """Короткое отображение статуса."""
+        return {
+            'new': 'Новый',
+            'in_progress': 'В работе',
+            'completed': 'Выполнен'
+        }.get(self.status, self.status)
+
     def complete_order(self):
         if self.status != 'completed':
             self.product.total_quantity += self.quantity_to_produce
@@ -179,9 +197,31 @@ class Shipment(models.Model):
                 total += item.quantity * item.package.quantity
         return total
     
+    @property
+    def status_badge_class(self):
+        """Возвращает класс для бейджа статуса."""
+        return {
+            'pending': 'secondary',
+            'packaged': 'warning', 
+            'shipped': 'success'
+        }.get(self.status, 'secondary')
+    
+    @property
+    def status_display_short(self):
+        """Короткое отображение статуса."""
+        return {
+            'pending': 'Сборка',
+            'packaged': 'Собрано',
+            'shipped': 'Отгружено'
+        }.get(self.status, self.status)
+
     def can_be_edited(self):
         """Можно ли редактировать отгрузку."""
         return self.status != 'shipped'
+    
+    def can_be_packed(self):
+        """Можно ли отметить как собранную (только для отгрузок в статусе 'pending')."""
+        return self.status == 'pending' and self.items.exists()
     
     def can_be_shipped(self):
         """Можно ли отгрузить."""

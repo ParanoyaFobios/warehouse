@@ -23,7 +23,7 @@
         {% for shipment in shipments %}
         <tr>
             <td><a href="{% url 'shipment_detail' shipment.pk %}">{{ shipment.id }}</a></td>
-            <td>{{ shipment.destination }}</td>  <!-- Исправлено: shipment.destination -->
+            <td><a href="{% url 'shipment_detail' shipment.pk %}">{{ shipment.destination }}</a></td>  <!-- Исправлено: shipment.destination -->
             <td>{{ shipment.created_at|date:"d.m.Y H:i" }}</td>
             <td>{{ shipment.total_items_count }}</td>  <!-- Изменено на метод из модели -->
             <td>{{ shipment.items.count }}</td>  <!-- Исправлено: количество позиций -->
@@ -36,11 +36,12 @@
                 </span>
             </td>
             <td>
-                <a href="{% url 'shipment_detail' shipment.pk %}" class="btn btn-sm btn-info">Просмотр</a>
                 {% if shipment.can_be_edited %}
-                <a href="{% url 'shipment_edit' shipment.pk %}" class="btn btn-sm btn-warning">Редактировать</a>
                 <a href="{% url 'shipment_items' shipment.pk %}" class="btn btn-sm btn-primary">Товары</a>
                 <a href="{% url 'shipment_delete' shipment.pk %}" class="btn btn-sm btn-danger">Удалить</a>
+                {% endif %}
+                {% if shipment.can_be_packed %}
+                <a href="{% url 'shipment_mark_packaged' shipment.pk %}" class="btn btn-sm btn-info">Отметить как собранную</a>
                 {% endif %}
                 {% if shipment.can_be_shipped %}
                 <a href="{% url 'shipment_ship' shipment.pk %}" class="btn btn-sm btn-success">Отгрузить</a>

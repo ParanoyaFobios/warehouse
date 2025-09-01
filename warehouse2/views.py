@@ -23,7 +23,7 @@ class ProductListView(ListView):
     model = Product
     template_name = 'warehouse2/product_list.html'
     context_object_name = 'products'
-    paginate_by = 20
+    paginate_by = 5 #поменять
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -144,7 +144,7 @@ class WorkOrderListView(ListView):
     model = WorkOrder
     template_name = 'warehouse2/workorder_list.html'
     context_object_name = 'workorders'
-    paginate_by = 20
+    paginate_by = 5 #поменять
     ordering = ['-created_at']
 
 class WorkOrderDetailView(DetailView):
@@ -224,7 +224,7 @@ class ShipmentListView(ListView):
     model = Shipment
     template_name = 'warehouse2/shipment_list.html'
     context_object_name = 'shipments'
-    paginate_by = 20
+    paginate_by = 5 #поменять
     ordering = ['-created_at']
     
     def get_queryset(self):
@@ -242,6 +242,7 @@ class ShipmentDetailView(DetailView):
         context['items'] = shipment.items.all()
         context['can_edit'] = shipment.can_be_edited()
         context['can_ship'] = shipment.can_be_shipped()
+        context['can_pack'] = shipment.can_be_packed()
         return context
 
 class ShipmentCreateView(CreateView):
@@ -259,17 +260,6 @@ class ShipmentCreateView(CreateView):
         # После создания сразу переходим на страницу добавления товаров
         return reverse_lazy('shipment_items', kwargs={'pk': self.object.pk})
 
-class ShipmentUpdateView(UpdateView):
-    model = Shipment
-    form_class = ShipmentForm
-    template_name = 'warehouse2/shipment_form.html'
-    
-    def get_success_url(self):
-        return reverse_lazy('shipment_detail', kwargs={'pk': self.object.pk})
-    
-    def form_valid(self, form):
-        messages.success(self.request, 'Отгрузка обновлена')
-        return super().form_valid(form)
 
 class ShipmentDeleteView(DeleteView):
     model = Shipment

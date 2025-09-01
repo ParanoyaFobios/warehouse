@@ -45,9 +45,14 @@
             <td>{{ forloop.counter }}</td>
             <td>
                 {% if item.product %}
-                    {{ item.product.name }} (штучный)
+                <a href="{% url 'product_detail' item.product.pk %}">
+                    {{ item.product.name }}
+                </a>
                 {% else %}
-                    {{ item.package.name }} (упаковка)
+                {{ item.package.name }}
+                <a href="{% url 'product_detail' item.package.product.pk %}">
+                {{ item.package.product.name }}
+                </a>
                 {% endif %}
             </td>
             <td>{{ item.quantity }}</td>
@@ -65,8 +70,10 @@
 <div class="mt-3">
     <a href="{% url 'shipment_list' %}" class="btn btn-secondary">Назад к списку</a>
     {% if can_edit %}
-    <a href="{% url 'shipment_edit' shipment.pk %}" class="btn btn-warning">Редактировать</a>
     <a href="{% url 'shipment_items' shipment.pk %}" class="btn btn-primary">Добавить товары</a>
+    {% endif %}
+    {% if can_pack %}
+    <a href="{% url 'shipment_mark_packaged' shipment.pk %}" class="btn btn btn-info">Отметить как собранную</a>
     {% endif %}
     {% if can_ship %}
     <a href="{% url 'shipment_ship' shipment.pk %}" class="btn btn-success">Отгрузить</a>

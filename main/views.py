@@ -1,6 +1,5 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
-from django.views import View
 from .forms import LoginForm
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, Http404
@@ -8,6 +7,10 @@ from django.contrib.contenttypes.models import ContentType
 import barcode
 from barcode.writer import ImageWriter
 import io
+from django.views.generic import View
+from django.contrib.auth.mixins import LoginRequiredMixin
+from warehouse2.models import Shipment, WorkOrder
+from django.contrib import messages
 
 # ==============================================================================
 # Представления для аутентификации
@@ -39,6 +42,7 @@ class LoginView(View):
             'form': form,
             'error': 'Не удалось войти. Проверьте имя пользователя и пароль.'
         }
+        messages.success(request, f'Вы успешно вошли в систему.')
         return render(request, self.template_name, context)
 
 
@@ -48,11 +52,26 @@ class LogoutView(View):
         return redirect('login')
 
 
-class IndexView(View):
+class IndexView(LoginRequiredMixin, View):
     def get(self, request):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        return render(request, 'index.html', {'user': request.user})
+        # Не выполненные отгрузки (не собранные и не отгруженные)
+        pending_shipments = Shipment.objects.filter(
+            status__in=['pending', 'packaged']
+        ).prefetch_related('items').order_by('-created_at')[:10]
+        
+        # Не выполненные производственные заказы
+        pending_workorders = WorkOrder.objects.filter(
+            status__in=['new', 'in_progress']
+        ).select_related('product').order_by('-created_at')[:10]
+        
+        context = {
+            'user': request.user,
+            'pending_shipments': pending_shipments,
+            'pending_workorders': pending_workorders,
+            'pending_shipments_count': Shipment.objects.filter(status__in=['pending', 'packaged']).count(),
+            'pending_workorders_count': WorkOrder.objects.filter(status__in=['new', 'in_progress']).count(),
+        }
+        return render(request, 'index.html', context)
     
 # ==============================================================================
 # Генерация штрихкода для любого объекта
