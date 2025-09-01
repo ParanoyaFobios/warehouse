@@ -57,7 +57,7 @@ class ProductColor(models.Model):
 # ==============================================================================
 
 class Product(models.Model):
-    """Модель ПОШТУЧНОЙ готовой продукции. Только у нее есть остаток на складе."""
+    """Модель ПОШТУЧНОЙ готовой продукции."""
     name = models.CharField(max_length=200, verbose_name="Название продукции")
     sku = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
     barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод (штучный)", default=generate_product_barcode, editable=True)
@@ -147,8 +147,12 @@ class WorkOrder(models.Model):
 # ==============================================================================
 
 class Shipment(models.Model):
-    """Отгрузка (накладная). Логика не изменилась."""
-    STATUS_CHOICES = [('pending', 'В процессе сборки'), ('packaged', 'Собрано'), ('shipped', 'Отгружено')]
+    """Отгрузка (накладная)."""
+    STATUS_CHOICES = [
+        ('pending', 'В процессе сборки'), 
+        ('packaged', 'Собрано'), 
+        ('shipped', 'Отгружено')
+    ]
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_shipments', verbose_name="Кем создана")
     processed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_shipments', verbose_name="Кем собрана/отгружена")
     destination = models.CharField(max_length=255, verbose_name="Адрес отгрузки", blank=True)
@@ -159,8 +163,55 @@ class Shipment(models.Model):
     @property
     def grand_total_price(self):
         """Возвращает общую сумму по всей накладной."""
-        total = self.items.aggregate(total_price=Sum(F('price') * F('quantity')))['total_price']
+        total = self.items.aggregate(
+            total_price=Sum(F('price') * F('quantity'))
+        )['total_price']
         return total or Decimal('0.00')
+
+    @property
+    def total_items_count(self):
+        """Возвращает общее количество товаров в штуках."""
+        total = 0
+        for item in self.items.all():
+            if item.product:
+                total += item.quantity
+            elif item.package:
+                total += item.quantity * item.package.quantity
+        return total
+    
+    def can_be_edited(self):
+        """Можно ли редактировать отгрузку."""
+        return self.status != 'shipped'
+    
+    def can_be_shipped(self):
+        """Можно ли отгрузить."""
+        return self.status != 'shipped' and self.items.exists()
+    
+    def ship(self, user):
+        """Отгружает товар и списывает его с баланса."""
+        if self.status == 'shipped':
+            raise ValidationError("Эта отгрузка уже отгружена.")
+        
+        for item in self.items.all():
+            product_to_ship = item.stock_product
+            units_to_ship = item.base_product_units
+            
+            # Проверяем доступность
+            if product_to_ship.available_quantity < units_to_ship:
+                raise ValidationError(
+                    f"Недостаточно товара '{product_to_ship.name}'. "
+                    f"Доступно: {product_to_ship.available_quantity}, требуется: {units_to_ship}"
+                )
+            
+            # Списание с баланса
+            product_to_ship.total_quantity -= units_to_ship
+            product_to_ship.reserved_quantity -= units_to_ship
+            product_to_ship.save()
+        
+        self.status = 'shipped'
+        self.processed_by = user
+        self.shipped_at = timezone.now()
+        self.save()
     
     def __str__(self):
         return f"Отгрузка №{self.id} от {self.created_at.strftime('%Y-%m-%d')}"
@@ -194,6 +245,11 @@ class ShipmentItem(models.Model):
         if self.package:
             return self.quantity * self.package.quantity
         return 0
+    
+    @property
+    def total_price(self):
+        """Общая стоимость позиции (цена × количество)."""
+        return self.price * self.quantity
     
     @property
     def stock_product(self):

@@ -8,10 +8,11 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.http import JsonResponse
 from django.db import models
 from django.views.generic.edit import FormView
-from django.db.models import F
+from django.db.models import Sum, F
 from django.views.generic.edit import FormMixin
 from django.core.exceptions import ValidationError
 from django.db.models import Q
+from decimal import Decimal
 
 
 # ==============================================================================
@@ -225,6 +226,10 @@ class ShipmentListView(ListView):
     context_object_name = 'shipments'
     paginate_by = 20
     ordering = ['-created_at']
+    
+    def get_queryset(self):
+        # Аннотируем queryset для оптимизации
+        return Shipment.objects.prefetch_related('items').all()
 
 class ShipmentDetailView(DetailView):
     model = Shipment
@@ -233,8 +238,10 @@ class ShipmentDetailView(DetailView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Правильный способ доступа к связанным объектам через related_name
-        context['items'] = self.object.items.all()
+        shipment = self.object
+        context['items'] = shipment.items.all()
+        context['can_edit'] = shipment.can_be_edited()
+        context['can_ship'] = shipment.can_be_shipped()
         return context
 
 class ShipmentCreateView(CreateView):
@@ -278,13 +285,16 @@ def ship_shipment(request, pk):
     shipment = get_object_or_404(Shipment, pk=pk)
     try:
         if shipment.can_be_shipped():
-            shipment.ship()
+            shipment.ship(request.user)  # Передаем пользователя
             messages.success(request, 'Отгрузка успешно выполнена')
         else:
             messages.error(request, 'Невозможно отгрузить: нет товаров или уже отгружена')
-    except Exception as e:
+    except ValidationError as e:
         messages.error(request, f'Ошибка при отгрузке: {str(e)}')
-    return redirect('shipment_list')
+    except Exception as e:
+        messages.error(request, f'Неожиданная ошибка: {str(e)}')
+    
+    return redirect('shipment_detail', pk=pk)  # Возвращаем на детальную страницу
 
 # ==============================================================================
 # Shipment Items Management
@@ -295,18 +305,23 @@ class ShipmentItemsView(FormView):
     form_class = ShipmentItemForm
     
     def get_success_url(self):
-        # После добавления товара остаемся на этой же странице
         return reverse_lazy('shipment_items', kwargs={'pk': self.kwargs['pk']})
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         shipment = get_object_or_404(Shipment, pk=self.kwargs['pk'])
         context['shipment'] = shipment
-        context['items'] = shipment.items.all() # Используем 'items'
+        context['items'] = shipment.items.all().select_related('product', 'package', 'package__product')
+        context['can_edit'] = shipment.can_be_edited()
         return context
     
     def form_valid(self, form):
         shipment = get_object_or_404(Shipment, pk=self.kwargs['pk'])
+        
+        if not shipment.can_be_edited():
+            messages.error(self.request, 'Нельзя добавлять товары в отгруженную накладную')
+            return self.form_invalid(form)
+        
         identifier = form.cleaned_data['item_identifier']
         quantity = form.cleaned_data['quantity']
         
@@ -314,21 +329,25 @@ class ShipmentItemsView(FormView):
             item_type, item_id = identifier.split('-')
             item_id = int(item_id)
             
-            # Создаем новую позицию ShipmentItem вручную
             new_item = ShipmentItem(shipment=shipment, quantity=quantity)
+            
             if item_type == 'product':
-                new_item.product = get_object_or_404(Product, pk=item_id)
+                product = get_object_or_404(Product, pk=item_id)
+                new_item.product = product
+                new_item.price = product.price
             elif item_type == 'package':
-                new_item.package = get_object_or_404(Package, pk=item_id)
+                package = get_object_or_404(Package, pk=item_id)
+                new_item.package = package
+                new_item.price = package.price
             else:
                 raise ValidationError('Неверный тип товара.')
             
-            # Метод save() в модели ShipmentItem сам обработает резервирование
             new_item.save()
-            messages.success(self.request, f'Позиция "{new_item}" добавлена в отгрузку.')
-
+            messages.success(self.request, f'Позиция добавлена в отгрузку')
+            
         except (ValueError, ValidationError) as e:
             messages.error(self.request, f'Ошибка: {str(e)}')
+            return self.form_invalid(form)
         
         return super().form_valid(form)
 

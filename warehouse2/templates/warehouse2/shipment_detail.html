@@ -1,68 +1,75 @@
 {% extends "base.html" %}
-{% load main_tags %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-7">
-            <h2>Отгрузка №{{ shipment.id }}</h2>
-            <div class="card mb-4">
-                <div class="card-body">
-                    <table class="table table-sm">
-                        <tr><th>Пункт назначения:</th><td>{{ shipment.destination|default:"Не указан" }}</td></tr>
-                        <tr><th>Всего штук:</th><td>{{ shipment.grand_total_quantity }}</td></tr>
-                        <tr><th>Всего позиций:</th><td>{{ shipment.items.count }}</td></tr>
-                        <tr><th>Общая стоимость:</th><td>{{ shipment.grand_total_price }} грн.</td></tr>
-                    </table>
-                </div>
-            </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Отгрузка №{{ shipment.id }}</h2>
+    <span class="badge bg-{% if shipment.status == 'shipped' %}success
+    {% elif shipment.status == 'packaged' %}warning
+    {% else %}secondary{% endif %}">
+        {{ shipment.get_status_display }}
+    </span>
+</div>
 
-            <h4>Товары в отгрузке</h4>
-            {% if items %}
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>Наименование</th>
-                        <th>Цена за ед.</th>
-                        <th>Кол-во</th>
-                        <th>Сумма</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in items %}
-                    <tr>
-                        <td>
-                            {% if item.product %}{{ item.product }}{% else %}{{ item.package }}{% endif %}
-                        </td>
-                        <td>{{ item.price }} грн.</td>
-                        <td>{{ item.quantity }}</td>
-                        <td>{{ item.position_total_price }} грн.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p class="text-muted">Товары еще не добавлены в отгрузку.</p>
-            {% endif %}
-
-            <div class="mt-3">
-                {# Если статус "В процессе сборки", показываем кнопки управления #}
-                {% if shipment.status == 'pending' %}
-                    <a href="{% url 'shipment_items' shipment.pk %}" class="btn btn-primary">Управление товарами</a>
-                    
-                    <form action="{% url 'shipment_mark_packaged' shipment.pk %}" method="post" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-warning">Завершить сборку</button>
-                    </form>
-            
-                {# Если статус "Собрано", показываем кнопку "Отгрузить" #}
-                {% elif shipment.status == 'packaged' %}
-                    <a href="{% url 'shipment_ship' shipment.pk %}" class="btn btn-success">Выполнить отгрузку</a>
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Информация об отгрузке</div>
+            <div class="card-body">
+                <p><strong>Назначение:</strong> {{ shipment.destination }}</p>
+                <p><strong>Создана:</strong> {{ shipment.created_at|date:"d.m.Y H:i" }} пользователем {{ shipment.created_by }}</p>
+                {% if shipment.shipped_at %}
+                <p><strong>Отгружена:</strong> {{ shipment.shipped_at|date:"d.m.Y H:i" }} пользователем {{ shipment.processed_by }}</p>
                 {% endif %}
-            
-                <a href="{% url 'shipment_list' %}" class="btn btn-secondary">Назад к списку</a>
+                <p><strong>Общее количество товаров:</strong> {{ shipment.total_items_count }} шт.</p>
+                <p><strong>Количество позиций:</strong> {{ shipment.items.count }}</p>
+                <p><strong>Общая сумма:</strong> {{ shipment.grand_total_price|floatformat:2 }} UAH.</p>
             </div>
         </div>
     </div>
+</div>
+
+<h4>Товары в отгрузке</h4>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Товар</th>
+            <th>Количество</th>
+            <th>Цена за ед.</th>
+            <th>Сумма</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>
+                {% if item.product %}
+                    {{ item.product.name }} (штучный)
+                {% else %}
+                    {{ item.package.name }} (упаковка)
+                {% endif %}
+            </td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.price|floatformat:2 }} UAH.</td>
+            <td>{{ item.total_price|floatformat:2 }} UAH.</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" class="text-center">Товары не добавлены</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="mt-3">
+    <a href="{% url 'shipment_list' %}" class="btn btn-secondary">Назад к списку</a>
+    {% if can_edit %}
+    <a href="{% url 'shipment_edit' shipment.pk %}" class="btn btn-warning">Редактировать</a>
+    <a href="{% url 'shipment_items' shipment.pk %}" class="btn btn-primary">Добавить товары</a>
+    {% endif %}
+    {% if can_ship %}
+    <a href="{% url 'shipment_ship' shipment.pk %}" class="btn btn-success">Отгрузить</a>
+    {% endif %}
 </div>
 {% endblock %}
