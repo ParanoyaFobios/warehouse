@@ -68,8 +68,8 @@ class Product(models.Model):
     weight = models.DecimalField(max_digits=10, decimal_places=3, verbose_name="Вес (кг)", blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Изображение")
     # === Складской учет ===
-    total_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="На балансе")
-    reserved_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Зарезервировано")
+    total_quantity = models.IntegerField(default=0, verbose_name="На балансе")  # Изменено на PositiveIntegerField
+    reserved_quantity = models.IntegerField(default=0, verbose_name="Зарезервировано")
 
     @property
     def available_quantity(self):
@@ -86,7 +86,7 @@ class Package(models.Model):
     """
     Упаковка НЕ имеет своего остатка на складе, она ссылается на `Product`.
     """
-    name = models.CharField(max_length=255, verbose_name="Название упаковки (опционально)", help_text="Например, 'Коробка (10 шт.)'. Если пусто, будет сгенерировано автоматически.")
+    name = models.CharField(max_length=255, verbose_name="Название упаковки")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='packages', verbose_name="Базовый продукт")
     quantity = models.PositiveIntegerField(verbose_name="Количество товара в упаковке")
     barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод упаковки", default=generate_package_barcode, editable=False)

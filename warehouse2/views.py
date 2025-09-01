@@ -2,7 +2,7 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
-from .models import Product, WorkOrder, Shipment, ShipmentItem, Package
+from .models import Product, WorkOrder, Shipment, ShipmentItem, Package, ProductCategory
 from .forms import ProductForm, WorkOrderForm, ShipmentForm, ShipmentItemForm, PackageForm
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.http import JsonResponse
@@ -24,6 +24,27 @@ class ProductListView(ListView):
     context_object_name = 'products'
     paginate_by = 20
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Фильтр по категории
+        category = self.request.GET.get('category')
+        if category:
+            queryset = queryset.filter(category_id=category)
+        # Поиск по названию или артикулу
+        search = self.request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                models.Q(name__icontains=search) | 
+                models.Q(sku__icontains=search) |
+                models.Q(barcode__icontains=search))
+        
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['categories'] = ProductCategory.objects.all()
+        return context
+
 class ProductCreateView(CreateView):
     model = Product
     form_class = ProductForm
@@ -39,6 +60,11 @@ class ProductUpdateView(UpdateView):
     form_class = ProductForm
     template_name = 'warehouse2/product_form.html'
     success_url = reverse_lazy('product_list')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user  # Передаем пользователя в форму
+        return kwargs
 
     def form_valid(self, form):
         messages.success(self.request, 'Продукт успешно обновлен')

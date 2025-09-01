@@ -37,9 +37,9 @@
     <thead>
         <tr>
             <th>Название</th>
-            <th>Цвет</th>
             <th>Артикул</th>
             <th>Категория</th>
+            <th>Цвет</th>
             <th>Количество</th>
             <th>Штрихкод</th>
             <th>Действия</th>
@@ -51,11 +51,11 @@
             <td>
                 <a href="{% url 'material_detail' material.pk %}">{{ material.name }}</a>
             </td>
-            <td>{{ material.color }}</td>
             <td>{{ material.article }}</td>
             <td>{{ material.category.name }}</td>
+            <td>{{ material.color }}</td>
             <td>{{ material.quantity }} {{ material.unit.short_name }}</td>
-            <td>{{ material.barcode }}<a href="{% url 'material_barcode' material.pk %}">Code</a></td>
+            <td><a href="{% url 'material_barcode' material.pk %}">{{ material.barcode }}</a></td>
             <td>
                 <a href="{% url 'incoming_with_material' material.pk %}" 
                 class="btn btn-success" 

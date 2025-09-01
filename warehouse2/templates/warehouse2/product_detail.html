@@ -1,15 +1,22 @@
 {% extends "base.html" %}
 {% load main_tags %}
-
+{% load static %}
 {% block content %}
 <div class="container mt-4">
     <div class="row mb-4">
         <div class="col-md-6">
             <h2>{{ product.name }}</h2>
+            {% if product.image %}
+            <img src="{{ product.image.url }}" class="img-fluid mb-3" alt="{{ product.name }}">
+            {% endif %}
             <table class="table table-sm table-striped">
                 <tbody>
                     <tr><th>Артикул:</th><td>{{ product.sku }}</td></tr>
                     <tr><th>Категория:</th><td>{{ product.category }}</td></tr>
+                    <tr><th>Размер:</th><td>{{ product.size }}</td></tr>
+                    <tr><th>Цвет</th><td>{{ product.color }}</td></tr>
+                    <tr><th>Вес</th><td>{{ product.weight }}</td></tr>
+                    <tr><th>Цена</th><td>{{ product.price }}</td></tr>
                     <tr><th>На складе:</th><td>{{ product.total_quantity }}</td></tr>
                     <tr><th>Зарезервировано:</th><td>{{ product.reserved_quantity }}</td></tr>
                     <tr class="table-info"><th>Доступно:</th><td class="fw-bold">{{ product.available_quantity }}</td></tr>
@@ -56,9 +63,9 @@
                     <tbody>
                         {% for package in packages %}
                         <tr>
-                            <td>{{ package }}</td>
+                            <td>{{ package }}</a></td>
                             <td>{{ package.quantity }} шт.</td>
-                            <td class="font-monospace">{{ package.barcode }}</td>
+                            <td class="font-monospace"><a href="{% url 'generate_barcode' content_type_id=package|get_content_type_id object_id=package.pk %}" alt="Штрихкод" class="img-fluid mb-2">{{ package.barcode }}</a></td>
                             <td>
                                 <a href="{% url 'package_edit' package.pk %}" class="btn btn-sm btn-outline-primary">✏️</a>
                                 <a href="{% url 'package_delete' package.pk %}" class="btn btn-sm btn-outline-danger">🗑️</a>
