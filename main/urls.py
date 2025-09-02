@@ -9,4 +9,5 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('', IndexView.as_view(), name='start-page'),
     path('barcode/<int:content_type_id>/<int:object_id>/', views.generate_barcode_view, name='generate_barcode'),
+    path('search/', views.global_search_view, name='global_search'),
 ]

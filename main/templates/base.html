@@ -17,18 +17,24 @@
                 <li><a href="{% url 'outgoing_operation' %}" class="btn btn-primary">Выдача</a></li>
                 <li><a href="{% url 'material_list' %}" class="btn btn-primary">Каталог</a></li>
                 <li><a href="{% url 'admin:warehouse1_materialoperation_changelist' %}" class="btn btn-primary">Движение материалов</a></li>
-                <li><a href="{% url 'logout' %}" class="btn btn-primary">Выход</a></li>
-                {% else %}
-                <li><a href="{% url 'login' %}">Логин</a></li>
                 {% endif %}
             </ul>
         </nav>
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
             <div class="container">
-                <a class="navbar-brand" href="#">Склад готовой продукции</a>
+                <div class="container-fluid">
+                    <form class="d-flex align-items-center" action="{% url 'global_search' %}" method="get" id="filter-form">
+                        {{ global_search_form.q }}
+                        <button class="btn btn-outline-secondary ms-2" type="button" 
+                                title="Сканировать штрихкод" id="global-scan-btn" style="min-width: 50px;">
+                            📸
+                        </button>
+                        <button class="btn btn-success ms-2" type="submit">Поиск</button>
+                    </form>
+                    <video id="video-stream" style="display: none; width: 100%; max-width: 400px; margin-bottom: 1rem;"></video>
+                </div>
                 <div class="navbar-nav">
                     <a class="nav-link" href="{% url 'product_list' %}">Продукция</a>
-                    <a class="nav-link" href="{% url 'product_create' %}">Создать продукт</a>
                     <a class="nav-link" href="{% url 'workorder_list' %}">Производство</a>
                     <a class="nav-link" href="{% url 'shipment_list' %}">Отгрузки</a>
                 </div>
@@ -44,4 +50,183 @@
     {% block content %}
     {% endblock %}
 </body>
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("Global scanner script initialized");
+        
+        const globalScanButton = document.getElementById('global-scan-btn');
+        const globalSearchInput = document.querySelector('#filter-form input[name="q"]');
+        const videoElement = document.getElementById('video-stream');
+        const filterForm = document.getElementById('filter-form');
+        
+        if (!globalScanButton || !globalSearchInput || !videoElement || !filterForm) {
+            console.error("Required elements for global scanner not found");
+            return;
+        }
+        
+        // Проверка наличия библиотеки ZXing
+        if (typeof ZXing === 'undefined') {
+            console.error("ZXing library not loaded");
+            globalScanButton.disabled = true;
+            globalScanButton.title = "Библиотека сканера не загружена";
+            return;
+        }
+        
+        const codeReader = new ZXing.BrowserMultiFormatReader();
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        if (isIOS || isSafari) {
+            console.log("iOS/Safari detected - applying optimizations");
+        }
+        
+        let isScanning = false;
+        
+        // Создаем элемент для статуса сканирования
+        const statusElement = document.createElement('div');
+        statusElement.className = 'small text-muted mt-2';
+        statusElement.style.display = 'none';
+        statusElement.id = 'scanner-status';
+        statusElement.style.textAlign = 'center';
+        filterForm.appendChild(statusElement);
+        
+        globalScanButton.addEventListener('click', async function() {
+            if (isScanning) {
+                // Остановка сканирования
+                stopScanner();
+                return;
+            }
+            
+            try {
+                // Начало сканирования
+                console.log("Starting global barcode scanner...");
+                globalScanButton.innerHTML = '⏹';
+                globalScanButton.classList.add('btn-danger');
+                globalScanButton.classList.remove('btn-outline-secondary');
+                
+                statusElement.textContent = 'Сканирование... Наведите камеру на штрихкод';
+                statusElement.style.display = 'block';
+                videoElement.style.display = 'block';
+                isScanning = true;
+                
+                // Оптимизации для мобильных устройств
+                if (isMobile) {
+                    videoElement.style.width = '100%';
+                    videoElement.style.maxWidth = '100%';
+                    videoElement.style.objectFit = 'cover';
+                    
+                    // Добавляем подсказку для пользователя
+                    if (!document.getElementById('mobile-hint')) {
+                        const hint = document.createElement('div');
+                        hint.id = 'mobile-hint';
+                        hint.innerHTML = '<p class="text-center small mt-2">Держите устройство на расстоянии 15-30 см от штрихкода</p>';
+                        videoElement.parentNode.insertBefore(hint, videoElement.nextSibling);
+                    }
+                }
+                
+                // Настройки для распознавания штрихкодов
+                const hints = new Map();
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                    ZXing.BarcodeFormat.EAN_13,
+                    ZXing.BarcodeFormat.CODE_128,
+                    ZXing.BarcodeFormat.UPC_A,
+                    ZXing.BarcodeFormat.QR_CODE
+                ]);
+
+                // Оптимизации для iOS
+                if (isIOS || isSafari) {
+                    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                    hints.set(ZXing.DecodeHintType.PURE_BARCODE, true);
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                if (isIOS || isSafari) {
+                    constraints.video.focusMode = "continuous";
+                    constraints.video.advanced = [{ focusMode: "continuous" }];
+                }
+                
+                // Запуск сканера
+                await codeReader.decodeFromVideoDevice(
+                    null, 
+                    videoElement, 
+                    (result, error) => {
+                        if (result) {
+                            console.log("Scanned barcode:", result.text);
+                            globalSearchInput.value = result.text;
+                            stopScanner();
+                            
+                            // Небольшая задержка перед отправкой формы
+                            setTimeout(() => {
+                                filterForm.submit();
+                            }, 300);
+                        }
+                        if (error && !(error instanceof ZXing.NotFoundException)) {
+                            console.error("Scan error:", error);
+                            statusElement.textContent = 'Ошибка сканирования: ' + error.message;
+                        }
+                    },
+                    hints,
+                    constraints
+                );
+                
+            } catch (error) {
+                console.error("Scanner initialization error:", error);
+                statusElement.textContent = 'Ошибка: ' + error.message;
+                stopScanner();
+            }
+        });
+        
+        // Функция для остановки сканера
+        function stopScanner() {
+            if (isScanning) {
+                codeReader.reset();
+                videoElement.style.display = 'none';
+                globalScanButton.innerHTML = '📸';
+                globalScanButton.classList.remove('btn-danger');
+                globalScanButton.classList.add('btn-outline-secondary');
+                statusElement.style.display = 'none';
+                isScanning = false;
+                
+                // Удаляем подсказку для мобильных
+                const mobileHint = document.getElementById('mobile-hint');
+                if (mobileHint) {
+                    mobileHint.remove();
+                }
+                
+                console.log("Global scanner stopped");
+            }
+        }
+        
+        // Автоматически останавливаем сканер при закрытии/обновлении страницы
+        window.addEventListener('beforeunload', stopScanner);
+        
+        // Останавливаем сканер при отправке формы
+        filterForm.addEventListener('submit', function() {
+            if (isScanning) {
+                stopScanner();
+            }
+        });
+        
+        // Проверка поддержки API камеры
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            globalScanButton.disabled = true;
+            globalScanButton.title = "Ваш браузер не поддерживает доступ к камере";
+            statusElement.textContent = 'Доступ к камере не поддерживается в вашем браузере';
+            statusElement.style.display = 'block';
+        }
+        
+        // Добавляем стили для видео
+        videoElement.style.borderRadius = '8px';
+        videoElement.style.marginBottom = '1rem';
+        videoElement.style.display = 'none';
+    });
+</script>
 </html>

@@ -29,3 +29,17 @@ class LoginForm(AuthenticationForm):
         'invalid_login': "Введите правильное имя пользователя и пароль.",
         'inactive': "Этот аккаунт не активен.",
     }
+
+#==============================================
+# Форма для глобального поиска
+#==============================================
+
+class GlobalSearchForm(forms.Form):
+    q = forms.CharField(
+        label='',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control me-2',
+            'placeholder': 'Поиск по названию, артикулу, штрихкоду...',
+            'aria-label': 'Search'
+        })
+    )

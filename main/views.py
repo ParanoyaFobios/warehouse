@@ -11,6 +11,12 @@ from django.views.generic import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from warehouse2.models import Shipment, WorkOrder
 from django.contrib import messages
+from django.db.models import Q
+from warehouse1.models import Material
+from warehouse2.models import Product
+from django.urls import reverse
+from urllib.parse import urlencode
+
 
 # ==============================================================================
 # Представления для аутентификации
@@ -104,3 +110,66 @@ def generate_barcode_view(request, content_type_id, object_id):
     code.write(buffer)
     
     return HttpResponse(buffer.getvalue(), content_type='image/png')
+
+# ==============================================================================
+# Глобальный поиск по названию, артикулу, штрихкоду
+# ==============================================================================
+
+def global_search_view(request):
+    query = request.GET.get('q', '').strip()
+
+    if not query:
+        # Если запрос пустой, просто возвращаемся назад
+        return redirect(request.META.get('HTTP_REFERER', '/'))
+
+    # --- Создаем поисковые запросы для каждой модели ---
+    material_query = (
+        Q(name__icontains=query) |
+        Q(article__icontains=query) |
+        Q(barcode__icontains=query)
+    )
+    product_query = (
+        Q(name__icontains=query) |
+        Q(sku__icontains=query) |
+        Q(barcode__icontains=query)
+    )
+
+    # --- Проверяем наличие результатов в каждой таблице ---
+    materials_exist = Material.objects.filter(material_query).exists()
+    products_exist = Product.objects.filter(product_query).exists()
+
+    # --- Применяем логику перенаправления ---
+
+    # Случай 1: Найдены только материалы
+    if materials_exist and not products_exist:
+        base_url = reverse('material_list')
+        query_params = urlencode({'search': query})
+        url = f'{base_url}?{query_params}'
+        messages.info(request, f'Показаны результаты поиска по материалам для "{query}"')
+        return redirect(url)
+
+    # Случай 2: Найдена только готовая продукция
+    elif products_exist and not materials_exist:
+        base_url = reverse('product_list')
+        query_params = urlencode({'search': query})
+        url = f'{base_url}?{query_params}'
+        messages.info(request, f'Показаны результаты поиска по готовой продукции для "{query}"')
+        return redirect(url)
+
+    # Случай 3: Найдены оба типа (неоднозначный поиск)
+    elif materials_exist and products_exist:
+        # В этом случае показываем общую страницу, как и раньше
+        materials_found = Material.objects.filter(material_query)
+        products_found = Product.objects.filter(product_query)
+        context = {
+            'query': query,
+            'materials': materials_found,
+            'products': products_found,
+        }
+        messages.warning(request, f'Найдены результаты на обоих складах для "{query}"')
+        return render(request, 'search_results.html', context)
+
+    # Случай 4: Ничего не найдено
+    else:
+        messages.error(request, f'По запросу "{query}" ничего не найдено.')
+        return redirect(request.META.get('HTTP_REFERER', '/'))

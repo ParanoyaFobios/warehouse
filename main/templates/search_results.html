@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container mt-4">
+    {% if query %}
+        <h2>Результаты поиска по запросу: "{{ query }}"</h2>
+        <hr>
+
+        {% if not materials and not products %}
+            <div class="alert alert-warning" role="alert">
+                Ничего не найдено. Попробуйте другой поисковый запрос.
+            </div>
+        {% endif %}
+
+        {% if materials %}
+            <h3>Материалы (Склад 1)</h3>
+            <div class="list-group">
+                {% for item in materials %}
+                    <a href="{% url 'material_detail' item.pk %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">{{ item.name }}</h5>
+                            <small>Кол-во: {{ item.quantity }} {{ item.unit }}</small>
+                        </div>
+                        <p class="mb-1">Артикул: <strong>{{ item.article }}</strong> | Штрихкод: <span class="font-monospace">{{ item.barcode }}</span></p>
+                    </a>
+                {% endfor %}
+            </div>
+            <br>
+        {% endif %}
+
+        {% if products %}
+            <h3>Готовая продукция (Склад 2)</h3>
+            <div class="list-group">
+                {% for item in products %}
+                     <a href="{% url 'product_detail' item.pk %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">{{ item.name }}</h5>
+                            <small class="text-success fw-bold">Доступно: {{ item.available_quantity }} шт.</small>
+                        </div>
+                        <p class="mb-1">Артикул: <strong>{{ item.sku }}</strong> | Штрихкод: <span class="font-monospace">{{ item.barcode }}</span></p>
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+    {% else %}
+        <h2>Пожалуйста, введите поисковый запрос</h2>
+    {% endif %}
+</div>
+{% endblock %}
