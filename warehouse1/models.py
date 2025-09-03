@@ -56,31 +56,19 @@ class Material(models.Model):
     image = models.ImageField(upload_to='material/', blank=True, null=True, verbose_name="Изображение")
     description = models.TextField(blank=True, verbose_name="Описание")
 
-    def add_quantity(self, quantity, user, comment=''):
+    def add_quantity(self, quantity):
         """Увеличение количества материала (прием)"""
         self.quantity += quantity
         self.save()
-        MaterialOperation.objects.create(
-            material=self,
-            operation_type='incoming',
-            quantity=quantity,
-            user=user,
-            comment=comment
-        )
+
     
-    def subtract_quantity(self, quantity, user, comment=''):
+    def subtract_quantity(self, quantity):
         """Уменьшение количества материала (выдача/списание)"""
         if self.quantity < quantity:
             raise ValueError("Недостаточно материала на складе")
         self.quantity -= quantity
         self.save()
-        MaterialOperation.objects.create(
-            material=self,
-            operation_type='outgoing',
-            quantity=quantity,
-            user=user,
-            comment=comment
-        )
+
     
     
     def __str__(self):

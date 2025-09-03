@@ -16,14 +16,14 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-6">
+        <!-- <div class="col-md-6">
             <div class="input-group">
                 <input type="text" name="search" class="form-control" 
                        placeholder="Поиск по названию, артикулу или штрихкоду" 
                        value="{{ request.GET.search }}"
                        id="id_search_input">  <button type="button" class="btn btn-outline-secondary" id="scan-btn">📸 Сканировать</button>
             </div>
-            </div>
+            </div> -->
         <div class="col-md-2">
             <button type="submit" class="btn btn-primary">Фильтровать</button>
             <a href="?" class="btn btn-secondary">Сбросить</a>
@@ -98,146 +98,4 @@
     </ul>
 </nav>
 {% endif %}
-<script type="text/javascript">
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log("Scanner script for catalog initialized");
-        
-        const scanButton = document.getElementById('scan-btn');
-        const searchInput = document.getElementById('id_search_input');
-        const videoElement = document.getElementById('video-stream');
-        const filterForm = document.getElementById('filter-form');
-        
-        if (!scanButton || !searchInput || !videoElement || !filterForm) {
-            console.error("Required elements for scanner not found");
-            return;
-        }
-        
-        // Проверка наличия библиотеки ZXing
-        if (typeof ZXing === 'undefined') {
-            console.error("ZXing library not loaded");
-            scanButton.disabled = true;
-            scanButton.title = "Библиотека сканера не загружена";
-            return;
-        }
-        
-        const codeReader = new ZXing.BrowserMultiFormatReader();
-        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-        if (isIOS || isSafari) {
-            console.log("iOS/Safari detected - applying optimizations");
-        }
-        let isScanning = false;
-        
-        // Создаем элемент для статуса сканирования
-        const statusElement = document.createElement('div');
-        statusElement.className = 'small text-muted mt-2';
-        statusElement.style.display = 'none';
-        statusElement.id = 'scanner-status';
-        scanButton.parentNode.insertBefore(statusElement, scanButton.nextSibling);
-        
-        scanButton.addEventListener('click', async function() {
-            if (isScanning) {
-                // Остановка сканирования
-                stopScanner();
-                return;
-            }
-            
-            try {
-                // Начало сканирования
-                console.log("Starting barcode scanner...");
-                scanButton.innerHTML = '⏹ Остановить';
-                statusElement.textContent = 'Сканирование... Наведите камеру на штрихкод';
-                statusElement.style.display = 'block';
-                videoElement.style.display = 'block';
-                isScanning = true;
-                
-                // Настройки для распознавания штрихкодов
-                const hints = new Map();
-                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-                    ZXing.BarcodeFormat.EAN_13,
-                    ZXing.BarcodeFormat.CODE_128,
-                    ZXing.BarcodeFormat.UPC_A
-                ]);
-
-                // Оптимизации для iOS
-                if (isIOS || isSafari) {
-                    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-                    hints.set(ZXing.DecodeHintType.PURE_BARCODE, true);
-                }
-
-                const constraints = {
-                    video: {
-                        facingMode: "environment",
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                };
-
-                if (isIOS || isSafari) {
-                    constraints.video.focusMode = "continuous";
-                    constraints.video.advanced = [{ focusMode: "continuous" }];
-                }
-                // Запуск сканера
-                await codeReader.decodeFromVideoDevice(
-                    null, 
-                    videoElement, 
-                    (result, error) => {
-                        if (result) {
-                            console.log("Scanned barcode:", result.text);
-                            searchInput.value = result.text;
-                            stopScanner();
-                            filterForm.submit();
-                        }
-                        if (error && !(error instanceof ZXing.NotFoundException)) {
-                            console.error("Scan error:", error);
-                            statusElement.textContent = 'Ошибка сканирования: ' + error.message;
-                        }
-                    },
-                    hints,
-                    constraints
-                );
-                
-            } catch (error) {
-                console.error("Scanner initialization error:", error);
-                statusElement.textContent = 'Ошибка: ' + error.message;
-                stopScanner();
-            }
-        });
-        
-        // Функция для остановки сканера
-        function stopScanner() {
-            if (isScanning) {
-                codeReader.reset();
-                videoElement.style.display = 'none';
-                scanButton.innerHTML = '📸 Сканировать';
-                statusElement.style.display = 'none';
-                isScanning = false;
-                console.log("Scanner stopped");
-            }
-        }
-        
-        // Автоматически останавливаем сканер при закрытии/обновлении страницы
-        window.addEventListener('beforeunload', stopScanner);
-        
-        // Проверка поддержки API камеры
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            scanButton.disabled = true;
-            scanButton.title = "Ваш браузер не поддерживает доступ к камере";
-            statusElement.textContent = 'Доступ к камере не поддерживается в вашем браузере';
-            statusElement.style.display = 'block';
-        }
-    });
-    if (isMobile) {
-    // Увеличиваем область сканирования
-    videoElement.style.width = '100%';
-    videoElement.style.maxWidth = '100%';
-    videoElement.style.objectFit = 'cover';
-    
-    // Добавляем подсказку для пользователя
-    const hint = document.createElement('div');
-    hint.innerHTML = '<p class="text-center small mt-2">Держите устройство на расстоянии 15-30 см от штрихкода</p>';
-    videoElement.parentNode.insertBefore(hint, videoElement.nextSibling);
-}
-    </script>
 {% endblock %}

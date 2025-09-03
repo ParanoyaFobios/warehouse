@@ -1,4 +1,3 @@
-# warehouse2/models.py
 
 from django.db import models
 from django.db.models import F, Sum
@@ -7,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 import uuid
 from decimal import Decimal
+from django.db.models import Sum
 
 # ==============================================================================
 # Генераторы штрихкодов
@@ -95,6 +95,7 @@ class Package(models.Model):
     def price(self):
         """Цена упаковки рассчитывается динамически."""
         return self.product.price * self.quantity
+    
 
     @property
     def available_packages(self):
@@ -102,6 +103,18 @@ class Package(models.Model):
         if self.quantity > 0:
             return self.product.available_quantity // self.quantity
         return 0
+
+    @property
+    def total_units_available(self):
+        """Общее количество штук товара, доступное в упаковках."""
+        if self.product.available_quantity >= self.quantity:
+            return self.product.available_quantity // self.quantity
+        return 0
+    
+    @property
+    def total_units(self):
+        """Общее количество штук товара в упаковках."""
+        return self.product.total_quantity // self.quantity
 
     def __str__(self):
         if self.name:
@@ -233,20 +246,20 @@ class Shipment(models.Model):
             raise ValidationError("Эта отгрузка уже отгружена.")
         
         for item in self.items.all():
-            product_to_ship = item.stock_product
-            units_to_ship = item.base_product_units
+            base_product = item.stock_product  # Базовый продукт (для упаковок - product внутри package)
+            units_to_ship = item.base_product_units  # Общее количество в штуках
             
             # Проверяем доступность
-            if product_to_ship.available_quantity < units_to_ship:
+            if base_product.available_quantity < units_to_ship:
                 raise ValidationError(
-                    f"Недостаточно товара '{product_to_ship.name}'. "
-                    f"Доступно: {product_to_ship.available_quantity}, требуется: {units_to_ship}"
+                    f"Недостаточно товара '{base_product.name}'. "
+                    f"Доступно: {base_product.available_quantity}, требуется: {units_to_ship}"
                 )
             
-            # Списание с баланса
-            product_to_ship.total_quantity -= units_to_ship
-            product_to_ship.reserved_quantity -= units_to_ship
-            product_to_ship.save()
+            # Списание с баланса БАЗОВОГО продукта
+            base_product.total_quantity -= units_to_ship
+            base_product.reserved_quantity -= units_to_ship
+            base_product.save()
         
         self.status = 'shipped'
         self.processed_by = user
@@ -292,6 +305,20 @@ class ShipmentItem(models.Model):
         return self.price * self.quantity
     
     @property
+    def price_per_unit(self):
+        """Цена за одну штуку товара (универсальное свойство)."""
+        
+        if self.product:
+            # Для штучного товара: общая цена / количество
+            return self.price
+        
+        elif self.package:
+            # Для упаковки: общая цена / (количество упаковок × товаров в упаковке)
+            total_units = self.quantity * self.package.quantity
+            return self.price / total_units
+        
+        return Decimal('0.00')
+    @property
     def stock_product(self):
         """Возвращает товар, у которого нужно проверять остатки на складе."""
         return self.product or self.package.product
@@ -300,35 +327,36 @@ class ShipmentItem(models.Model):
         self.clean()
         is_new = self.pk is None
         
-        # Фиксируем цену при первом сохранении
         if is_new:
+            # Фиксируем цену при первом сохранении
             self.price = self.product.price if self.product else self.package.price
             old_units = 0
         else:
+            # Получаем старую версию для расчета разницы
             old_item = ShipmentItem.objects.get(pk=self.pk)
             old_units = old_item.base_product_units
         
         new_units = self.base_product_units
         difference = new_units - old_units
         
-        # Обновляем резерв
-        product_to_reserve = self.stock_product
+        # Обновляем резерв у БАЗОВОГО продукта (не у упаковки!)
+        base_product = self.stock_product
         if difference > 0:
-            if product_to_reserve.available_quantity < difference:
-                raise ValidationError(f"Недостаточно товара '{product_to_reserve.name}'. Доступно: {product_to_reserve.available_quantity}")
-            product_to_reserve.reserved_quantity += difference
+            if base_product.available_quantity < difference:
+                raise ValidationError(f"Недостаточно товара '{base_product.name}'. Доступно: {base_product.available_quantity}")
+            base_product.reserved_quantity += difference
         elif difference < 0:
-            product_to_reserve.reserved_quantity -= abs(difference)
+            base_product.reserved_quantity -= abs(difference)
             
-        product_to_reserve.save()
+        base_product.save()
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        # Снимаем с резерва
+        # Снимаем с резерва у БАЗОВОГО продукта
         units_to_release = self.base_product_units
-        product_to_release = self.stock_product
-        product_to_release.reserved_quantity -= units_to_release
-        product_to_release.save()
+        base_product = self.stock_product
+        base_product.reserved_quantity -= units_to_release
+        base_product.save()
         super().delete(*args, **kwargs)
 
     class Meta:

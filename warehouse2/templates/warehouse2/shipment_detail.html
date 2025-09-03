@@ -48,15 +48,17 @@
                 <a href="{% url 'product_detail' item.product.pk %}">
                     {{ item.product.name }}
                 </a>
+                <td>{{ item.quantity }}</td>
                 {% else %}
-                {{ item.package.name }}
+                {{ item.package.name }}({{ item.package.quantity }})
                 <a href="{% url 'product_detail' item.package.product.pk %}">
                 {{ item.package.product.name }}
                 </a>
+                <td>{{ item.base_product_units }}</td>
                 {% endif %}
             </td>
-            <td>{{ item.quantity }}</td>
-            <td>{{ item.price|floatformat:2 }} UAH.</td>
+            
+            <td>{{ item.price_per_unit|floatformat:2 }} UAH.</td>
             <td>{{ item.total_price|floatformat:2 }} UAH.</td>
         </tr>
         {% empty %}
@@ -64,6 +66,13 @@
             <td colspan="5" class="text-center">Товары не добавлены</td>
         </tr>
         {% endfor %}
+        <tfoot>
+            <tr class="table-primary">
+                <td colspan="3" class="text-end"><strong>Итого:</strong></td>
+                <td><strong>{{ shipment.grand_total_price|floatformat:2 }} UAH.</strong></td>
+                <td></td>
+            </tr>
+        </tfoot>
     </tbody>
 </table>
 

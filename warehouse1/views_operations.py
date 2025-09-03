@@ -82,24 +82,30 @@ class MaterialOperationView(LoginRequiredMixin, TemplateView):
             
             try:
                 op_name_past = ''
+                operation_data = {
+                    'material': material,
+                    'quantity': quantity,
+                    'user': request.user,
+                    'comment': comment
+                }
+
                 if self.operation_type == 'incoming':
-                    material.add_quantity(quantity, request.user, comment)
+                    material.add_quantity(quantity) # Просто меняем количество
+                    operation_data['operation_type'] = 'incoming'
                     op_name_past = 'принято'
+                
                 elif self.operation_type == 'outgoing':
-                    material.subtract_quantity(quantity, request.user, comment)
-                    # Создаем операцию с категорией выдачи
-                    MaterialOperation.objects.create(
-                        material=material,
-                        operation_type='outgoing',
-                        outgoing_category=outgoing_category,
-                        quantity=quantity,
-                        user=request.user,
-                        comment=comment
-                    )
+                    material.subtract_quantity(quantity) # Просто меняем количество
+                    operation_data['operation_type'] = 'outgoing'
+                    operation_data['outgoing_category'] = outgoing_category
                     op_name_past = 'выдано'
                 
+                # Создаем ОДНУ запись в логе со всеми данными
+                MaterialOperation.objects.create(**operation_data)
+                
                 messages.success(request, 
-                    f"Успешно {op_name_past} {material.name}: {quantity} {material.unit.short_name} {outgoing_category.name if outgoing_category else ' '}"
+                    f"Успешно {op_name_past} {material.name}: {quantity} {material.unit.short_name} "
+                    f"{outgoing_category.name if outgoing_category else ''}"
                 )
             
             except ValueError as e:

@@ -8,11 +8,11 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.http import JsonResponse
 from django.db import models
 from django.views.generic.edit import FormView
-from django.db.models import Sum, F
+from django.db.models import F
 from django.views.generic.edit import FormMixin
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-from decimal import Decimal
+
 
 
 # ==============================================================================
@@ -23,7 +23,7 @@ class ProductListView(ListView):
     model = Product
     template_name = 'warehouse2/product_list.html'
     context_object_name = 'products'
-    paginate_by = 5 #поменять
+    paginate_by = 20 #поменять
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -144,7 +144,7 @@ class WorkOrderListView(ListView):
     model = WorkOrder
     template_name = 'warehouse2/workorder_list.html'
     context_object_name = 'workorders'
-    paginate_by = 5 #поменять
+    paginate_by = 20 #поменять
     ordering = ['-created_at']
 
 class WorkOrderDetailView(DetailView):
@@ -224,7 +224,7 @@ class ShipmentListView(ListView):
     model = Shipment
     template_name = 'warehouse2/shipment_list.html'
     context_object_name = 'shipments'
-    paginate_by = 5 #поменять
+    paginate_by = 20 #поменять
     ordering = ['-created_at']
     
     def get_queryset(self):
@@ -239,7 +239,11 @@ class ShipmentDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         shipment = self.object
-        context['items'] = shipment.items.all()
+        context['items'] = self.object.items.all().select_related(
+            'product',  # Загружаем связанный продукт
+            'package',  # Загружаем связанную упаковку
+            'package__product'  # Загружаем продукт внутри упаковки
+            )
         context['can_edit'] = shipment.can_be_edited()
         context['can_ship'] = shipment.can_be_shipped()
         context['can_pack'] = shipment.can_be_packed()
@@ -319,22 +323,51 @@ class ShipmentItemsView(FormView):
             item_type, item_id = identifier.split('-')
             item_id = int(item_id)
             
-            new_item = ShipmentItem(shipment=shipment, quantity=quantity)
-            
+            # Ищем существующую позицию с таким же товаром/упаковкой
+            existing_item = None
             if item_type == 'product':
-                product = get_object_or_404(Product, pk=item_id)
-                new_item.product = product
-                new_item.price = product.price
+                existing_item = ShipmentItem.objects.filter(
+                    shipment=shipment,
+                    product_id=item_id,
+                    package__isnull=True  # Убедимся, что это именно товар, а не упаковка
+                ).first()
             elif item_type == 'package':
-                package = get_object_or_404(Package, pk=item_id)
-                new_item.package = package
-                new_item.price = package.price
+                existing_item = ShipmentItem.objects.filter(
+                    shipment=shipment,
+                    package_id=item_id,
+                    product__isnull=True  # Убедимся, что это именно упаковка, а не товар
+                ).first()
+            
+            if existing_item:
+                # Обновляем существующую позицию
+                old_quantity = existing_item.quantity
+                existing_item.quantity += quantity
+                
+                # Сохраняем - метод save() в модели сам обработает резервирование
+                existing_item.save()
+                
+                messages.success(
+                    self.request, 
+                    f'Количество позиции увеличено: {old_quantity} → {existing_item.quantity}'
+                )
             else:
-                raise ValidationError('Неверный тип товара.')
-            
-            new_item.save()
-            messages.success(self.request, f'Позиция добавлена в отгрузку')
-            
+                # Создаем новую позицию
+                new_item = ShipmentItem(shipment=shipment, quantity=quantity)
+                
+                if item_type == 'product':
+                    product = get_object_or_404(Product, pk=item_id)
+                    new_item.product = product
+                    new_item.price = product.price
+                elif item_type == 'package':
+                    package = get_object_or_404(Package, pk=item_id)
+                    new_item.package = package
+                    new_item.price = package.price
+                else:
+                    raise ValidationError('Неверный тип товара.')
+                
+                new_item.save()
+                messages.success(self.request, f'Новая позиция добавлена в отгрузку')
+
         except (ValueError, ValidationError) as e:
             messages.error(self.request, f'Ошибка: {str(e)}')
             return self.form_invalid(form)

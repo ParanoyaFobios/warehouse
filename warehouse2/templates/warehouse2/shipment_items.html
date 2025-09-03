@@ -12,6 +12,7 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header"><h4>Добавить позицию</h4></div>
+
                 <div class="card-body">
                     <form method="post">
                         {% csrf_token %}
@@ -19,13 +20,23 @@
                         
                         <div class="mb-3">
                             <label class="form-label">Поиск по товарам и упаковкам</label>
-                            <input type="text" id="stock-search-input" class="form-control" placeholder="Начните вводить название...">
+                            <div class="input-group">
+                                <input type="text" id="stock-search-input" class="form-control" placeholder="Начните вводить название или сканируйте штрихкод...">
+                                <button class="btn btn-outline-secondary" type="button" 
+                                        title="Сканировать штрихкод" id="local-scan-btn" style="min-width: 50px;">
+                                    📸
+                                </button>
+                            </div>
                             <div id="search-results" class="list-group mt-1" style="position: absolute; z-index: 1000; width: 95%; max-height: 300px; overflow-y: auto;"></div>
                         </div>
 
-                        <div id="selected-item-info" class="alert alert-info" style="display: none;">
-                            <strong id="selected-item-name"></strong>
-                            <p id="selected-item-details" class="mb-0 small"></p>
+                        <!-- Добавим видео элемент для локального сканера -->
+                        <div id="local-scanner-container" style="display: none;">
+                            <video id="local-video-stream" style="width: 100%; max-width: 400px; border-radius: 8px; margin-bottom: 1rem;"></video>
+                            <div id="local-scanner-status" class="small text-muted text-center mt-2"></div>
+                            <button type="button" class="btn btn-danger btn-sm w-100" onclick="stopLocalScanner()">
+                                ⏹ Остановить сканирование
+                            </button>
                         </div>
                         
                         <div class="mb-3">
@@ -66,13 +77,16 @@
                                         {% if item.product %}
                                             <strong>{{ item.product.name }}</strong>
                                             <br><small class="text-muted">Штучный товар</small>
+                                            <td>{{ item.quantity }}</td>
+                                            <td>{{ item.price_per_unit|floatformat:2 }} грн.</td>
                                         {% else %}
-                                            <strong>{{ item.package.name }}</strong>
-                                            <br><small class="text-muted">Упаковка ({{ item.package.quantity }} шт.)</small>
+                                            <strong>{{ item.package.name }}-{{ item.package.product.name }}</strong>
+                                            <br><small class="text-muted">Упаковка ({{ item.quantity }} шт.)</small>
+                                            <td>{{ item.base_product_units }}</td>
+                                            <td>{{ item.price_per_unit|floatformat:2 }} грн.</td>
                                         {% endif %}
                                     </td>
-                                    <td>{{ item.quantity }}</td>
-                                    <td>{{ item.price|floatformat:2 }} грн.</td>
+                                    
                                     <td>{{ item.total_price|floatformat:2 }} грн.</td>
                                     <td>
                                         {% if shipment.can_be_edited %}
@@ -153,6 +167,34 @@
 
 .table th, .table td {
     vertical-align: middle;
+}
+/* Стили для изоляции локального сканера */
+#local-scanner-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    z-index: 9999;
+    max-width: 90vw;
+}
+
+#local-video-stream {
+    max-height: 60vh;
+}
+
+/* Затемнение фона */
+.scanner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 9998;
 }
 </style>
 
@@ -249,5 +291,156 @@ function showToast(type, message) {
     // Реализация toast-уведомлений, если они есть в вашем проекте
     console.log(`${type}: ${message}`);
 }
+let localScannerActive = false;
+let localCodeReader = null;
+
+// Функция для запуска локального сканера
+function startLocalScanner() {
+    if (localScannerActive) return;
+    
+    console.log("Starting local scanner for shipment items...");
+    
+    const overlay = document.createElement('div');
+    const localVideoElement = document.getElementById('local-video-stream');
+    const localScannerContainer = document.getElementById('local-scanner-container');
+    const localScannerStatus = document.getElementById('local-scanner-status');
+    const searchInput = document.getElementById('stock-search-input');
+
+    overlay.className = 'scanner-overlay';
+    overlay.onclick = stopLocalScanner;
+    document.body.appendChild(overlay);
+    // Проверка наличия библиотеки ZXing
+    if (typeof ZXing === 'undefined') {
+        alert("Библиотека сканера не загружена");
+        return;
+    }
+    
+    localCodeReader = new ZXing.BrowserMultiFormatReader();
+    localScannerActive = true;
+    
+    // Показываем сканер
+    localScannerContainer.style.display = 'block';
+    localVideoElement.style.display = 'block';
+    localScannerStatus.textContent = 'Сканирование... Наведите камеру на штрихкод';
+    
+    // Настройки сканера
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.EAN_13,
+        ZXing.BarcodeFormat.CODE_128,
+        ZXing.BarcodeFormat.UPC_A,
+        ZXing.BarcodeFormat.QR_CODE
+    ]);
+    
+    const constraints = {
+        video: {
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+        }
+    };
+    
+    // Запуск сканера
+    localCodeReader.decodeFromVideoDevice(
+        null, 
+        localVideoElement, 
+        (result, error) => {
+            if (result) {
+                console.log("Local scanner result:", result.text);
+                
+                // Вставляем результат в поле поиска
+                searchInput.value = result.text;
+                
+                // Скрываем сканер
+                stopLocalScanner();
+                
+                // Автоматически запускаем поиск
+                const event = new Event('input', { bubbles: true });
+                searchInput.dispatchEvent(event);
+                
+            } else if (error && !(error instanceof ZXing.NotFoundException)) {
+                console.error("Local scan error:", error);
+                localScannerStatus.textContent = 'Ошибка сканирования: ' + error.message;
+            }
+        },
+        hints,
+        constraints
+    ).catch(error => {
+        console.error("Local scanner error:", error);
+        localScannerStatus.textContent = 'Ошибка: ' + error.message;
+        stopLocalScanner();
+    });
+}
+
+// Функция для остановки локального сканера
+function stopLocalScanner() {
+    if (localScannerActive && localCodeReader) {
+        localCodeReader.reset();
+        localScannerActive = false;
+        
+        const localScannerContainer = document.getElementById('local-scanner-container');
+        const localVideoElement = document.getElementById('local-video-stream');
+        const overlay = document.querySelector('.scanner-overlay');
+        
+        if (overlay) overlay.remove();
+
+        localScannerContainer.style.display = 'none';
+        localVideoElement.style.display = 'none';
+        
+        console.log("Local scanner stopped");
+    }
+}
+
+// Обработчик для кнопки локального сканера
+document.getElementById('local-scan-btn').addEventListener('click', function() {
+    if (localScannerActive) {
+        stopLocalScanner();
+    } else {
+        startLocalScanner();
+    }
+});
+
+// Автоматически останавливаем сканер при закрытии страницы
+window.addEventListener('beforeunload', stopLocalScanner);
+
+// Модифицируем функцию выбора товара для автоматической отправки формы
+function selectItem(item) {
+    const identifierInput = document.getElementById('id_item_identifier');
+    const form = document.querySelector('form');
+    const quantityInput = document.getElementById('id_quantity');
+    
+    identifierInput.value = item.id;
+    
+    // Автоматически отправляем форму
+    setTimeout(() => {
+        form.submit();
+    }, 100);
+}
+
+// Добавим обработчик для автоматического выбора первого результата при сканировании
+let lastScannedCode = '';
+let scanTimeout = null;
+
+searchInput.addEventListener('input', function() {
+    const query = this.value.trim();
+    
+    // Если это похоже на штрихкод (длинная строка без пробелов)
+    if (query.length >= 8 && !query.includes(' ') && query === lastScannedCode) {
+        if (scanTimeout) clearTimeout(scanTimeout);
+        
+        scanTimeout = setTimeout(() => {
+            fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results && data.results.length > 0) {
+                        // Автоматически выбираем первый результат
+                        selectItem(data.results[0]);
+                    }
+                });
+        }, 500);
+    }
+    
+    lastScannedCode = query;
+});
 </script>
 {% endblock %}
