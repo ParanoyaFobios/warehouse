@@ -45,11 +45,11 @@
                         </div>
                         
                         <button type="submit" class="btn btn-success">Добавить</button>
-                        <a href="{% url 'shipment_detail' shipment.pk %}" class="btn btn-secondary">Вернуться к отгрузке</a>
                     </form>
                 </div>
             </div>
         </div>
+        <a href="{% url 'shipment_detail' shipment.pk %}" class="btn btn-secondary">Вернуться к отгрузке</a>
         
         <div class="col-md-6">
             <div class="card">
@@ -200,247 +200,159 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // --- 1. Получаем ссылки на все нужные элементы из вашего HTML ---
     const searchInput = document.getElementById('stock-search-input');
     const searchResults = document.getElementById('search-results');
+    const mainForm = document.querySelector('form[method="post"]'); // Находим форму на странице
+
+    // Скрытые поля Django, которые мы будем заполнять
     const identifierInput = document.getElementById('id_item_identifier');
+    const quantityInput = document.getElementById('id_quantity');
+
+    // Элементы, связанные со сканером
+    const scanButton = document.getElementById('local-scan-btn');
+    const scannerContainer = document.getElementById('local-scanner-container');
+    const videoElement = document.getElementById('local-video-stream');
+    const scannerStatus = document.getElementById('local-scanner-status');
     
-    const selectedInfo = document.getElementById('selected-item-info');
-    const selectedName = document.getElementById('selected-item-name');
-    const selectedDetails = document.getElementById('selected-item-details');
+    // Глобальная переменная для управления ридером
+    let codeReader = null;
+    let overlay = null; // Для затемнения фона
 
-    // Функция для скрытия результатов поиска
-    function hideSearchResults() {
-        searchResults.style.display = 'none';
-    }
+    // --- 2. Логика для РУЧНОГО ПОИСКА ---
 
-    // Функция выбора товара
-    function selectItem(item) {
-        identifierInput.value = item.id;
-        selectedName.textContent = item.name;
-        selectedDetails.textContent = item.info;
-        selectedInfo.style.display = 'block';
-        
-        searchInput.value = '';
-        hideSearchResults();
-    }
-
-    // Поиск товаров
-    searchInput.addEventListener('input', function() {
-        const query = this.value.trim();
+    // Функция выполняет AJAX-запрос и отображает результаты
+    function performManualSearch(query) {
         if (query.length < 2) {
-            hideSearchResults();
+            searchResults.style.display = 'none';
             return;
         }
-
         fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(data => {
                 searchResults.innerHTML = '';
                 if (data.results && data.results.length > 0) {
-                    searchResults.style.display = 'block';
                     data.results.forEach(item => {
-                        const btn = document.createElement('button');
-                        btn.type = 'button';
-                        btn.className = 'list-group-item list-group-item-action text-start';
-                        btn.innerHTML = `
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <strong>${item.name}</strong>
-                                    <br><small class="text-muted">${item.info}</small>
-                                </div>
-                                <span class="badge bg-primary ms-2">Выбрать</span>
-                            </div>
+                        // Используем data-атрибуты для надежного хранения информации
+                        searchResults.innerHTML += `
+                            <button type="button" class="list-group-item list-group-item-action search-result-item" 
+                                    data-id="${item.id}" 
+                                    data-name="${item.name}">
+                                <strong>${item.name}</strong><br>
+                                <small class="text-muted">${item.info}</small>
+                            </button>
                         `;
-                        btn.onclick = () => selectItem(item);
-                        searchResults.appendChild(btn);
                     });
                 } else {
-                    searchResults.style.display = 'block';
-                    searchResults.innerHTML = '<div class="list-group-item text-muted text-center">Ничего не найдено</div>';
+                    searchResults.innerHTML = '<div class="list-group-item text-muted">Ничего не найдено</div>';
                 }
-            })
-            .catch(error => {
-                console.error('Ошибка поиска:', error);
-                hideSearchResults();
+                searchResults.style.display = 'block';
             });
+    }
+
+    // Обработчик клика по результатам поиска (делегирование)
+    searchResults.addEventListener('click', function(event) {
+        const target = event.target.closest('.search-result-item');
+        if (target) {
+            // Заполняем скрытое поле ID товара/упаковки
+            identifierInput.value = target.dataset.id;
+            // Вставляем название в поле ввода для наглядности
+            searchInput.value = target.dataset.name; 
+            // Скрываем список результатов
+            searchResults.style.display = 'none';
+        }
     });
 
-    // Скрытие результатов при клике вне области
+    // Запускаем поиск при вводе текста
+    searchInput.addEventListener('input', () => performManualSearch(searchInput.value.trim()));
+
+
+    // --- 3. Логика для СКАНИРОВАНИЯ ШТРИХКОДА ---
+
+    // Обрабатывает найденный штрихкод: ищет товар и отправляет форму
+    function processScannedBarcode(barcode) {
+        scannerStatus.textContent = `Штрихкод ${barcode} найден. Идет поиск...`;
+        
+        fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(barcode)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.results && data.results.length > 0) {
+                    const foundItem = data.results[0];
+                    
+                    // Заполняем скрытые поля формы
+                    identifierInput.value = foundItem.id;
+                    quantityInput.value = 1; // При сканировании всегда добавляем 1 шт.
+                    
+                    // Отправляем форму автоматически
+                    mainForm.submit();
+                } else {
+                    alert("Товар с таким штрихкодом не найден!");
+                    stopLocalScanner(); // Закрываем сканер в случае неудачи
+                }
+            });
+
+    }
+
+    // Запускает камеру и сканер
+    function startLocalScanner() {
+        if (typeof ZXing === 'undefined') {
+            return alert("Ошибка: библиотека сканера (ZXing) не загружена.");
+        }
+        
+        // Создаем и показываем оверлей
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'scanner-overlay';
+            document.body.appendChild(overlay);
+        }
+        overlay.style.display = 'block';
+
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        scannerContainer.style.display = 'block';
+        scannerStatus.textContent = 'Наведите камеру на штрихкод...';
+
+        codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
+            if (result) {
+                // Если успешно, обрабатываем штрихкод
+                processScannedBarcode(result.text);
+            }
+            if (error && !(error instanceof ZXing.NotFoundException)) {
+                console.error("Ошибка сканирования:", error);
+                scannerStatus.textContent = 'Ошибка: не удалось прочитать штрихкод.';
+            }
+        });
+    }
+
+    // Останавливает камеру и скрывает элементы сканера
+    // Делаем ее глобальной, чтобы кнопка `onclick` могла ее найти
+    window.stopLocalScanner = function() {
+        if (codeReader) {
+            codeReader.reset();
+            codeReader = null;
+        }
+        scannerContainer.style.display = 'none';
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
+    }
+
+    // Вешаем событие на кнопку сканирования
+    scanButton.addEventListener('click', startLocalScanner);
+
+
+    // --- 4. Общие вспомогательные функции ---
+
+    // Скрытие результатов поиска при клике вне области
     document.addEventListener('click', function(e) {
         if (!searchResults.contains(e.target) && e.target !== searchInput) {
-            hideSearchResults();
+            searchResults.style.display = 'none';
         }
     });
 
-    // Очистка выбора при изменении поиска
+    // При фокусе на поле поиска - сбрасываем предыдущий выбор
     searchInput.addEventListener('focus', function() {
         identifierInput.value = '';
-        selectedInfo.style.display = 'none';
     });
-
-    // Сообщения об ошибках/успехе
-    {% if messages %}
-    {% for message in messages %}
-    showToast("{{ message.tags }}", "{{ message }}");
-    {% endfor %}
-    {% endif %}
 });
-
-// Функция для показа уведомлений (если у вас есть toast-уведомления)
-function showToast(type, message) {
-    // Реализация toast-уведомлений, если они есть в вашем проекте
-    console.log(`${type}: ${message}`);
-}
-let localScannerActive = false;
-let localCodeReader = null;
-
-// Функция для запуска локального сканера
-function startLocalScanner() {
-    if (localScannerActive) return;
-    
-    console.log("Starting local scanner for shipment items...");
-    
-    const overlay = document.createElement('div');
-    const localVideoElement = document.getElementById('local-video-stream');
-    const localScannerContainer = document.getElementById('local-scanner-container');
-    const localScannerStatus = document.getElementById('local-scanner-status');
-    const searchInput = document.getElementById('stock-search-input');
-
-    overlay.className = 'scanner-overlay';
-    overlay.onclick = stopLocalScanner;
-    document.body.appendChild(overlay);
-    // Проверка наличия библиотеки ZXing
-    if (typeof ZXing === 'undefined') {
-        alert("Библиотека сканера не загружена");
-        return;
-    }
-    
-    localCodeReader = new ZXing.BrowserMultiFormatReader();
-    localScannerActive = true;
-    
-    // Показываем сканер
-    localScannerContainer.style.display = 'block';
-    localVideoElement.style.display = 'block';
-    localScannerStatus.textContent = 'Сканирование... Наведите камеру на штрихкод';
-    
-    // Настройки сканера
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-        ZXing.BarcodeFormat.EAN_13,
-        ZXing.BarcodeFormat.CODE_128,
-        ZXing.BarcodeFormat.UPC_A,
-        ZXing.BarcodeFormat.QR_CODE
-    ]);
-    
-    const constraints = {
-        video: {
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-        }
-    };
-    
-    // Запуск сканера
-    localCodeReader.decodeFromVideoDevice(
-        null, 
-        localVideoElement, 
-        (result, error) => {
-            if (result) {
-                console.log("Local scanner result:", result.text);
-                
-                // Вставляем результат в поле поиска
-                searchInput.value = result.text;
-                
-                // Скрываем сканер
-                stopLocalScanner();
-                
-                // Автоматически запускаем поиск
-                const event = new Event('input', { bubbles: true });
-                searchInput.dispatchEvent(event);
-                
-            } else if (error && !(error instanceof ZXing.NotFoundException)) {
-                console.error("Local scan error:", error);
-                localScannerStatus.textContent = 'Ошибка сканирования: ' + error.message;
-            }
-        },
-        hints,
-        constraints
-    ).catch(error => {
-        console.error("Local scanner error:", error);
-        localScannerStatus.textContent = 'Ошибка: ' + error.message;
-        stopLocalScanner();
-    });
-}
-
-// Функция для остановки локального сканера
-function stopLocalScanner() {
-    if (localScannerActive && localCodeReader) {
-        localCodeReader.reset();
-        localScannerActive = false;
-        
-        const localScannerContainer = document.getElementById('local-scanner-container');
-        const localVideoElement = document.getElementById('local-video-stream');
-        const overlay = document.querySelector('.scanner-overlay');
-        
-        if (overlay) overlay.remove();
-
-        localScannerContainer.style.display = 'none';
-        localVideoElement.style.display = 'none';
-        
-        console.log("Local scanner stopped");
-    }
-}
-
-// Обработчик для кнопки локального сканера
-document.getElementById('local-scan-btn').addEventListener('click', function() {
-    if (localScannerActive) {
-        stopLocalScanner();
-    } else {
-        startLocalScanner();
-    }
-});
-
-// Автоматически останавливаем сканер при закрытии страницы
-window.addEventListener('beforeunload', stopLocalScanner);
-
-// Модифицируем функцию выбора товара для автоматической отправки формы
-function selectItem(item) {
-    const identifierInput = document.getElementById('id_item_identifier');
-    const form = document.querySelector('form');
-    const quantityInput = document.getElementById('id_quantity');
-    
-    identifierInput.value = item.id;
-    
-    // Автоматически отправляем форму
-    setTimeout(() => {
-        form.submit();
-    }, 100);
-}
-
-// Добавим обработчик для автоматического выбора первого результата при сканировании
-let lastScannedCode = '';
-let scanTimeout = null;
-
-searchInput.addEventListener('input', function() {
-    const query = this.value.trim();
-    
-    // Если это похоже на штрихкод (длинная строка без пробелов)
-    if (query.length >= 8 && !query.includes(' ') && query === lastScannedCode) {
-        if (scanTimeout) clearTimeout(scanTimeout);
-        
-        scanTimeout = setTimeout(() => {
-            fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(query)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.results && data.results.length > 0) {
-                        // Автоматически выбираем первый результат
-                        selectItem(data.results[0]);
-                    }
-                });
-        }, 500);
-    }
-    
-    lastScannedCode = query;
-});
-</script>
+    </script>
 {% endblock %}

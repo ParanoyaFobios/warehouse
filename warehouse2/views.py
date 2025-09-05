@@ -27,22 +27,29 @@ class ProductListView(ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        # Фильтр по категории
+        
+        # Фильтр по категории (остается без изменений)
         category = self.request.GET.get('category')
         if category:
             queryset = queryset.filter(category_id=category)
-        # Поиск по названию или артикулу
+            
+        # Поиск по названию, артикулу или штрихкоду
         search = self.request.GET.get('search')
         if search:
-            queryset = queryset.filter(
+            # Добавляем поиск по штрихкодам связанных упаковок
+            product_query = (
                 models.Q(name__icontains=search) | 
                 models.Q(sku__icontains=search) |
-                models.Q(barcode__icontains=search))
+                models.Q(barcode__exact=search) |
+                models.Q(packages__barcode__exact=search) # Добавлена эта строка
+            )
+            queryset = queryset.filter(product_query).distinct()
         
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Этот код можно оставить, если у вас есть категории в шаблоне
         context['categories'] = ProductCategory.objects.all()
         return context
 

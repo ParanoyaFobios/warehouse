@@ -122,25 +122,30 @@ def global_search_view(request):
         # Если запрос пустой, просто возвращаемся назад
         return redirect(request.META.get('HTTP_REFERER', '/'))
 
-    # --- Создаем поисковые запросы для каждой модели ---
+    # 1. ОПРЕДЕЛЯЕМ ЗАПРОСЫ
+    # Запрос для склада 1 (Материалы)
     material_query = (
         Q(name__icontains=query) |
         Q(article__icontains=query) |
-        Q(barcode__icontains=query)
+        Q(barcode__exact=query)
     )
+    # Запрос для склада 2 (Продукция), который включает поиск по упаковкам
     product_query = (
         Q(name__icontains=query) |
         Q(sku__icontains=query) |
-        Q(barcode__icontains=query)
+        Q(barcode__exact=query) |
+        Q(packages__barcode__exact=query)
     )
 
-    # --- Проверяем наличие результатов в каждой таблице ---
-    materials_exist = Material.objects.filter(material_query).exists()
-    products_exist = Product.objects.filter(product_query).exists()
+    # 2. ВЫПОЛНЯЕМ ПОИСК ОДИН РАЗ
+    materials_found = Material.objects.filter(material_query)
+    products_found = Product.objects.filter(product_query).distinct()
 
-    # --- Применяем логику перенаправления ---
+    # 3. ПРОВЕРЯЕМ РЕЗУЛЬТАТЫ И ПРИНИМАЕМ РЕШЕНИЕ
+    materials_exist = materials_found.exists()
+    products_exist = products_found.exists()
 
-    # Случай 1: Найдены только материалы
+    # Случай 1: Найдены ТОЛЬКО материалы
     if materials_exist and not products_exist:
         base_url = reverse('material_list')
         query_params = urlencode({'search': query})
@@ -148,7 +153,7 @@ def global_search_view(request):
         messages.info(request, f'Показаны результаты поиска по материалам для "{query}"')
         return redirect(url)
 
-    # Случай 2: Найдена только готовая продукция
+    # Случай 2: Найдена ТОЛЬКО готовая продукция
     elif products_exist and not materials_exist:
         base_url = reverse('product_list')
         query_params = urlencode({'search': query})
@@ -156,20 +161,17 @@ def global_search_view(request):
         messages.info(request, f'Показаны результаты поиска по готовой продукции для "{query}"')
         return redirect(url)
 
-    # Случай 3: Найдены оба типа (неоднозначный поиск)
+    # Случай 3: Найдены ОБА типа (неоднозначный поиск)
     elif materials_exist and products_exist:
-        # В этом случае показываем общую страницу, как и раньше
-        materials_found = Material.objects.filter(material_query)
-        products_found = Product.objects.filter(product_query)
         context = {
             'query': query,
-            'materials': materials_found,
-            'products': products_found,
+            'materials': materials_found, # Используем уже найденные результаты
+            'products': products_found,   # Используем уже найденные результаты
         }
         messages.warning(request, f'Найдены результаты на обоих складах для "{query}"')
         return render(request, 'search_results.html', context)
 
-    # Случай 4: Ничего не найдено
+    # Случай 4: Ничего не найдено (этот блок сработает, если оба exists() вернут False)
     else:
         messages.error(request, f'По запросу "{query}" ничего не найдено.')
         return redirect(request.META.get('HTTP_REFERER', '/'))
