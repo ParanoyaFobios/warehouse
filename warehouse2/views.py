@@ -41,7 +41,7 @@ class ProductListView(ListView):
                 models.Q(name__icontains=search) | 
                 models.Q(sku__icontains=search) |
                 models.Q(barcode__exact=search) |
-                models.Q(packages__barcode__exact=search) # Добавлена эта строка
+                models.Q(packages__barcode__exact=search)
             )
             queryset = queryset.filter(product_query).distinct()
         
@@ -49,7 +49,6 @@ class ProductListView(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Этот код можно оставить, если у вас есть категории в шаблоне
         context['categories'] = ProductCategory.objects.all()
         return context
 

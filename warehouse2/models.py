@@ -7,7 +7,8 @@ from django.utils import timezone
 import uuid
 from decimal import Decimal
 from django.db.models import Sum
-
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 # ==============================================================================
 # Генераторы штрихкодов
 # ==============================================================================
@@ -187,6 +188,7 @@ class Shipment(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_shipments', verbose_name="Кем создана")
     processed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_shipments', verbose_name="Кем собрана/отгружена")
     destination = models.CharField(max_length=255, verbose_name="Адрес отгрузки", blank=True)
+    recipient = models.CharField(max_length=255, verbose_name="Адрес отгрузки", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     shipped_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата отгрузки")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
