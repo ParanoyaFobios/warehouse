@@ -32,3 +32,14 @@ class MaterialOperationAdmin(admin.ModelAdmin):
     list_display = ('material', 'operation_type', 'outgoing_category', 'quantity', 'date', 'user')
     list_filter = ('operation_type', 'outgoing_category', 'date')
     search_fields = ('material__name', 'material__article')
+    list_per_page = 25
+
+        # Запрещаем создание, изменение и удаление записей вручную
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

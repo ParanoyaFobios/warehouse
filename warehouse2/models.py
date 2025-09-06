@@ -128,6 +128,41 @@ class Package(models.Model):
         # Ограничение, чтобы не было двух одинаковых упаковок для одного товара
         unique_together = ('product', 'quantity')
 
+class ProductOperation(models.Model):
+    """
+    Журнал операций с готовой продукцией.
+    Фиксирует каждое изменение количества товара на складе.
+    """
+    class OperationType(models.TextChoices):
+        PRODUCTION = 'production', 'Производство (+)'
+        SHIPMENT = 'shipment', 'Отгрузка (-)'
+        ADJUSTMENT = 'adjustment', 'Корректировка (+/-)'
+        RETURN = 'return', 'Возврат (+)'
+
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='operations', verbose_name="Продукция")
+    operation_type = models.CharField(max_length=20, choices=OperationType.choices, verbose_name="Тип операции")
+    quantity = models.IntegerField(verbose_name="Количество") # Должно быть всегда положительным
+    
+    # Связь с документом-основанием (WorkOrder, Shipment, InventoryCount и т.д.)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    source = GenericForeignKey('content_type', 'object_id')
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name="Пользователь")
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name="Время операции")
+    comment = models.TextField(blank=True, verbose_name="Комментарий")
+
+    def __str__(self):
+        sign = '+' if self.operation_type in [self.OperationType.PRODUCTION, self.OperationType.RETURN] else '-'
+        # Для корректировки знак может быть разным, но для простоты оставим так
+        if self.operation_type == self.OperationType.ADJUSTMENT:
+            sign = '+/-'
+        return f"[{self.get_operation_type_display()}] {self.product.name}: {sign}{self.quantity}"
+
+    class Meta:
+        verbose_name = "Операция с продукцией"
+        verbose_name_plural = "Журнал операций с продукцией"
+        ordering = ['-timestamp']
 
 # ==============================================================================
 # Производство: WorkOrder
@@ -159,15 +194,27 @@ class WorkOrder(models.Model):
             'completed': 'Выполнен'
         }.get(self.status, self.status)
 
-    def complete_order(self):
+    def complete_order(self, user):
+        """Завершает заказ, ставит продукцию на баланс и создает запись в журнале."""
         if self.status != 'completed':
             self.product.total_quantity += self.quantity_to_produce
             self.product.save()
             self.status = 'completed'
             self.completed_at = timezone.now()
             self.save()
+            
+            # 👇 Добавляем создание записи в журнале операций 👇
+            ProductOperation.objects.create(
+                product=self.product,
+                operation_type=ProductOperation.OperationType.PRODUCTION,
+                quantity=self.quantity_to_produce,
+                source=self,  # Ссылка на этот производственный заказ
+                user=user
+            )
             return True
         return False
+    
+
     def __str__(self):
         return f"Заказ №{self.id} на {self.product.name} ({self.quantity_to_produce} шт.)"
     class Meta:
@@ -262,6 +309,15 @@ class Shipment(models.Model):
             base_product.total_quantity -= units_to_ship
             base_product.reserved_quantity -= units_to_ship
             base_product.save()
+                        # 👇 Добавляем создание записи в журнале для каждой позиции отгрузки 👇
+            ProductOperation.objects.create(
+                product=base_product,
+                operation_type=ProductOperation.OperationType.SHIPMENT,
+                quantity=units_to_ship,
+                source=self,  # Ссылка на эту отгрузку
+                user=user,
+                comment=f"Позиция: {item}"
+            )
         
         self.status = 'shipped'
         self.processed_by = user

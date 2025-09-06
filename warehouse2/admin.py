@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     ProductCategory, ProductSize, ProductColor, Product,
-    WorkOrder, Shipment, ShipmentItem)
+    WorkOrder, Shipment, ShipmentItem, ProductOperation)
 from django.urls import reverse
 from django.utils.html import format_html
 
@@ -98,3 +98,20 @@ class ShipmentInline(admin.TabularInline):
         return "-"
     view_shipment_link.short_description = 'Ссылка'
 
+
+@admin.register(ProductOperation)
+class ProductOperationAdmin(admin.ModelAdmin):
+    list_display = ('product', 'timestamp', 'operation_type', 'quantity', 'user', 'source')
+    list_filter = ('operation_type', 'timestamp', 'product__category')
+    search_fields = ('product__name', 'product__sku', 'user__username')
+    list_per_page = 25
+    
+    # Запрещаем создание, изменение и удаление записей вручную
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

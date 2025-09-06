@@ -191,7 +191,7 @@ class WorkOrderDeleteView(DeleteView):
 def complete_workorder(request, pk):
     workorder = get_object_or_404(WorkOrder, pk=pk)
     if workorder.status != 'completed':
-        if workorder.complete_order():
+        if workorder.complete_order(request.user):
             messages.success(request, 'Заказ завершен и продукция добавлена на склад')
         else:
             messages.error(request, 'Ошибка при завершении заказа')
