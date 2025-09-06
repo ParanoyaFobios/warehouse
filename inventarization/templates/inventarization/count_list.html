@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Переучеты</h2>
+        <form action="{% url 'count_start' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">Начать новый переучет</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Номер</th>
+                        <th>Статус</th>
+                        <th>Ответственный</th>
+                        <th>Дата начала</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for count in inventory_counts %}
+                    <tr>
+                        <td>{{ count.id }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if count.status == 'in_progress' %}bg-warning
+                                {% elif count.status == 'completed' %}bg-success
+                                {% else %}bg-secondary{% endif %}">
+                                {{ count.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ count.user.username }}</td>
+                        <td>{{ count.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'count_work' count.pk %}" class="btn btn-sm btn-info">
+                                {% if count.status == 'in_progress' %}Продолжить{% else %}Просмотр{% endif %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">Переучеты еще не проводились.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Переучет №{{ inventory_count.id }} <small class="text-muted">({{ inventory_count.get_status_display }})</small></h2>
+    <p>Ответственный: <strong>{{ inventory_count.user.username }}</strong></p>
+    <hr>
+    <div class="row">
+        <div class="col-lg-5">
+            <div class="card sticky-top">
+                <div class="card-header"><h4>Добавить/Найти позицию</h4></div>
+                <div class="card-body">
+                    <form method="post" id="add-item-form">
+                        {% csrf_token %}
+                        {{ form.item_identifier }}
+                        <div class="mb-3">
+                            <label class="form-label">Поиск</label>
+                            <div class="input-group">
+                                <input type="text" id="stock-search-input" class="form-control" placeholder="Название, артикул, штрихкод..." autocomplete="off">
+                                <button id="scan-btn" class="btn btn-outline-secondary" type="button">📸</button>
+                            </div>
+                            <div id="search-results" class="list-group position-absolute w-100" style="z-index: 1000; display: none;"></div>
+                        </div>
+                        <div class="mb-3">
+                            {{ form.quantity.label_tag }}
+                            {{ form.quantity }}
+                        </div>
+                        <button type="submit" class="btn btn-success">Добавить / Обновить</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <h4>Внесенные позиции ({{ items.count }})</h4>
+            {% for item in items %}
+            <div class="card mb-2">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <strong>{{ item.content_object.name }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                Система: {{ item.system_quantity }} | Расхождение: 
+                                <span class="fw-bold {% if item.variance > 0 %}text-success{% elif item.variance < 0 %}text-danger{% endif %}">
+                                    {% if item.variance > 0 %}+{% endif %}{{ item.variance }}
+                                </span>
+                            </small>
+                        </div>
+                        <div class="col-md-5">
+                            <form action="{% url 'item_update' item.pk %}" method="post" class="d-flex gap-2 align-items-center">
+                                {% csrf_token %}
+                                {{ item.update_form.quantity }}
+                                <button type="submit" class="btn btn-sm btn-primary">OK</button>
+                                <form action="{% url 'item_delete' item.pk %}" method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">×</button>
+                                </form>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted">Пока не добавлено ни одной позиции.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div id="scanner-container" style="display: none; position: fixed; ..."> ... </div>
+
+<script>
+// Вставьте сюда JavaScript-код из нашего предыдущего ответа
+// Он должен работать практически без изменений.
+// Убедитесь, что URL для fetch'а правильный: `{% url 'stock_search' %}`
+// Он у вас глобальный, так что проблем быть не должно.
+document.addEventListener('DOMContentLoaded', function() {
+    // --- 1. Получаем ссылки на все нужные элементы из вашего HTML ---
+    const searchInput = document.getElementById('stock-search-input');
+    const searchResults = document.getElementById('search-results');
+    const mainForm = document.querySelector('form[method="post"]'); // Находим форму на странице
+
+    // Скрытые поля Django, которые мы будем заполнять
+    const identifierInput = document.getElementById('id_item_identifier');
+    const quantityInput = document.getElementById('id_quantity');
+
+    // Элементы, связанные со сканером
+    const scanButton = document.getElementById('local-scan-btn');
+    const scannerContainer = document.getElementById('local-scanner-container');
+    const videoElement = document.getElementById('local-video-stream');
+    const scannerStatus = document.getElementById('local-scanner-status');
+    
+    // Глобальная переменная для управления ридером
+    let codeReader = null;
+    let overlay = null; // Для затемнения фона
+
+    // --- 2. Логика для РУЧНОГО ПОИСКА ---
+
+    // Функция выполняет AJAX-запрос и отображает результаты
+    function performManualSearch(query) {
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+        fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                searchResults.innerHTML = '';
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(item => {
+                        // Используем data-атрибуты для надежного хранения информации
+                        searchResults.innerHTML += `
+                            <button type="button" class="list-group-item list-group-item-action search-result-item" 
+                                    data-id="${item.id}" 
+                                    data-name="${item.name}">
+                                <strong>${item.name}</strong><br>
+                                <small class="text-muted">${item.info}</small>
+                            </button>
+                        `;
+                    });
+                } else {
+                    searchResults.innerHTML = '<div class="list-group-item text-muted">Ничего не найдено</div>';
+                }
+                searchResults.style.display = 'block';
+            });
+    }
+
+    // Обработчик клика по результатам поиска (делегирование)
+    searchResults.addEventListener('click', function(event) {
+        const target = event.target.closest('.search-result-item');
+        if (target) {
+            // Заполняем скрытое поле ID товара/упаковки
+            identifierInput.value = target.dataset.id;
+            // Вставляем название в поле ввода для наглядности
+            searchInput.value = target.dataset.name; 
+            // Скрываем список результатов
+            searchResults.style.display = 'none';
+        }
+    });
+
+    // Запускаем поиск при вводе текста
+    searchInput.addEventListener('input', () => performManualSearch(searchInput.value.trim()));
+
+
+    // --- 3. Логика для СКАНИРОВАНИЯ ШТРИХКОДА ---
+
+    // Обрабатывает найденный штрихкод: ищет товар и отправляет форму
+    function processScannedBarcode(barcode) {
+        scannerStatus.textContent = `Штрихкод ${barcode} найден. Идет поиск...`;
+        
+        fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(barcode)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.results && data.results.length > 0) {
+                    const foundItem = data.results[0];
+                    
+                    // Заполняем скрытые поля формы
+                    identifierInput.value = foundItem.id;
+                    quantityInput.value = 1; // При сканировании всегда добавляем 1 шт.
+                    
+                    // Отправляем форму автоматически
+                    mainForm.submit();
+                } else {
+                    alert("Товар с таким штрихкодом не найден!");
+                    stopLocalScanner(); // Закрываем сканер в случае неудачи
+                }
+            });
+
+    }
+
+    // Запускает камеру и сканер
+    function startLocalScanner() {
+        if (typeof ZXing === 'undefined') {
+            return alert("Ошибка: библиотека сканера (ZXing) не загружена.");
+        }
+        
+        // Создаем и показываем оверлей
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'scanner-overlay';
+            document.body.appendChild(overlay);
+        }
+        overlay.style.display = 'block';
+
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        scannerContainer.style.display = 'block';
+        scannerStatus.textContent = 'Наведите камеру на штрихкод...';
+
+        codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
+            if (result) {
+                // Если успешно, обрабатываем штрихкод
+                processScannedBarcode(result.text);
+            }
+            if (error && !(error instanceof ZXing.NotFoundException)) {
+                console.error("Ошибка сканирования:", error);
+                scannerStatus.textContent = 'Ошибка: не удалось прочитать штрихкод.';
+            }
+        });
+    }
+
+    // Останавливает камеру и скрывает элементы сканера
+    // Делаем ее глобальной, чтобы кнопка `onclick` могла ее найти
+    window.stopLocalScanner = function() {
+        if (codeReader) {
+            codeReader.reset();
+            codeReader = null;
+        }
+        scannerContainer.style.display = 'none';
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
+    }
+
+    // Вешаем событие на кнопку сканирования
+    scanButton.addEventListener('click', startLocalScanner);
+
+
+    // --- 4. Общие вспомогательные функции ---
+
+    // Скрытие результатов поиска при клике вне области
+    document.addEventListener('click', function(e) {
+        if (!searchResults.contains(e.target) && e.target !== searchInput) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    // При фокусе на поле поиска - сбрасываем предыдущий выбор
+    searchInput.addEventListener('focus', function() {
+        identifierInput.value = '';
+    });
+});
+</script>
+{% endblock %}
