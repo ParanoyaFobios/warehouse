@@ -12,17 +12,8 @@ class InventoryCount(models.Model):
         COMPLETED = 'completed', 'Завершен (ожидает сверки)'
         RECONCILED = 'reconciled', 'Скорректирован (закрыт)'
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        verbose_name="Ответственный кладовщик"
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.IN_PROGRESS,
-        verbose_name="Статус"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name="Ответственный кладовщик")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_PROGRESS, verbose_name="Статус")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата начала")
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата завершения")
     notes = models.TextField(blank=True, verbose_name="Примечания к переучету")

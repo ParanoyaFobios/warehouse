@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Сверка переучета №{{ inventory_count.id }}</h2>
+        <div>
+            <form action="{% url 'count_finalize' inventory_count.pk %}" method="post" 
+                  onsubmit="return confirm('Закрыть переучет? Это действие нельзя отменить.');"
+                  class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">Завершить сверку</button>
+            </form>
+            <a href="{% url 'count_list' %}" class="btn btn-secondary">К списку</a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <strong>Ответственный:</strong> {{ inventory_count.user.username }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Дата начала:</strong> {{ inventory_count.created_at|date:"d.m.Y H:i" }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Дата завершения:</strong> {{ inventory_count.completed_at|date:"d.m.Y H:i" }}
+                </div>
+            </div>
+            {% if inventory_count.notes %}
+            <div class="mt-2">
+                <strong>Примечания:</strong> {{ inventory_count.notes }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <h4>Позиции для сверки</h4>
+    
+    {% for item in items %}
+    <div class="card mb-3 {% if item.reconciliation_status == 'completed' %}border-success{% endif %}">
+        <div class="card-body">
+            <div class="row align-items-center">
+                
+                <div class="col-md-3">
+                    <h5>{{ item.content_object.name }}</h5>
+                    <small class="text-muted">Тип: {{ item.content_type.model }}</small>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <span class="text-muted">Система</span><br>
+                            <span class="fs-5">{{ item.system_quantity }}</span>
+                        </div>
+                        <div class="col-4">
+                            <span class="text-muted">Факт</span><br>
+                            <span class="fs-5 fw-bold text-primary">{{ item.actual_quantity }}</span>
+                        </div>
+                        <div class="col-4">
+                            <span class="text-muted">Расхождение</span><br>
+                            <span class="fs-5 fw-bold {% if item.variance > 0 %}text-success{% elif item.variance < 0 %}text-danger{% endif %}">
+                                {% if item.variance > 0 %}+{% endif %}{{ item.variance }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+    
+                <div class="col-md-3 text-center">
+                    {% if item.variance != 0 %}
+                        
+                        {% if item.reconciliation_status == 'completed' %}
+                            <form action="{% url 'count_reconcile_action' inventory_count.pk %}" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="item_id" value="{{ item.id }}">
+                                <button type="submit" class="btn btn-success" 
+                                        onclick="return confirm('Вы уверены, что хотите обновить системный остаток до {{ item.actual_quantity }}?')">
+                                    Скорректировать остаток
+                                </button>
+                            </form>
+                        {% else %}
+                            <span class="badge bg-success fs-6">Остаток обновлен</span>
+                        {% endif %}
+    
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info">Нет позиций для сверки.</div>
+    {% endfor %}
+    
+</div>
+{% endblock %}

@@ -92,6 +92,7 @@ class MaterialOperation(models.Model):
     OPERATION_TYPES = (
         ('incoming', 'Приход'),
         ('outgoing', 'Расход'),
+        ('adjustment', 'Корректировка (+/-)')
     )
     
     material = models.ForeignKey(Material, on_delete=models.CASCADE, verbose_name="Материал")

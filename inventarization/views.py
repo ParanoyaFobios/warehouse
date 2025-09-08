@@ -1,10 +1,14 @@
+# inventarization/views.py
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views import View
 from django.views.generic import ListView, FormView
-from django.urls import reverse_lazy, reverse
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.contenttypes.models import ContentType
+from django.http import JsonResponse
+from django.db.models import Q
+from django.utils import timezone
 
 from .models import InventoryCount, InventoryCountItem
 from .forms import InventoryItemForm, InventoryItemUpdateForm
@@ -12,30 +16,29 @@ from .forms import InventoryItemForm, InventoryItemUpdateForm
 # Импортируем модели с наших складов
 from warehouse1.models import Material
 from warehouse2.models import Product, Package
+from django.views.generic import DetailView, View
+from django.db import transaction
+from warehouse1.models import MaterialOperation
+from warehouse2.models import ProductOperation
 
 class InventoryCountListView(LoginRequiredMixin, ListView):
-    """Отображает список всех переучетов."""
     model = InventoryCount
     template_name = 'inventarization/count_list.html'
     context_object_name = 'inventory_counts'
     ordering = ['-created_at']
 
 class StartInventoryCountView(LoginRequiredMixin, View):
-    """Создает новый переучет для текущего пользователя."""
     def post(self, request, *args, **kwargs):
-        # Проверяем, нет ли уже активного переучета у этого пользователя
         active_count = InventoryCount.objects.filter(user=request.user, status='in_progress').first()
         if active_count:
             messages.warning(request, "У вас уже есть незавершенный переучет. Вы были перенаправлены на него.")
             return redirect('count_work', pk=active_count.pk)
         
-        # Создаем новый переучет
         new_count = InventoryCount.objects.create(user=request.user)
         messages.success(request, f"Начат новый переучет №{new_count.id}")
         return redirect('count_work', pk=new_count.pk)
 
 class InventoryCountWorkView(LoginRequiredMixin, FormView):
-    """Главная рабочая страница для проведения переучета."""
     template_name = 'inventarization/count_work.html'
     form_class = InventoryItemForm
 
@@ -44,44 +47,46 @@ class InventoryCountWorkView(LoginRequiredMixin, FormView):
         inventory_count = get_object_or_404(InventoryCount, pk=self.kwargs['pk'])
         context['inventory_count'] = inventory_count
         context['items'] = inventory_count.items.all().order_by('-id')
-        # Создаем для каждой позиции свою форму обновления
         for item in context['items']:
             item.update_form = InventoryItemUpdateForm(initial={'quantity': item.actual_quantity})
         return context
 
     def form_valid(self, form):
         inventory_count = get_object_or_404(InventoryCount, pk=self.kwargs['pk'])
+        if inventory_count.status != 'in_progress':
+            messages.error(self.request, "Этот переучет завершен и не может быть изменен.")
+            return redirect('count_work', pk=inventory_count.pk)
+            
         identifier = form.cleaned_data['item_identifier']
         actual_quantity = form.cleaned_data['quantity']
 
         try:
-            # Разбираем идентификатор, чтобы понять, с какой моделью работаем
             model_name, obj_id = identifier.split('-')
             
-            # Находим сам объект (Material, Product или Package)
+            target_model_class = None
             if model_name == 'product':
-                model = Product
+                target_model_class = Product
             elif model_name == 'material':
-                model = Material
-            else: # Добавим логику для упаковок
-                # Для упаковки мы всегда работаем с ее родительским товаром
+                target_model_class = Material
+            elif model_name == 'package':
                 package = get_object_or_404(Package, pk=obj_id)
-                model = Product
+                target_model_class = Product
                 obj_id = package.product.id
-
-            content_object = get_object_or_404(model, pk=obj_id)
             
-            # "Фотографируем" системное количество
+            if not target_model_class:
+                raise ValueError("Неизвестный тип объекта")
+
+            content_object = get_object_or_404(target_model_class, pk=obj_id)
+            
             system_quantity = 0
             if isinstance(content_object, Product):
                 system_quantity = content_object.available_quantity
             elif isinstance(content_object, Material):
                 system_quantity = content_object.quantity
             
-            # Используем update_or_create для атомарного создания/обновления
             item, created = InventoryCountItem.objects.update_or_create(
                 inventory_count=inventory_count,
-                content_type=ContentType.objects.get_for_model(model),
+                content_type=ContentType.objects.get_for_model(target_model_class),
                 object_id=obj_id,
                 defaults={
                     'system_quantity': system_quantity,
@@ -93,15 +98,141 @@ class InventoryCountWorkView(LoginRequiredMixin, FormView):
                 messages.success(self.request, f"Позиция '{content_object.name}' добавлена.")
             else:
                 messages.info(self.request, f"Количество для '{content_object.name}' обновлено.")
-
-        except (ValueError, AttributeError) as e:
+        except Exception as e:
             messages.error(self.request, f"Ошибка при добавлении позиции: {e}")
         
         return redirect('count_work', pk=inventory_count.pk)
 
+class InventoryReconciliationView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
+    """
+    Представление для сверки завершенного переучета.
+    """
+    model = InventoryCount
+    template_name = 'inventarization/count_reconcile.html'
+    context_object_name = 'inventory_count'
+
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def get_queryset(self):
+        # Показываем только те, что ожидают сверки
+        return InventoryCount.objects.filter(status=InventoryCount.Status.COMPLETED)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Просто передаем связанные items, вся логика будет в шаблоне
+        context['items'] = self.get_object().items.all().select_related('content_type')
+        return context
+
+
+class ReconcileInventoryView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Обрабатывает POST-запрос на корректировку ОДНОЙ ПОЗИЦИИ.
+    """
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def post(self, request, pk, *args, **kwargs):
+        # pk здесь - это pk для InventoryCount
+        inventory_count = get_object_or_404(
+            InventoryCount, pk=pk, status=InventoryCount.Status.COMPLETED
+        )
+        item_id = request.POST.get('item_id')
+        item = get_object_or_404(inventory_count.items, pk=item_id)
+
+        # Вызываем основную логику корректировки
+        try:
+            self._adjust_quantity(request.user, inventory_count, item)
+            messages.success(
+                request, 
+                f"Системное количество для '{item.content_object.name}' успешно скорректировано."
+            )
+        except Exception as e:
+            messages.error(request, f"Ошибка при обработке: {e}")
+        
+        return redirect('count_reconcile', pk=pk)
+
+    def _adjust_quantity(self, user, inventory_count, item):
+        """
+        Главная функция: корректирует остаток и создает запись в журнале.
+        """
+        # Если расхождений нет или уже обработано, ничего не делаем
+        if item.variance == 0 or item.reconciliation_status == 'reconciled':
+            return
+
+        with transaction.atomic():
+            content_object = item.content_object
+            variance = item.variance
+            comment = f"Корректировка по переучету №{inventory_count.id}"
+
+            # --- Логика для Готовой Продукции (Склад 2) ---
+            if isinstance(content_object, Product):
+                # !!! КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
+                # Мы не можем менять свойство available_quantity.
+                # Мы должны менять поле в базе данных: total_quantity.
+                # Самый надежный способ - установить фактическое количество.
+                content_object.total_quantity = item.actual_quantity
+                content_object.save()
+                
+                ProductOperation.objects.create(
+                    product=content_object,
+                    operation_type=ProductOperation.OperationType.ADJUSTMENT,
+                    quantity=abs(variance),
+                    source=inventory_count, # GenericForeignKey на переучет
+                    user=user,
+                    comment=comment
+                )
+
+            # --- Логика для Материалов (Склад 1) ---
+            elif isinstance(content_object, Material):
+                # Здесь мы меняем поле quantity
+                content_object.quantity = item.actual_quantity
+                content_object.save()
+                
+                # !!! КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
+                # Используем тип 'adjustment', который вы добавили в модель.
+                # У MaterialOperation нет GFK, поэтому просто создаем запись.
+                MaterialOperation.objects.create(
+                    material=content_object,
+                    operation_type='adjustment',
+                    quantity=abs(variance), # Ваша модель ожидает Decimal, а не int
+                    user=user,
+                    comment=comment
+                )
+            
+            # Отмечаем позицию как обработанную
+            item.reconciliation_status = InventoryCountItem.ReconciliationStatus.RECONCILED
+            item.save()
+
+
+class FinalizeInventoryView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """Окончательно закрывает переучет, меняя статус на RECONCILED."""
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def post(self, request, pk, *args, **kwargs):
+        inventory_count = get_object_or_404(
+            InventoryCount, pk=pk, status=InventoryCount.Status.COMPLETED
+        )
+        
+        all_items_reconciled = not inventory_count.items.filter(reconciliation_status='pending').exists()
+        if not all_items_reconciled:
+            messages.error(request, "Не все позиции были сверены.")
+            return redirect('count_reconcile', pk=pk)
+
+        inventory_count.status = InventoryCount.Status.RECONCILED
+        inventory_count.save()
+        
+        messages.success(request, f"Переучет №{inventory_count.id} успешно закрыт.")
+        return redirect('count_list')
+
+@login_required
 def update_inventory_item(request, pk):
-    """Обновляет количество для уже существующей позиции."""
     item = get_object_or_404(InventoryCountItem, pk=pk)
+    if item.inventory_count.status != 'in_progress':
+        messages.error(request, "Нельзя изменить завершенный переучет.")
+        return redirect('count_work', pk=item.inventory_count.pk)
+
     if request.method == 'POST':
         form = InventoryItemUpdateForm(request.POST)
         if form.is_valid():
@@ -110,15 +241,93 @@ def update_inventory_item(request, pk):
             messages.success(request, f"Количество для '{item.content_object.name}' обновлено.")
     return redirect('count_work', pk=item.inventory_count.pk)
 
-
+@login_required
 def delete_inventory_item(request, pk):
-    """Удаляет позицию из переучета."""
     item = get_object_or_404(InventoryCountItem, pk=pk)
+    inventory_pk = item.inventory_count.pk
+    if item.inventory_count.status != 'in_progress':
+        messages.error(request, "Нельзя изменить завершенный переучет.")
+        return redirect('count_work', pk=inventory_pk)
+
     if request.method == 'POST':
-        item_name = item.content_object.name
-        inventory_pk = item.inventory_count.pk
+        item_name = str(item.content_object)
         item.delete()
         messages.warning(request, f"Позиция '{item_name}' удалена из переучета.")
-        return redirect('inventarization:count_work', pk=inventory_pk)
-    # GET-запрос просто перенаправляем
-    return redirect('inventarization:count_work', pk=item.inventory_count.pk)
+        return redirect('count_work', pk=inventory_pk)
+    
+    return redirect('count_work', pk=inventory_pk)
+
+@login_required
+def complete_inventory_count(request, pk):
+    if request.method == 'POST':
+        # 1. Сначала находим переучет только по его номеру (pk)
+        inventory_count = get_object_or_404(InventoryCount, pk=pk)
+
+        # 2. Затем проверяем права доступа: это владелец ИЛИ администратор/менеджер?
+        #    (is_staff обычно используется для доступа к админке)
+        if inventory_count.user != request.user and not request.user.is_staff and not request.user.is_superuser:
+            messages.error(request, "У вас нет прав для завершения этого переучета.")
+            return redirect('count_list') # Возвращаем в список
+
+        # 3. Основная логика остается без изменений
+        if inventory_count.status == 'in_progress':
+            inventory_count.status = InventoryCount.Status.COMPLETED
+            inventory_count.completed_at = timezone.now()
+            inventory_count.save()
+            messages.success(request, f"Переучет №{inventory_count.id} завершен и готов к сверке.")
+            return redirect('count_list')
+        else:
+            messages.error(request, "Этот переучет уже был завершен.")
+            # Перенаправляем на страницу самого переучета, а не в список
+            return redirect('count_work', pk=pk)
+    
+    # Если это GET-запрос, просто возвращаем пользователя на страницу переучета
+    return redirect('count_work', pk=pk)
+
+@login_required
+def inventory_stock_search(request):
+    query = request.GET.get('q', '').strip()
+    inventory_count_id = request.GET.get('inventory_count_id')
+    results = []
+
+    counted_items = {}
+    if inventory_count_id:
+        items = InventoryCountItem.objects.filter(inventory_count_id=inventory_count_id)
+        for item in items:
+            item_key = f"{item.content_type.model}-{item.object_id}"
+            counted_items[item_key] = item.actual_quantity
+
+    if len(query) < 2:
+        return JsonResponse({'results': results})
+
+    # --- ИСПРАВЛЕННАЯ ЛОГИКА ПОИСКА ---
+    # Сначала ищем продукты
+    product_query = (
+        Q(name__icontains=query) | Q(sku__icontains=query) |
+        Q(barcode__exact=query) | Q(packages__barcode__exact=query)
+    )
+    products_found = Product.objects.filter(product_query).distinct()[:5]
+    for p in products_found:
+        item_key = f"product-{p.id}"
+        results.append({
+            'id': item_key,
+            'name': f"{p.name}",
+            'info': f"Посчитано: <strong>{counted_items.get(item_key, 0)} шт.</strong>",
+            'counted_quantity': counted_items.get(item_key, 0)
+        })
+
+    # Затем ищем материалы
+    material_query = (
+        Q(name__icontains=query) | Q(article__icontains=query) | Q(barcode__exact=query)
+    )
+    materials_found = Material.objects.filter(material_query)[:5]
+    for m in materials_found:
+        item_key = f"material-{m.id}"
+        results.append({
+            'id': item_key,
+            'name': f"{m.name}",
+            'info': f"Посчитано: <strong>{counted_items.get(item_key, 0)} {m.unit.short_name}</strong>",
+            'counted_quantity': counted_items.get(item_key, 0)
+        })
+
+    return JsonResponse({'results': results})

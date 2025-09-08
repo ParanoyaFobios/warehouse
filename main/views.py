@@ -175,3 +175,4 @@ def global_search_view(request):
     else:
         messages.error(request, f'По запросу "{query}" ничего не найдено.')
         return redirect(request.META.get('HTTP_REFERER', '/'))
+
