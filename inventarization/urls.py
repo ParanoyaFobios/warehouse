@@ -11,7 +11,6 @@ urlpatterns = [
     path('<int:pk>/complete/', views.complete_inventory_count, name='count_complete'),
     # Главная рабочая страница для проведения переучета
     path('<int:pk>/', views.InventoryCountWorkView.as_view(), name='count_work'),
-    
     # URL для обновления и удаления конкретной позиции
     path('item/<int:pk>/update/', views.update_inventory_item, name='item_update'),
     path('item/<int:pk>/delete/', views.delete_inventory_item, name='item_delete'),

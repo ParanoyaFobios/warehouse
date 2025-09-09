@@ -38,28 +38,35 @@
     <h4>Позиции для сверки</h4>
     
     {% for item in items %}
-    <div class="card mb-3 {% if item.reconciliation_status == 'completed' %}border-success{% endif %}">
+    <div class="card mb-3 {% if item.reconciliation_status == 'reconciled' %}border-success{% endif %}">
         <div class="card-body">
             <div class="row align-items-center">
                 
                 <div class="col-md-3">
                     <h5>{{ item.content_object.name }}</h5>
                     <small class="text-muted">Тип: {{ item.content_type.model }}</small>
+                    {% if item.reconciliation_status == 'reconciled' %}
+                    <span class="badge bg-success ms-2">Скорректировано</span>
+                    {% endif %}
                 </div>
                 
                 <div class="col-md-6">
                     <div class="row text-center">
                         <div class="col-4">
                             <span class="text-muted">Система</span><br>
-                            <span class="fs-5">{{ item.system_quantity }}</span>
+                            <span class="fs-5 {% if item.system_quantity != item.actual_quantity %}text-danger{% endif %}">
+                                {{ item.system_quantity }}
+                            </span>
                         </div>
                         <div class="col-4">
                             <span class="text-muted">Факт</span><br>
-                            <span class="fs-5 fw-bold text-primary">{{ item.actual_quantity }}</span>
+                            <span class="fs-5 fw-bold {% if item.system_quantity != item.actual_quantity %}text-warning{% else %}text-primary{% endif %}">
+                                {{ item.actual_quantity }}
+                            </span>
                         </div>
                         <div class="col-4">
                             <span class="text-muted">Расхождение</span><br>
-                            <span class="fs-5 fw-bold {% if item.variance > 0 %}text-success{% elif item.variance < 0 %}text-danger{% endif %}">
+                            <span class="fs-5 fw-bold {% if item.variance > 0 %}text-success{% elif item.variance < 0 %}text-danger{% else %}text-muted{% endif %}">
                                 {% if item.variance > 0 %}+{% endif %}{{ item.variance }}
                             </span>
                         </div>
@@ -67,23 +74,19 @@
                 </div>
     
                 <div class="col-md-3 text-center">
-                    {% if item.variance != 0 %}
-                        
-                        {% if item.reconciliation_status == 'completed' %}
-                            <form action="{% url 'count_reconcile_action' inventory_count.pk %}" method="post">
-                                {% csrf_token %}
-                                <input type="hidden" name="item_id" value="{{ item.id }}">
-                                <button type="submit" class="btn btn-success" 
-                                        onclick="return confirm('Вы уверены, что хотите обновить системный остаток до {{ item.actual_quantity }}?')">
-                                    Скорректировать остаток
-                                </button>
-                            </form>
-                        {% else %}
-                            <span class="badge bg-success fs-6">Остаток обновлен</span>
-                        {% endif %}
-    
+                    {% if item.variance != 0 and item.reconciliation_status == 'pending' %}
+                    <form action="{% url 'count_reconcile_action' inventory_count.pk %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="item_id" value="{{ item.id }}">
+                        <button type="submit" class="btn btn-success" 
+                                onclick="return confirm('Вы уверены, что хотите скорректировать системный остаток с {{ item.system_quantity }} до {{ item.actual_quantity }}?')">
+                            Скорректировать
+                        </button>
+                    </form>
+                    {% elif item.reconciliation_status == 'reconciled' %}
+                    <span class="badge bg-success fs-6">Обработано</span>
                     {% else %}
-                        <span class="text-muted">—</span>
+                    <span class="text-muted">—</span>
                     {% endif %}
                 </div>
                 

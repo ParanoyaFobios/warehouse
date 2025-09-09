@@ -9,10 +9,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.db.models import Q
 from django.utils import timezone
-
 from .models import InventoryCount, InventoryCountItem
 from .forms import InventoryItemForm, InventoryItemUpdateForm
-
 # Импортируем модели с наших складов
 from warehouse1.models import Material
 from warehouse2.models import Product, Package
@@ -120,7 +118,7 @@ class InventoryReconciliationView(LoginRequiredMixin, UserPassesTestMixin, Detai
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Просто передаем связанные items, вся логика будет в шаблоне
+        #передаем связанные items, вся логика будет в шаблоне
         context['items'] = self.get_object().items.all().select_related('content_type')
         return context
 
@@ -167,41 +165,40 @@ class ReconcileInventoryView(LoginRequiredMixin, UserPassesTestMixin, View):
 
             # --- Логика для Готовой Продукции (Склад 2) ---
             if isinstance(content_object, Product):
-                # !!! КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
-                # Мы не можем менять свойство available_quantity.
-                # Мы должны менять поле в базе данных: total_quantity.
-                # Самый надежный способ - установить фактическое количество.
+                # Обновляем количество продукта
                 content_object.total_quantity = item.actual_quantity
                 content_object.save()
                 
+                # Создаем запись в журнале операций
                 ProductOperation.objects.create(
                     product=content_object,
                     operation_type=ProductOperation.OperationType.ADJUSTMENT,
-                    quantity=abs(variance),
-                    source=inventory_count, # GenericForeignKey на переучет
+                    quantity=variance,
+                    content_type=ContentType.objects.get_for_model(InventoryCount),
+                    object_id=inventory_count.id,
                     user=user,
                     comment=comment
                 )
 
             # --- Логика для Материалов (Склад 1) ---
             elif isinstance(content_object, Material):
-                # Здесь мы меняем поле quantity
+                # Обновляем количество материала
                 content_object.quantity = item.actual_quantity
                 content_object.save()
                 
-                # !!! КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
-                # Используем тип 'adjustment', который вы добавили в модель.
-                # У MaterialOperation нет GFK, поэтому просто создаем запись.
+                # Создаем запись в журнале операций с реальным variance (со знаком)
                 MaterialOperation.objects.create(
                     material=content_object,
                     operation_type='adjustment',
-                    quantity=abs(variance), # Ваша модель ожидает Decimal, а не int
+                    quantity=variance,  # Для Decimal оставляем abs, но меняем комментарий
                     user=user,
-                    comment=comment
+                    comment=f"{comment}. Корректировка: {variance}"
+                    # Если у MaterialOperation есть связь с переучетом, добавьте ее здесь
+                    # inventory_count=inventory_count
                 )
             
             # Отмечаем позицию как обработанную
-            item.reconciliation_status = InventoryCountItem.ReconciliationStatus.RECONCILED
+            item.reconciliation_status = 'reconciled'
             item.save()
 
 
@@ -215,9 +212,15 @@ class FinalizeInventoryView(LoginRequiredMixin, UserPassesTestMixin, View):
             InventoryCount, pk=pk, status=InventoryCount.Status.COMPLETED
         )
         
-        all_items_reconciled = not inventory_count.items.filter(reconciliation_status='pending').exists()
-        if not all_items_reconciled:
-            messages.error(request, "Не все позиции были сверены.")
+        # Проверяем, что все позиции с расхождениями обработаны
+        pending_items = []
+        for item in inventory_count.items.all():
+            # Вычисляем расхождение для каждого элемента
+            if item.actual_quantity != item.system_quantity and item.reconciliation_status == 'pending':
+                pending_items.append(item)
+        
+        if pending_items:
+            messages.error(request, "Не все позиции с расхождениями были обработаны.")
             return redirect('count_reconcile', pk=pk)
 
         inventory_count.status = InventoryCount.Status.RECONCILED

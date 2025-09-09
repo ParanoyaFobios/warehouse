@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 import uuid
+import re
 
 def generate_unique_barcode_for_model(model_class):
     """Универсальная функция для генерации уникального штрихкода для любой модели."""
@@ -92,19 +93,27 @@ class MaterialOperation(models.Model):
     OPERATION_TYPES = (
         ('incoming', 'Приход'),
         ('outgoing', 'Расход'),
-        ('adjustment', 'Корректировка (+/-)')
+        ('adjustment', 'Корректировка:')
     )
     
     material = models.ForeignKey(Material, on_delete=models.CASCADE, verbose_name="Материал")
     operation_type = models.CharField(max_length=20, choices=OPERATION_TYPES, verbose_name="Тип операции")
     outgoing_category = models.ForeignKey(OperationOutgoingCategory, on_delete=models.PROTECT, null=True, blank=True, verbose_name="Назначение выдачи")
-    quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Количество")
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Количество")#Поменять на quantity = models.IntegerField(verbose_name="Количество")
     date = models.DateTimeField(auto_now_add=True, verbose_name="Дата операции")
     user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Пользователь")
     comment = models.TextField(blank=True, verbose_name="Комментарий")
     
     def __str__(self):
-        return f"{self.get_operation_type_display()} {self.material.name} - {self.quantity}"
+        if self.operation_type == 'adjustment':
+            # Для корректировки пытаемся извлечь информацию о знаке из комментария
+            match = re.search(r'Корректировка:\s*([+-]?\d*\.?\d+)', self.comment)
+            if match:
+                adjustment_value = match.group(1)
+                return f"Корректировка {self.material.name}: {adjustment_value}"
+            return f"{self.get_operation_type_display()} {self.material.name} - {self.quantity}"
+        else:
+            return f"{self.get_operation_type_display()} {self.material.name} - {self.quantity}"
     
     class Meta:
         verbose_name = "Операция с материалом"

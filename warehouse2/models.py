@@ -141,7 +141,7 @@ class ProductOperation(models.Model):
 
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='operations', verbose_name="Продукция")
     operation_type = models.CharField(max_length=20, choices=OperationType.choices, verbose_name="Тип операции")
-    quantity = models.IntegerField(verbose_name="Количество") # Должно быть всегда положительным
+    quantity = models.IntegerField(verbose_name="Количество")
     
     # Связь с документом-основанием (WorkOrder, Shipment, InventoryCount и т.д.)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
@@ -153,11 +153,13 @@ class ProductOperation(models.Model):
     comment = models.TextField(blank=True, verbose_name="Комментарий")
 
     def __str__(self):
-        sign = '+' if self.operation_type in [self.OperationType.PRODUCTION, self.OperationType.RETURN] else '-'
-        # Для корректировки знак может быть разным, но для простоты оставим так
         if self.operation_type == self.OperationType.ADJUSTMENT:
-            sign = '+/-'
-        return f"[{self.get_operation_type_display()}] {self.product.name}: {sign}{self.quantity}"
+            # Для корректировки показываем реальное значение со знаком
+            sign = '+' if self.quantity > 0 else ''
+            return f"[{self.get_operation_type_display()}] {self.product.name}: {sign}{self.quantity}"
+        else:
+            sign = '+' if self.operation_type in [self.OperationType.PRODUCTION, self.OperationType.RETURN] else '-'
+            return f"[{self.get_operation_type_display()}] {self.product.name}: {sign}{abs(self.quantity)}"
 
     class Meta:
         verbose_name = "Операция с продукцией"

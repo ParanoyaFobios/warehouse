@@ -30,8 +30,11 @@ class InventoryCount(models.Model):
 class InventoryCountItem(models.Model):
     """
     Одна позиция (строка) в документе переучета.
-    Может ссылаться на любую модель складского учета (Material, Product).
     """
+    class ReconciliationStatus(models.TextChoices):
+        PENDING = 'pending', 'Ожидает сверки'
+        RECONCILED = 'reconciled', 'Сверено'
+    
     inventory_count = models.ForeignKey(
         InventoryCount,
         on_delete=models.CASCADE,
@@ -39,7 +42,7 @@ class InventoryCountItem(models.Model):
         verbose_name="Переучет"
     )
 
-    # GenericForeignKey для связи с любой моделью (Material, Product и т.д.)
+    # GenericForeignKey для связи с любой моделью
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, verbose_name="Тип объекта")
     object_id = models.PositiveIntegerField(verbose_name="ID объекта")
     content_object = GenericForeignKey('content_type', 'object_id')
@@ -52,6 +55,12 @@ class InventoryCountItem(models.Model):
         default=0,
         verbose_name="Фактическое кол-во",
         help_text="Количество, введенное кладовщиком по факту"
+    )
+    reconciliation_status = models.CharField(
+        max_length=20,
+        choices=ReconciliationStatus.choices,
+        default=ReconciliationStatus.PENDING,
+        verbose_name="Статус сверки"
     )
 
     @property
@@ -67,5 +76,4 @@ class InventoryCountItem(models.Model):
     class Meta:
         verbose_name = "Позиция переучета"
         verbose_name_plural = "Позиции переучета"
-        # Гарантирует, что один и тот же товар не будет добавлен в один переучет дважды
         unique_together = ('inventory_count', 'content_type', 'object_id')
