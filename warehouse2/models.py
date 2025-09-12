@@ -134,6 +134,7 @@ class ProductOperation(models.Model):
     Фиксирует каждое изменение количества товара на складе.
     """
     class OperationType(models.TextChoices):
+        INCOMING = 'incoming', 'Поступление (+)'
         PRODUCTION = 'production', 'Производство (+)'
         SHIPMENT = 'shipment', 'Отгрузка (-)'
         ADJUSTMENT = 'adjustment', 'Корректировка (+/-)'
@@ -155,7 +156,7 @@ class ProductOperation(models.Model):
     def __str__(self):
         if self.operation_type == self.OperationType.ADJUSTMENT:
             # Для корректировки показываем реальное значение со знаком
-            sign = '+' if self.quantity > 0 else ''
+            sign = '+' if self.operation_type in [self.OperationType.PRODUCTION, self.OperationType.RETURN, self.OperationType.INCOMING] else '-'
             return f"[{self.get_operation_type_display()}] {self.product.name}: {sign}{self.quantity}"
         else:
             sign = '+' if self.operation_type in [self.OperationType.PRODUCTION, self.OperationType.RETURN] else '-'
@@ -232,7 +233,8 @@ class Shipment(models.Model):
     STATUS_CHOICES = [
         ('pending', 'В процессе сборки'), 
         ('packaged', 'Собрано'), 
-        ('shipped', 'Отгружено')
+        ('shipped', 'Отгружено'),
+        ('returned', 'Возвращено')
     ]
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_shipments', verbose_name="Кем создана")
     processed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_shipments', verbose_name="Кем собрана/отгружена")
@@ -276,7 +278,8 @@ class Shipment(models.Model):
         return {
             'pending': 'Сборка',
             'packaged': 'Собрано',
-            'shipped': 'Отгружено'
+            'shipped': 'Отгружено',
+            'returned': 'Возвращено'
         }.get(self.status, self.status)
 
     def can_be_edited(self):

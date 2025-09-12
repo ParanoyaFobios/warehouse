@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="col-md-8 offset-md-2">
+        <h2>Подтверждение возврата</h2>
+        <div class="alert alert-warning">
+            <p>Вы уверены, что хотите оформить возврат по отгрузке <strong>№{{ shipment.id }}</strong> от {{ shipment.created_at|date:"d.m.Y" }}?</p>
+            <p>Все товары из этой накладной будут возвращены на баланс склада. Это действие нельзя отменить.</p>
+        </div>
+        
+        <h4>Товары к возврату:</h4>
+        <ul>
+            {% for item in shipment.items.all %}
+                <li>{{ item.stock_product.name }} - {{ item.base_product_units }} шт.</li>
+            {% endfor %}
+        </ul>
+
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning">Оформить возврат</button>
+            <a href="{% url 'shipment_detail' shipment.pk %}" class="btn btn-secondary">Отмена</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

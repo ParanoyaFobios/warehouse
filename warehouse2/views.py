@@ -2,8 +2,8 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
-from .models import Product, WorkOrder, Shipment, ShipmentItem, Package, ProductCategory
-from .forms import ProductForm, WorkOrderForm, ShipmentForm, ShipmentItemForm, PackageForm
+from .models import Product, WorkOrder, Shipment, ShipmentItem, Package, ProductCategory, ProductOperation
+from .forms import ProductForm, WorkOrderForm, ShipmentForm, ShipmentItemForm, PackageForm, ProductIncomingForm
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.http import JsonResponse
 from django.db import models
@@ -12,7 +12,8 @@ from django.db.models import F
 from django.views.generic.edit import FormMixin
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 
 
 # ==============================================================================
@@ -111,6 +112,57 @@ class ProductDetailView(FormMixin, DetailView):
         package.save()
         messages.success(self.request, f'Упаковка на {package.quantity} шт. успешно создана!')
         return super().form_valid(form)
+    
+class ProductIncomingView(LoginRequiredMixin, FormView):
+    template_name = 'warehouse2/product_incoming_form.html'
+    form_class = ProductIncomingForm
+    success_url = reverse_lazy('product_list')
+
+    def form_valid(self, form):
+        product_id = form.cleaned_data['product']
+        quantity = form.cleaned_data['quantity']
+        comment = form.cleaned_data['comment']
+        product = get_object_or_404(Product, pk=product_id)
+
+        try:
+            with transaction.atomic():
+                # Увеличиваем остаток товара
+                product.total_quantity += quantity
+                product.save()
+
+                # Создаем запись в журнале операций
+                ProductOperation.objects.create(
+                    product=product,
+                    operation_type=ProductOperation.OperationType.INCOMING,
+                    quantity=quantity,
+                    source=self.request.user,
+                    user=self.request.user,
+                    comment=comment
+                )
+            messages.success(self.request, f"Товар '{product.name}' ({quantity} шт.) успешно оприходован.")
+        except Exception as e:
+            messages.error(self.request, f"Произошла ошибка: {e}")
+
+        return redirect(self.get_success_url())
+    
+def product_search_json(request):
+    query = request.GET.get('q', '').strip()
+    results = []
+    if len(query) >= 2:
+        products = Product.objects.filter(
+            Q(name__icontains=query) |
+            Q(sku__icontains=query) |
+            Q(barcode__exact=query)
+        ).distinct()[:10]
+
+        for product in products:
+            results.append({
+                'id': product.id,
+                'name': product.name,
+                'sku': product.sku,
+                'available_quantity': product.available_quantity
+            })
+    return JsonResponse({'results': results})
 
 # ==============================================================================
 # Упаковки - Package
@@ -379,6 +431,49 @@ class ShipmentItemsView(FormView):
             return self.form_invalid(form)
         
         return super().form_valid(form)
+
+class ReturnShipmentView(LoginRequiredMixin, DetailView):
+    model = Shipment
+    template_name = 'warehouse2/shipment_confirm_return.html'
+    context_object_name = 'shipment'
+
+    def post(self, request, *args, **kwargs):
+        shipment = self.get_object()
+
+        if shipment.status != 'shipped':
+            messages.error(request, "Возврат можно оформить только для отгруженных накладных.")
+            return redirect('shipment_detail', pk=shipment.pk)
+
+        try:
+            with transaction.atomic():
+                # Проходим по всем позициям в отгрузке
+                for item in shipment.items.all():
+                    product_to_return = item.stock_product
+                    quantity_to_return = item.base_product_units
+
+                    # Возвращаем количество на склад
+                    product_to_return.total_quantity += quantity_to_return
+                    product_to_return.save()
+
+                    # Создаем запись в журнале операций
+                    ProductOperation.objects.create(
+                        product=product_to_return,
+                        operation_type=ProductOperation.OperationType.RETURN,
+                        quantity=quantity_to_return,
+                        source=shipment, # Ссылка на отгрузку-основание
+                        user=request.user,
+                        comment=f"Возврат по отгрузке №{shipment.id}"
+                    )
+                
+                # Меняем статус отгрузки
+                shipment.status = 'returned'
+                shipment.save()
+                messages.success(request, f"Товары по отгрузке №{shipment.id} успешно возвращены на склад.")
+        except Exception as e:
+            messages.error(request, f"Произошла ошибка при оформлении возврата: {e}")
+            return redirect('shipment_detail', pk=shipment.pk)
+
+        return redirect('shipment_list')
 
 @login_required
 def delete_shipment_item(request, pk):

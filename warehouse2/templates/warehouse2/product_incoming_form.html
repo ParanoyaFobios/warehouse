@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="col-md-8 offset-md-2">
+        <h2>Поступление готовой продукции</h2>
+        <div class="card">
+            <div class="card-body">
+                <form method="post" id="incoming-form">
+                    {% csrf_token %}
+                    {{ form.product }}
+
+                    <div class="mb-3 position-relative">
+                        <label for="product-search-input" class="form-label">Найдите продукт</label>
+                        <input type="text" id="product-search-input" class="form-control" placeholder="Поиск по названию, артикулу, штрихкоду...">
+                        <div id="search-results" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+                    </div>
+
+                    <div id="selected-product-info" class="alert alert-info" style="display: none;">
+                        <h5 id="selected-product-name"></h5>
+                        <p class="mb-0">Артикул: <strong id="selected-product-sku"></strong></p>
+                        {% if user.is_superuser or user.is_staff  %}
+                        <p class="mb-0">Текущий остаток: <strong id="selected-product-available"></strong> шт.</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.quantity.id_for_label }}" class="form-label">{{ form.quantity.label }}</label>
+                        {{ form.quantity }}
+                    </div>
+                     <div class="mb-3">
+                        <label for="{{ form.comment.id_for_label }}" class="form-label">{{ form.comment.label }}</label>
+                        {{ form.comment }}
+                    </div>
+
+                    <button type="submit" class="btn btn-success mt-3">Принять на склад</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('product-search-input');
+    const searchResults = document.getElementById('search-results');
+    const hiddenProductInput = document.getElementById('id_product');
+    const submitButton = document.querySelector('button[type="submit"]');
+
+    // Элементы для инфо-блока
+    const infoBlock = document.getElementById('selected-product-info');
+    const infoName = document.getElementById('selected-product-name');
+    const infoSku = document.getElementById('selected-product-sku');
+    const infoAvailable = document.getElementById('selected-product-available');
+
+    function selectProduct(product) {
+        // Заполняем скрытое поле формы
+        hiddenProductInput.value = product.id;
+        
+        // Показываем информацию о выбранном продукте
+        infoName.textContent = product.name;
+        infoSku.textContent = product.sku;
+        infoAvailable.textContent = product.available_quantity;
+        infoBlock.style.display = 'block';
+
+        // Очищаем поиск и активируем кнопку
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+        submitButton.disabled = false;
+    }
+
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        if (query.length < 2) {
+            searchResults.innerHTML = '';
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        fetch(`{% url 'product_search_json' %}?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                searchResults.innerHTML = '';
+                if (data.results.length > 0) {
+                    data.results.forEach(product => {
+                        const item = document.createElement('button');
+                        item.type = 'button';
+                        item.className = 'list-group-item list-group-item-action';
+                        item.innerHTML = `<strong>${product.name}</strong> <small class="text-muted">(${product.sku})</small>`;
+                        item.onclick = () => selectProduct(product);
+                        searchResults.appendChild(item);
+                    });
+                } else {
+                    searchResults.innerHTML = '<div class="list-group-item text-muted">Не найдено</div>';
+                }
+                searchResults.style.display = 'block';
+            });
+    });
+
+    // Скрываем результаты при клике вне поля
+    document.addEventListener('click', function(e) {
+        if (!searchResults.contains(e.target) && e.target !== searchInput) {
+            searchResults.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

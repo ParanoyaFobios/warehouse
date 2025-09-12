@@ -25,6 +25,21 @@ class ProductForm(forms.ModelForm):
             self.fields.pop('total_quantity')
             self.fields.pop('price')
 
+class ProductIncomingForm(forms.Form):
+    # Это поле будет скрытым. JavaScript заполнит его ID-шником выбранного продукта.
+    product = forms.IntegerField(widget=forms.HiddenInput())
+    
+    quantity = forms.IntegerField(
+        min_value=1,
+        label="Количество к поступлению",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Введите количество'})
+    )
+    comment = forms.CharField(
+        required=False,
+        label="Комментарий (номер накладной, поставщик и т.д.)",
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
 class ProductSearchForm(forms.Form):
     barcode = forms.CharField(
         label='Штрихкод',
