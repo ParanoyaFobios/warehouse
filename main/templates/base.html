@@ -12,11 +12,8 @@
         <nav>
             <ul>
                 <li><a href="{% url 'start-page' %}" class="btn btn-primary">Главная</a></li>
-                {% if user.is_authenticated %}
-                <li><a href="{% url 'incoming_operation' %}" class="btn btn-primary">Приём</a></li>
-                <li><a href="{% url 'outgoing_operation' %}" class="btn btn-primary">Выдача</a></li>
-                <li><a href="{% url 'material_list' %}" class="btn btn-primary">Каталог</a></li>
-                {% endif %}
+                <li><a href="{% url 'material_list' %}" class="btn btn-primary">Материалы</a></li>
+                
             </ul>
         </nav>
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -37,6 +34,7 @@
                     <a class="nav-link" href="{% url 'workorder_list' %}">Производство</a>
                     <a class="nav-link" href="{% url 'shipment_list' %}">Отгрузки</a>
                     <a class="nav-link" href="{% url 'count_list' %}">Переучет</a>
+                    <a href="{% url 'reports_home' %}" class="nav-link">Отчеты</a>
                 </div>
             </div>
         </nav>

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Динамика продаж</h2>
+        <a href="{% url 'reports_home' %}" class="btn btn-secondary">Все отчеты</a>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary period-btn" data-period="week">Неделя</button>
+            <button type="button" class="btn btn-outline-primary period-btn active" data-period="month">Месяц</button>
+            <button type="button" class="btn btn-outline-primary period-btn" data-period="year">Год</button>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <div style="height: 400px;"> <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    const periodButtons = document.querySelectorAll('.period-btn');
+    let salesChart = null; // Переменная для хранения нашего графика
+
+    // Функция, которая запрашивает данные и обновляет/создает график
+    function updateChart(period) {
+        // Показываем пользователю, что данные загружаются (опционально)
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#888";
+        ctx.textAlign = "center";
+        ctx.fillText('Загрузка данных...', ctx.canvas.width / 2, ctx.canvas.height / 2);
+
+        // Формируем URL с нужным параметром
+        const apiUrl = `{% url 'sales_chart_data_api' %}?period=${period}`;
+
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(apiData => {
+                // Если график уже существует, уничтожаем его перед созданием нового
+                if (salesChart) {
+                    salesChart.destroy();
+                }
+
+                // Создаем новый график
+                salesChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: apiData.labels,
+                        datasets: [{
+                            label: 'Выручка, грн',
+                            data: apiData.data,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Ошибка при загрузке данных для графика:', error));
+    }
+
+    // Обработчики для кнопок
+    periodButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Снимаем класс 'active' со всех кнопок и добавляем его на нажатую
+            periodButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+
+            // Получаем период из data-атрибута и обновляем график
+            const period = this.dataset.period;
+            updateChart(period);
+        });
+    });
+
+    // Загружаем график за месяц по умолчанию при первой загрузке страницы
+    updateChart('month');
+});
+</script>
+{% endblock %}
