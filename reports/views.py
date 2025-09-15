@@ -1,14 +1,14 @@
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, FormView
 from django.http import JsonResponse
 from django.db.models import Sum, F, Q, Value, CharField
 from django.db.models.functions import TruncDay, TruncMonth
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, date
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 
-from .forms import MovementReportFilterForm
+from .forms import MovementReportFilterForm, DateRangeFilterForm
 from warehouse1.models import MaterialOperation
 from warehouse2.models import ProductOperation
 from warehouse2.models import Shipment, ShipmentItem
@@ -167,3 +167,65 @@ class MovementReportView(LoginRequiredMixin, TemplateView):
         context['filter_form'] = form
         context['page_obj'] = page_obj
         return context
+    
+class SalesByProductReportView(LoginRequiredMixin, FormView):
+    """
+    Отображает страницу с фильтрами и холстами для графиков.
+    """
+    template_name = 'reports/sales_by_product_report.html'
+    form_class = DateRangeFilterForm
+
+@login_required
+def sales_by_product_api(request):
+    """
+    API для отчета "Топ-10 товаров по выручке".
+    """
+    form = DateRangeFilterForm(request.GET)
+    if not form.is_valid():
+        return JsonResponse({'error': 'Invalid date format'}, status=400)
+
+    # Устанавливаем период по умолчанию (последние 30 дней), если даты не указаны
+    start_date = form.cleaned_data.get('start_date') or date.today() - timedelta(days=30)
+    end_date = form.cleaned_data.get('end_date') or date.today()
+
+    # Агрегируем данные: группируем по товару и считаем сумму продаж
+    sales_data = ShipmentItem.objects.filter(
+        shipment__status='shipped',
+        shipment__shipped_at__date__range=[start_date, end_date]
+    ).values(
+        'product__name' # Группируем по имени продукта
+    ).annotate(
+        total_revenue=Sum(F('price') * F('quantity'))
+    ).order_by('-total_revenue')[:10] # Сортируем по убыванию выручки и берем топ-10
+
+    labels = [item['product__name'] for item in sales_data]
+    data = [float(item['total_revenue']) for item in sales_data]
+    
+    return JsonResponse({'labels': labels, 'data': data})
+
+@login_required
+def sales_by_category_api(request):
+    """
+    API для отчета "Выручка по категориям".
+    """
+    form = DateRangeFilterForm(request.GET)
+    if not form.is_valid():
+        return JsonResponse({'error': 'Invalid date format'}, status=400)
+
+    start_date = form.cleaned_data.get('start_date') or date.today() - timedelta(days=30)
+    end_date = form.cleaned_data.get('end_date') or date.today()
+
+    # Агрегируем данные: группируем по категории и считаем сумму
+    category_data = ShipmentItem.objects.filter(
+        shipment__status='shipped',
+        shipment__shipped_at__date__range=[start_date, end_date]
+    ).values(
+        'product__category__name' # Группируем по имени категории
+    ).annotate(
+        total_revenue=Sum(F('price') * F('quantity'))
+    ).order_by('-total_revenue')
+
+    labels = [item['product__category__name'] for item in category_data]
+    data = [float(item['total_revenue']) for item in category_data]
+
+    return JsonResponse({'labels': labels, 'data': data})

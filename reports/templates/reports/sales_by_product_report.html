@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>Отчет по продажам</h2>
+    <a href="{% url 'reports_home' %}" class="btn btn-secondary">Все отчеты</a>
+    <div class="card mb-4">
+        <div class="card-body">
+            <form id="filter-form" method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">{{ form.start_date.label_tag }} {{ form.start_date }}</div>
+                <div class="col-md-4">{{ form.end_date.label_tag }} {{ form.end_date }}</div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary">Применить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">Топ-10 товаров по выручке</div>
+                <div class="card-body">
+                    <div style="height: 400px;">
+                        <canvas id="topProductsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">Выручка по категориям</div>
+                <div class="card-body">
+                     <div style="height: 400px;">
+                        <canvas id="salesByCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const topProductsCtx = document.getElementById('topProductsChart').getContext('2d');
+    const byCategoryCtx = document.getElementById('salesByCategoryChart').getContext('2d');
+    const filterForm = document.getElementById('filter-form');
+    
+    let topProductsChart = null;
+    let salesByCategoryChart = null;
+
+    // Функция для загрузки и отрисовки всех графиков
+    function loadCharts() {
+        const startDate = document.getElementById('id_start_date').value;
+        const endDate = document.getElementById('id_end_date').value;
+        const queryParams = `?start_date=${startDate}&end_date=${endDate}`;
+
+        // 1. Загружаем данные для графика по товарам
+        fetch(`{% url 'sales_by_product_api' %}${queryParams}`)
+            .then(response => response.json())
+            .then(productData => {
+                if (topProductsChart) topProductsChart.destroy();
+                topProductsChart = new Chart(topProductsCtx, {
+                    type: 'bar', // Столбчатая диаграмма
+                    data: {
+                        labels: productData.labels,
+                        datasets: [{
+                            label: 'Выручка, грн',
+                            data: productData.data,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            });
+
+        // 2. Загружаем данные для графика по категориям
+        fetch(`{% url 'sales_by_category_api' %}${queryParams}`)
+            .then(response => response.json())
+            .then(categoryData => {
+                if (salesByCategoryChart) salesByCategoryChart.destroy();
+                salesByCategoryChart = new Chart(byCategoryCtx, {
+                    type: 'pie', // Круговая диаграмма
+                    data: {
+                        labels: categoryData.labels,
+                        datasets: [{
+                            label: 'Выручка по категориям',
+                            data: categoryData.data,
+                            backgroundColor: [ // Массив цветов для секторов
+                                'rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)',
+                                'rgba(255, 206, 86, 0.6)', 'rgba(75, 192, 192, 0.6)',
+                                'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)'
+                            ]
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            });
+    }
+
+    // Загружаем графики при первой загрузке страницы
+    loadCharts();
+
+    // Перезагружаем графики при отправке формы
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault(); // Предотвращаем перезагрузку страницы
+        loadCharts();
+    });
+});
+</script>
+{% endblock %}

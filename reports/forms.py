@@ -34,3 +34,15 @@ class MovementReportFilterForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Поиск по товару'})
     )
+
+class DateRangeFilterForm(forms.Form):
+    start_date = forms.DateField(
+        label="Дата с", 
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+    )
+    end_date = forms.DateField(
+        label="Дата по", 
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+    )
