@@ -14,6 +14,7 @@
             <th>Количество</th>
             <th>Статус</th>
             <th>Дата создания</th>
+            <th>Коммнтарий к заказу</th>
             <th>Действия</th>
         </tr>
     </thead>
@@ -29,6 +30,7 @@
                 </span>
             </td>
             <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
+            <td>{{ order.comment|truncatechars:20 }}</td>
             <td>
                 <a href="{% url 'workorder_detail' order.pk %}" class="btn btn-sm btn-info">Просмотр</a>
                 {% if order.status != 'completed' %}

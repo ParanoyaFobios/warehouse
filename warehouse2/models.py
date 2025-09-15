@@ -178,6 +178,7 @@ class WorkOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата выполнения")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new', verbose_name="Статус")
+    comment = models.TextField(blank=True, null=True, verbose_name="Комментарий")
 
     @property
     def status_badge_class(self):

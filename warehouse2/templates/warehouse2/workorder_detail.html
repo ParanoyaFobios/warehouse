@@ -17,6 +17,10 @@
                         <td>{{ workorder.quantity_to_produce }} шт.</td>
                     </tr>
                     <tr>
+                        <th>Комментарий:</th>
+                        <td>{{ workorder.comment }} шт.</td>
+                    </tr>
+                    <tr>
                         <th>Статус:</th>
                         <td>
                             <span class="badge bg-{% if workorder.status == 'completed' %}success{% elif workorder.status == 'in_progress' %}warning{% else %}secondary{% endif %}">

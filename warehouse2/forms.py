@@ -86,7 +86,7 @@ class WorkOrderForm(forms.ModelForm):
     
     class Meta:
         model = WorkOrder
-        fields = ['product', 'quantity_to_produce']
+        fields = ['product', 'quantity_to_produce', 'comment']
         widgets = {
             'product': forms.Select(attrs={
                 'class': 'form-control',
@@ -95,6 +95,10 @@ class WorkOrderForm(forms.ModelForm):
             'quantity_to_produce': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': 1
+            }),
+            'comment': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Комментарий к заказу',
             }),
         }
     
