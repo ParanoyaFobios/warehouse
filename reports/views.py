@@ -6,11 +6,10 @@ from django.utils import timezone
 from datetime import timedelta, date
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from reports.servises import get_unified_movement_data, generate_movement_report_excel
 
 from .forms import MovementReportFilterForm, DateRangeFilterForm
-from warehouse1.models import MaterialOperation
-from warehouse2.models import ProductOperation
 from warehouse2.models import Shipment, ShipmentItem
 
 class ReportsHomeView(LoginRequiredMixin, TemplateView):
@@ -78,95 +77,39 @@ def sales_chart_data_api(request):
         'data': data,
     })
 
-def get_unified_movement_data(filters):
-    """
-    Собирает данные из обоих журналов операций,
-    стандартизирует и возвращает единый отсортированный список.
-    """
-    start_date = filters.get('start_date')
-    end_date = filters.get('end_date')
-    operation_type = filters.get('operation_type')
-    item_search = filters.get('item_search')
-
-    # 1. Получаем операции с продукцией (Склад 2)
-    product_ops_qs = ProductOperation.objects.select_related('product', 'user').all()
-    if start_date:
-        product_ops_qs = product_ops_qs.filter(timestamp__gte=start_date)
-    if end_date:
-        product_ops_qs = product_ops_qs.filter(timestamp__lte=end_date)
-    if operation_type:
-        product_ops_qs = product_ops_qs.filter(operation_type=operation_type)
-    if item_search:
-        product_ops_qs = product_ops_qs.filter(
-            Q(product__name__icontains=item_search) | Q(product__sku__icontains=item_search)
-        )
-    
-    # 2. Получаем операции с материалами (Склад 1)
-    material_ops_qs = MaterialOperation.objects.select_related('material', 'user', 'material__unit').all()
-    if start_date:
-        material_ops_qs = material_ops_qs.filter(date__gte=start_date)
-    if end_date:
-        material_ops_qs = material_ops_qs.filter(date__lte=end_date)
-    # Адаптируем типы операций для материалов
-    if operation_type in ['incoming', 'outgoing', 'adjustment']:
-        material_ops_qs = material_ops_qs.filter(operation_type=operation_type)
-    elif operation_type: # Если выбран тип, которого нет у материалов
-        material_ops_qs = material_ops_qs.none()
-    if item_search:
-        material_ops_qs = material_ops_qs.filter(
-            Q(material__name__icontains=item_search) | Q(material__article__icontains=item_search)
-        )
-
-    # 3. Стандартизируем и объединяем
-    unified_list = []
-    for op in product_ops_qs:
-        unified_list.append({
-            'timestamp': op.timestamp,
-            'item_name': op.product.name,
-            'item_sku': op.product.sku,
-            'warehouse': 'Готовая продукция',
-            'operation': op.get_operation_type_display(),
-            'quantity': op.quantity,
-            'user': op.user.username if op.user else 'N/A',
-            'source': str(op.source) if op.source else 'Ручная операция'
-        })
-    
-    for op in material_ops_qs:
-        unified_list.append({
-            'timestamp': op.date,
-            'item_name': op.material.name,
-            'item_sku': op.material.article,
-            'warehouse': 'Сырье и материалы',
-            'operation': op.get_operation_type_display(),
-            'quantity': op.quantity,
-            'user': op.user.username if op.user else 'N/A',
-            'source': op.outgoing_category.name if op.outgoing_category else 'Приемка'
-        })
-
-    # 4. Сортируем общий список по дате
-    unified_list.sort(key=lambda x: x['timestamp'], reverse=True)
-    
-    return unified_list
 
 class MovementReportView(LoginRequiredMixin, TemplateView):
     template_name = 'reports/movement_report.html'
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        form = MovementReportFilterForm(self.request.GET or None)
-        
+    def get(self, request, *args, **kwargs):
+        form = MovementReportFilterForm(request.GET or None)
         operations = []
+        
         if form.is_valid():
             operations = get_unified_movement_data(form.cleaned_data)
 
-        # Ручная пагинация, так как у нас обычный список, а не QuerySet
-        paginator = Paginator(operations, 25) # по 25 записей на странице
-        page_number = self.request.GET.get('page')
+        # Проверяем, если запрос на выгрузку в Excel
+        if 'export_excel' in request.GET:
+            return generate_movement_report_excel(operations)
+        
+        # Если не экспорт, то продолжаем с пагинацией и рендерингом
+        try:
+            per_page = int(request.GET.get('per_page', 25))
+            if per_page > 500: per_page = 500 # Ограничение
+        except (ValueError, TypeError):
+            per_page = 25
+            
+        paginator = Paginator(operations, per_page)
+        page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         
-        context['filter_form'] = form
-        context['page_obj'] = page_obj
-        return context
+        context = {
+            'filter_form': form,
+            'page_obj': page_obj,
+            'per_page': per_page,
+            'per_page_options': [25, 50, 100, 200, 500]
+        }
+        return self.render_to_response(context)
     
 class SalesByProductReportView(LoginRequiredMixin, FormView):
     """
