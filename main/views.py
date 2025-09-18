@@ -11,7 +11,7 @@ from django.views.generic import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from warehouse2.models import Shipment, WorkOrder
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import F
 from warehouse1.models import Material
 from warehouse2.models import Product
 from django.urls import reverse
@@ -70,12 +70,19 @@ class IndexView(LoginRequiredMixin, View):
             status__in=['new', 'in_progress']
         ).select_related('product').order_by('-created_at')[:10]
         
+        # F('min_quantity') позволяет сравнить значение поля quantity со значением поля min_quantity
+        low_stock_materials_count = Material.objects.filter(
+            quantity__lte=F('min_quantity'),
+            min_quantity__gt=0 # Учитываем только те, где мин. остаток задан
+            ).count()
+        
         context = {
             'user': request.user,
             'pending_shipments': pending_shipments,
             'pending_workorders': pending_workorders,
             'pending_shipments_count': Shipment.objects.filter(status__in=['pending', 'packaged']).count(),
             'pending_workorders_count': WorkOrder.objects.filter(status__in=['new', 'in_progress']).count(),
+            'low_stock_materials_count': low_stock_materials_count,
         }
         return render(request, 'index.html', context)
     

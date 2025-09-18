@@ -52,6 +52,7 @@ class Material(models.Model):
     category = models.ForeignKey(MaterialCategory, on_delete=models.PROTECT, verbose_name="Категория")
     barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод", default=generate_material_barcode, editable=False)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Количество")
+    min_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Минимальное количество")
     color = models.ForeignKey(MaterialColor, on_delete=models.PROTECT, verbose_name="Цвет", blank=True, null=True)
     unit = models.ForeignKey(UnitOfMeasure, on_delete=models.PROTECT, verbose_name="Единица измерения")
     image = models.ImageField(upload_to='material/', blank=True, null=True, verbose_name="Изображение")
@@ -100,6 +101,7 @@ class MaterialOperation(models.Model):
     operation_type = models.CharField(max_length=20, choices=OPERATION_TYPES, verbose_name="Тип операции")
     outgoing_category = models.ForeignKey(OperationOutgoingCategory, on_delete=models.PROTECT, null=True, blank=True, verbose_name="Назначение выдачи")
     quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Количество")#Поменять на quantity = models.IntegerField(verbose_name="Количество")
+    
     date = models.DateTimeField(auto_now_add=True, verbose_name="Дата операции")
     user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Пользователь")
     comment = models.TextField(blank=True, verbose_name="Комментарий")

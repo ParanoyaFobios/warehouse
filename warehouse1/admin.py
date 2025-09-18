@@ -23,7 +23,7 @@ class OperationOutgoingCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Material)
 class MaterialAdmin(admin.ModelAdmin):
-    list_display = ('name', 'article', 'category', 'quantity', 'unit', 'barcode')
+    list_display = ('name', 'article', 'category', 'quantity', 'min_quantity', 'unit', 'barcode')
     list_filter = ('category', 'unit')
     search_fields = ('name', 'article', 'barcode')
 

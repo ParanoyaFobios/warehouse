@@ -40,6 +40,9 @@
                     <div class="col-md-6">
                         <p><strong>Единица измерения:</strong> {{ material.unit.name }}</p>
                     </div>
+                    <div class="col-md-6">
+                        <p><strong>Минимально допустимое количество:</strong> {{ material.min_quantity }} {{ material.unit.short_name }}</p>
+                    </div>
                 </div>
                 
                 {% if material.description %}

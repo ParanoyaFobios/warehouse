@@ -6,6 +6,7 @@ from .forms import MaterialForm
 from django.db import models
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
+from django.db.models import F
 import barcode
 from barcode.writer import ImageWriter # для генерации PNG
 import io # для работы с данными в памяти

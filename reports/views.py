@@ -8,7 +8,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from reports.servises import get_unified_movement_data, generate_movement_report_excel
+from django.views.generic import ListView
 
+from warehouse1.models import Material
 from .forms import MovementReportFilterForm, DateRangeFilterForm
 from warehouse2.models import Shipment, ShipmentItem
 
@@ -172,3 +174,26 @@ def sales_by_category_api(request):
     data = [float(item['total_revenue']) for item in category_data]
 
     return JsonResponse({'labels': labels, 'data': data})
+
+
+class LowStockReportView(LoginRequiredMixin, ListView):
+    """
+    Отображает список материалов, количество которых
+    ниже или равно минимально допустимому.
+    """
+    model = Material
+    template_name = 'reports/low_stock_report.html'
+    context_object_name = 'materials'
+
+    def get_queryset(self):
+        # Выбираем материалы, где текущее кол-во <= минимальному,
+        # и где минимальное кол-во вообще задано (больше 0)
+        queryset = Material.objects.filter(
+            quantity__lte=F('min_quantity'),
+            min_quantity__gt=0
+        ).annotate(
+            # "На лету" вычисляем, сколько нужно докупить
+            needed_quantity=F('min_quantity') - F('quantity')
+        ).order_by('name')
+        
+        return queryset

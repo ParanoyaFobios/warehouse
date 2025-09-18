@@ -62,6 +62,10 @@
                 <div class="card text-center">
                     <div class="card-body">
                         <h5 class="card-title">Отчеты</h5>
+                        <a href="{% url 'low_stock_report' %}" class="card-text display-6">
+                        {{ low_stock_materials_count }} </a>
+                        <p class="text-muted">позиций материалов требуют закупки</p>
+                        
                         <a href="{% url 'reports_home' %}" class="btn btn-secondary">Просмотр</a>
                     </div>
                 </div>

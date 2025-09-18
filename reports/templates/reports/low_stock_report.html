@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Отчет по неснижаемым остаткам материалов</h2>
+    <p class="text-muted">В этом списке показаны все материалы, текущее количество которых на складе меньше или равно установленному минимуму.</p>
+
+    <div class="card">
+        <div class="card-body">
+            {% if materials %}
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Материал</th>
+                        <th>Артикул</th>
+                        <th>Текущий остаток</th>
+                        <th>Минимальный остаток</th>
+                        <th class="table-danger">Требуется закупить</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in materials %}
+                    <tr>
+                        <td><strong>{{ material.name }}</strong></td>
+                        <td>{{ material.article }}</td>
+                        <td>{{ material.quantity|floatformat:2 }} {{ material.unit.short_name }}</td>
+                        <td>{{ material.min_quantity|floatformat:2 }} {{ material.unit.short_name }}</td>
+                        <td class="table-danger fw-bold">
+                            {{ material.needed_quantity|floatformat:2 }} {{ material.unit.short_name }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="alert alert-success">
+                Отлично! Всех материалов на складе достаточно.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
