@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class.d-flex justify-content-between align-items-center mb-3">
+        <h2>Отчет по возрасту запасов</h2>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body d-flex justify-content-between">
+            <div>
+                <a href="?sort=asc" class="btn {% if current_sort == 'asc' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Сначала самые залежавшиеся
+                </a>
+                <a href="?sort=desc" class="btn {% if current_sort == 'desc' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Сначала самые ходовые
+                </a>
+            </div>
+            <a href="{% url 'reports_home' %}" class="btn btn-secondary">Все отчеты</a>
+        </div>
+    </div>
+
+    <table class="table table-hover table-sm">
+        <thead class="table-light">
+            <tr>
+                <th>Товар/Материал</th>
+                <th>Артикул</th>
+                <th>Склад</th>
+                <th>Текущий остаток</th>
+                <th>Дата последнего движения</th>
+                <th>Дней без движения</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %} <tr>
+                <td><strong>{{ item.name }}</strong></td>
+                <td>{{ item.sku }}</td>
+                <td>{{ item.warehouse }}</td>
+                <td>{{ item.quantity|floatformat:2 }} {{ item.unit }}</td>
+                <td>{{ item.last_movement|date:"d.m.Y H:i" }}</td>
+                <td class="fw-bold {% if item.age_days > 90 %}table-danger{% elif item.age_days > 30 %}table-warning{% endif %}">
+                    {{ item.age_days }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center text-muted">Нет данных для отображения.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if page_obj.has_other_pages %}
+    <nav>
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page=1&sort={{ current_sort }}">&laquo;</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&sort={{ current_sort }}">‹</a></li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">{{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&sort={{ current_sort }}">›</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&sort={{ current_sort }}">&raquo;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

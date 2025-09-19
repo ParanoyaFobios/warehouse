@@ -1,18 +1,18 @@
 from django.views.generic import TemplateView, FormView
 from django.http import JsonResponse
-from django.db.models import Sum, F, Q, Value, CharField
+from django.db.models import Sum, F, Max
 from django.db.models.functions import TruncDay, TruncMonth
 from django.utils import timezone
 from datetime import timedelta, date
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.paginator import Paginator
 from reports.servises import get_unified_movement_data, generate_movement_report_excel
 from django.views.generic import ListView
-
 from warehouse1.models import Material
 from .forms import MovementReportFilterForm, DateRangeFilterForm
-from warehouse2.models import Shipment, ShipmentItem
+from warehouse2.models import Shipment, ShipmentItem, Product
+
 
 class ReportsHomeView(LoginRequiredMixin, TemplateView):
     template_name = 'reports/reports_home.html'
@@ -120,6 +120,7 @@ class SalesByProductReportView(LoginRequiredMixin, FormView):
     template_name = 'reports/sales_by_product_report.html'
     form_class = DateRangeFilterForm
 
+
 @login_required
 def sales_by_product_api(request):
     """
@@ -147,6 +148,7 @@ def sales_by_product_api(request):
     data = [float(item['total_revenue']) for item in sales_data]
     
     return JsonResponse({'labels': labels, 'data': data})
+
 
 @login_required
 def sales_by_category_api(request):
@@ -197,3 +199,71 @@ class LowStockReportView(LoginRequiredMixin, ListView):
         ).order_by('name')
         
         return queryset
+    
+
+class StockAgeingReportView(LoginRequiredMixin, ListView):
+    """
+    Отчет по возрасту запасов.
+    Показывает товары/материалы, сортируя их по дате последнего движения.
+    """
+    template_name = 'reports/stock_ageing_report.html'
+    context_object_name = 'items'
+    paginate_by = 30 # Можно настроить
+
+    def get_queryset(self):
+        # 1. Получаем параметр сортировки из URL (по умолчанию 'asc' - старые вверху)
+        sort_order = self.request.GET.get('sort', 'asc')
+        today = timezone.now()
+
+        # 2. Эффективно находим дату последнего движения для всех Продуктов
+        # annotate() добавляет к каждому продукту новое "виртуальное" поле last_movement
+        products_with_age = Product.objects.filter(
+            total_quantity__gt=0
+        ).annotate(
+            last_movement=Max('operations__timestamp') # Ищем макс. дату среди связанных операций
+        ).exclude(last_movement=None) # Исключаем те, где движений не было вообще
+
+        # 3. То же самое для Материалов
+        materials_with_age = Material.objects.filter(
+            quantity__gt=0
+        ).annotate(
+            last_movement=Max('materialoperation__date') # Обратите внимание на 'materialoperation__date'
+        ).exclude(last_movement=None)
+
+        # 4. Стандартизируем и объединяем данные в единый список
+        combined_list = []
+        for p in products_with_age:
+            combined_list.append({
+                'name': p.name,
+                'sku': p.sku,
+                'warehouse': 'Готовая продукция',
+                'quantity': p.total_quantity,
+                'unit': 'шт.',
+                'last_movement': p.last_movement,
+                'age_days': (today - p.last_movement).days,
+            })
+        
+        for m in materials_with_age:
+            combined_list.append({
+                'name': m.name,
+                'sku': m.article,
+                'warehouse': 'Сырье и материалы',
+                'quantity': m.quantity,
+                'unit': m.unit.short_name,
+                'last_movement': m.last_movement,
+                'age_days': (today - m.last_movement).days,
+            })
+
+        # 5. Сортируем итоговый список в Python
+        # reverse=False (asc) -> старые даты вверху (залежавшиеся)
+        # reverse=True (desc) -> новые даты вверху (ходовые)
+        is_descending = sort_order == 'desc'
+        combined_list.sort(key=lambda item: item['last_movement'], reverse=is_descending)
+
+        return combined_list
+    
+    def get_context_data(self, **kwargs):
+        # Передаем в шаблон текущий порядок сортировки для подсветки кнопок
+        context = super().get_context_data(**kwargs)
+        context['current_sort'] = self.request.GET.get('sort', 'asc')
+        return context
