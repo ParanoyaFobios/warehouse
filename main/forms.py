@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.models import User, Group
 
 class LoginForm(AuthenticationForm):
     username = forms.CharField(
@@ -30,6 +31,30 @@ class LoginForm(AuthenticationForm):
         'inactive': "Этот аккаунт не активен.",
     }
 
+
+class UserCreationWithGroupForm(forms.Form):
+    username = forms.CharField(label="Логин (имя пользователя)", max_length=100)
+    password = forms.CharField(label="Пароль", widget=forms.PasswordInput)
+    password2 = forms.CharField(label="Повторите пароль", widget=forms.PasswordInput)
+    
+    group = forms.ModelChoiceField(
+        queryset=Group.objects.all(),
+        label="Роль (группа)",
+        empty_label="Выберите роль для пользователя"
+    )
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError("Пользователь с таким логином уже существует.")
+        return username
+
+    def clean_password2(self):
+        password = self.cleaned_data.get("password")
+        password2 = self.cleaned_data.get("password2")
+        if password and password2 and password != password2:
+            raise forms.ValidationError("Пароли не совпадают.")
+        return password2
 #==============================================
 # Форма для глобального поиска
 #==============================================

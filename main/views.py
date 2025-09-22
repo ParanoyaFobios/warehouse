@@ -8,7 +8,7 @@ import barcode
 from barcode.writer import ImageWriter
 import io
 from django.views.generic import View
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from warehouse2.models import Shipment, WorkOrder
 from django.contrib import messages
 from django.db.models import F
@@ -16,6 +16,10 @@ from warehouse1.models import Material
 from warehouse2.models import Product
 from django.urls import reverse
 from urllib.parse import urlencode
+from django.contrib.auth.models import User
+from django.urls import reverse_lazy
+from .forms import UserCreationWithGroupForm
+from django.views.generic.edit import FormView
 
 
 # ==============================================================================
@@ -57,6 +61,26 @@ class LogoutView(View):
         logout(request)
         return redirect('login')
 
+
+class CreateUserWithGroupView(PermissionRequiredMixin, FormView):
+    form_class = UserCreationWithGroupForm
+    template_name = 'create_user_form.html'
+    success_url = reverse_lazy('user_list')
+    permission_required = 'auth.add_user'
+
+    def form_valid(self, form):
+        # Ваша логика здесь уже идеальна для FormView и не требует изменений!
+        username = form.cleaned_data['username']
+        password = form.cleaned_data['password']
+        group = form.cleaned_data['group']
+
+        user = User.objects.create_user(username=username, password=password)
+        user.groups.add(group)
+
+        messages.success(self.request, f"Пользователь '{username}' успешно создан и добавлен в группу '{group.name}'.")
+        
+        # Для FormView нужно явно вызывать редирект
+        return redirect(self.get_success_url())
 
 class IndexView(LoginRequiredMixin, View):
     def get(self, request):
