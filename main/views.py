@@ -20,6 +20,9 @@ from django.contrib.auth.models import User
 from django.urls import reverse_lazy
 from .forms import UserCreationWithGroupForm
 from django.views.generic.edit import FormView
+from django.http import HttpResponse, Http404
+from django.shortcuts import get_object_or_404
+from PIL import Image, ImageDraw, ImageFont
 
 
 # ==============================================================================
@@ -116,31 +119,81 @@ class IndexView(LoginRequiredMixin, View):
 
 def generate_barcode_view(request, content_type_id, object_id):
     """
-    Универсальное view для генерации штрихкода для любого объекта.
+    Универсальное view для генерации штрихкода для любого объекта
+    с его названием над штрихкодом.
     """
     try:
         # 1. Находим "удостоверение" модели по ее ID
         content_type = get_object_or_404(ContentType, pk=content_type_id)
         
-        # 2. Находим сам объект (Product, Material и т.д.) по его ID
+        # 2. Находим сам объект (Product, Package и т.д.) по его ID
         obj = content_type.get_object_for_this_type(pk=object_id)
 
     except ContentType.DoesNotExist:
         raise Http404("Указанный тип контента не существует")
 
     # 3. Проверяем, есть ли у объекта поле 'barcode'
-    if not hasattr(obj, 'barcode'):
-        raise Http404("У этого объекта нет поля 'barcode'")
+    if not hasattr(obj, 'barcode') or not obj.barcode:
+        raise Http404("У этого объекта нет поля 'barcode' или оно пустое")
 
-    # 4. Генерируем изображение штрихкода (как и раньше)
+    # 4. Генерируем изображение штрихкода (базовая часть)
     CODE128 = barcode.get_barcode_class('code128')
     writer = ImageWriter(format='PNG')
+    
+    # Настройки для штрихкода
+    writer_options = {
+        'module_height': 12.0,
+        'font_size': 8,
+        'text_distance': 4.0,
+        'quiet_zone': 2.0
+    }
+
     code = CODE128(obj.barcode, writer=writer)
+    barcode_buffer = io.BytesIO()
+    code.write(barcode_buffer, options=writer_options)
+    barcode_buffer.seek(0)
+
+    # --- Используем Pillow для добавления текста ---
+
+    # 5. Открываем сгенерированный штрихкод как изображение
+    barcode_img = Image.open(barcode_buffer)
     
-    buffer = io.BytesIO()
-    code.write(buffer)
+    # 6. Получаем текст для подписи из строкового представления объекта
+    display_text = str(obj)
+
+    try:
+        font = ImageFont.truetype("arial.ttf", 14)
+    except IOError:
+        font = ImageFont.load_default()
+
+    # 7. Создаем новый холст, чтобы разместить на нем текст и штрихкод
+    temp_draw = ImageDraw.Draw(barcode_img)
+    text_bbox = temp_draw.textbbox((0, 0), display_text, font=font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
     
-    return HttpResponse(buffer.getvalue(), content_type='image/png')
+    padding = 10
+    new_width = max(barcode_img.width, text_width) + padding * 2
+    new_height = barcode_img.height + text_height + padding * 2
+
+    final_image = Image.new('RGB', (new_width, new_height), 'white')
+    draw = ImageDraw.Draw(final_image)
+
+    # 8. Рисуем текст (название объекта)
+    text_x = (new_width - text_width) / 2
+    text_y = padding
+    draw.text((text_x, text_y), display_text, fill='black', font=font)
+
+    # 9. Вставляем изображение штрихкода под текстом
+    barcode_x = (new_width - barcode_img.width) / 2
+    barcode_y = text_y + text_height + 5
+    final_image.paste(barcode_img, (int(barcode_x), int(barcode_y)))
+
+    # 10. Сохраняем итоговое изображение в буфер
+    final_buffer = io.BytesIO()
+    final_image.save(final_buffer, format='PNG')
+    
+    return HttpResponse(final_buffer.getvalue(), content_type='image/png')
 
 # ==============================================================================
 # Глобальный поиск по названию, артикулу, штрихкоду

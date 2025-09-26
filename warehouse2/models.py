@@ -77,7 +77,7 @@ class Product(models.Model):
         return self.total_quantity - self.reserved_quantity
 
     def __str__(self):
-        return f"{self.name} ({self.sku})"
+        return f"{self.name}"
 
     class Meta:
         verbose_name = "Штучный товар"
