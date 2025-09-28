@@ -13,9 +13,7 @@
                 <tbody>
                     <tr><th>Артикул:</th><td>{{ product.sku }}</td></tr>
                     <tr><th>Категория:</th><td>{{ product.category }}</td></tr>
-                    <tr><th>Размер:</th><td>{{ product.size }}</td></tr>
                     <tr><th>Цвет</th><td>{{ product.color }}</td></tr>
-                    <tr><th>Вес</th><td>{{ product.weight }}</td></tr>
                     <tr><th>Цена</th><td>{{ product.price }}</td></tr>
                     {% if perms.can_view_product_quantity %}
                     <tr><th>На складе:</th><td>{{ product.total_quantity }}</td></tr>

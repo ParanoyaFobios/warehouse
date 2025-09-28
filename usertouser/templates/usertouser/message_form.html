@@ -2,35 +2,36 @@
 {% block content %}
 <div class="container mt-4">
     <div class="col-md-8 offset-md-2">
-        <h2>{% if 'reply' in request.resolver_match.url_name %}Ответ на сообщение{% else %}Новое сообщение{% endif %}</h2>
+        <h2>Новое сообщение</h2>
         <div class="card">
             <div class="card-body">
                 <form method="post">
                     {% csrf_token %}
-                    
-                    {% if form.initial.recipient %}
-                        <div class="mb-3">
-                            <label class="form-label">Получатель:</label>
-                            <input type="text" class="form-control" value="{{ form.initial.recipient.username }}" readonly>
-                            <div style="display: none;">{{ form.recipient }}</div>
-                        </div>
-                    {% else %}
-                        <div class="mb-3 position-relative">
-                            <label for="user-search-input" class="form-label">Получатель</label>
-                            <input type="text" id="user-search-input" class="form-control" placeholder="Начните вводить имя пользователя..." autocomplete="off">
-                            <div id="search-results" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
-                            <div style="display: none;">{{ form.recipient }}</div>
-                            <div id="selected-user" class="form-text mt-2" style="display: none;"></div>
-                        </div>
-                    {% endif %}
-
                     <div class="mb-3">
-                        <label for="{{ form.subject.id_for_label }}" class="form-label">{{ form.subject.label }}</label>
-                        {{ form.subject }}
-                    </div>
-                    <div class="mb-3">
-                         <label for="{{ form.content.id_for_label }}" class="form-label">{{ form.content.label }}</label>
+                        <label class="form-label">{{ form.content.label }}</label>
                         {{ form.content }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.recipients.label }}</label>
+                        <div class="card" style="max-height: 200px; overflow-y: auto;">
+                            <ul class="list-group list-group-flush">
+                                {% for choice in form.recipients %}
+                                <li class="list-group-item">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="{{ choice.field.name }}" value="{{ choice.choice_value }}" class="form-check-input" id="id_{{ choice.field.name }}_{{ forloop.counter0 }}">
+                                        <label class="form-check-label" for="id_{{ choice.field.name }}_{{ forloop.counter0 }}">
+                                            <strong>{{ choice.choice_label }}</strong>
+                                            {% with user_obj=choice.instance %}
+                                                {% if user_obj.get_full_name %} ({{ user_obj.get_full_name }}){% endif %}
+                                                {% if user_obj.groups.first %} - <span class="text-muted">{{ user_obj.groups.first.name }}</span>{% endif %}
+                                            {% endwith %}
+                                        </label>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                     </div>
                     
                     <button type="submit" class="btn btn-success">Отправить</button>
@@ -39,56 +40,4 @@
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Этот скрипт сработает только если на странице есть поле поиска
-    const searchInput = document.getElementById('user-search-input');
-    if (!searchInput) return;
-
-    const searchResults = document.getElementById('search-results');
-    const recipientSelect = document.getElementById('id_recipient'); // Настоящее поле формы
-    const selectedUserDiv = document.getElementById('selected-user');
-
-    function selectUser(user) {
-        // Устанавливаем значение в скрытом поле Select
-        recipientSelect.value = user.id;
-        
-        // Показываем пользователю, кого он выбрал
-        selectedUserDiv.innerHTML = `Выбран пользователь: <strong>${user.name}</strong>`;
-        selectedUserDiv.style.display = 'block';
-
-        // Прячем и очищаем поиск
-        searchInput.value = '';
-        searchResults.style.display = 'none';
-    }
-
-    searchInput.addEventListener('input', function() {
-        const query = this.value.trim();
-        if (query.length < 2) {
-            searchResults.style.display = 'none';
-            return;
-        }
-
-        fetch(`{% url 'user_search_json' %}?q=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(data => {
-                searchResults.innerHTML = '';
-                if (data.results.length > 0) {
-                    data.results.forEach(user => {
-                        const item = document.createElement('button');
-                        item.type = 'button';
-                        item.className = 'list-group-item list-group-item-action';
-                        item.textContent = user.name;
-                        item.onclick = () => selectUser(user);
-                        searchResults.appendChild(item);
-                    });
-                } else {
-                    searchResults.innerHTML = '<div class="list-group-item text-muted">Пользователи не найдены</div>';
-                }
-                searchResults.style.display = 'block';
-            });
-    });
-});
-</script>
 {% endblock %}

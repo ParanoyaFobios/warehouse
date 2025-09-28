@@ -7,6 +7,4 @@ urlpatterns = [
     path('compose/', views.ComposeMessageView.as_view(), name='compose'),
     path('message/<int:pk>/', views.MessageDetailView.as_view(), name='message_detail'),
     path('message/<int:pk>/reply/', views.ComposeMessageView.as_view(), name='message_reply'),
-    # AJAX endpoint for user search
-    path('api/user-search/', views.user_search_json, name='user_search_json'),
 ]

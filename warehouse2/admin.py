@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    ProductCategory, ProductSize, ProductColor, Product,
+    ProductCategory, ProductColor, Product,
     WorkOrder, Shipment, ShipmentItem, ProductOperation)
 from django.urls import reverse
 from django.utils.html import format_html
@@ -11,11 +11,6 @@ from django.utils.html import format_html
 
 @admin.register(ProductCategory)
 class ProductCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name',)
-    search_fields = ('name',)
-
-@admin.register(ProductSize)
-class ProductSizeAdmin(admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
 
@@ -36,8 +31,8 @@ class ShipmentItemInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sku', 'category', 'size', 'color', 'total_quantity', 'available_quantity')
-    list_filter = ('category', 'size', 'color')
+    list_display = ('name', 'sku', 'category', 'color', 'total_quantity', 'available_quantity')
+    list_filter = ('category', 'color')
     search_fields = ('name', 'sku', 'barcode')
     readonly_fields = ('barcode', 'available_quantity')
     fieldsets = (
@@ -45,7 +40,7 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ('name', 'sku', 'barcode', 'category')
         }),
         ('Характеристики', {
-            'fields': ('size', 'color', 'weight', 'image')
+            'fields': ('color', 'image')
         }),
         ('Остатки', {
             'fields': ('total_quantity', 'reserved_quantity', 'available_quantity')

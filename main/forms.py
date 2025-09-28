@@ -34,6 +34,8 @@ class LoginForm(AuthenticationForm):
 
 class UserCreationWithGroupForm(forms.Form):
     username = forms.CharField(label="Логин (имя пользователя)", max_length=100)
+    first_name = forms.CharField(label="Имя пользователя", max_length=100, required=False)
+    phone = forms.IntegerField(label="Телефон", required=False)
     password = forms.CharField(label="Пароль", widget=forms.PasswordInput)
     password2 = forms.CharField(label="Повторите пароль", widget=forms.PasswordInput)
     

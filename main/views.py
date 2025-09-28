@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 import barcode
 from barcode.writer import ImageWriter
 import io
-from django.views.generic import View
+from django.views.generic import View, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from warehouse2.models import Shipment, WorkOrder
 from django.contrib import messages
@@ -64,25 +64,36 @@ class LogoutView(View):
         logout(request)
         return redirect('login')
 
+class UserListView(PermissionRequiredMixin, ListView):
+    model = User
+    template_name = 'user_list.html'
+    context_object_name = 'users'
+    permission_required = 'auth.view_user' # Только те, кто может просматривать пользователей
+
+    def get_queryset(self):
+        # Показываем пользователей с их группами
+        return User.objects.all().prefetch_related('groups').order_by('username')
 
 class CreateUserWithGroupView(PermissionRequiredMixin, FormView):
     form_class = UserCreationWithGroupForm
     template_name = 'create_user_form.html'
-    success_url = reverse_lazy('user_list')
+    success_url = reverse_lazy('user_list') # ИЛИ 'inbox', 'product_list' и т.д.
+    
     permission_required = 'auth.add_user'
 
     def form_valid(self, form):
         username = form.cleaned_data['username']
         password = form.cleaned_data['password']
         group = form.cleaned_data['group']
+        first_name = form.cleaned_data.get('first_name', '')
+        phone = form.cleaned_data.get('phone') # Если у вас есть поле phone в модели User
 
-        user = User.objects.create_user(username=username, password=password)
+        user = User.objects.create_user(username=username, password=password, first_name=first_name)
         user.groups.add(group)
 
-        messages.success(self.request, f"Пользователь '{username}' успешно создан и добавлен в группу '{group.name}'.")
-        
-        # Для FormView нужно явно вызывать редирект
-        return redirect(self.get_success_url())
+        messages.success(self.request, f"Пользователь '{username}' успешно создан.")
+        # Мы выполняем свои действия, а затем просим родительский класс сделать редирект
+        return super().form_valid(form)
 
 class IndexView(LoginRequiredMixin, View):
     def get(self, request):

@@ -40,9 +40,7 @@
             <th>Название</th>
             <th>Артикул</th>
             <th>Категория</th>
-            <th>Размер</th>
             <th>Цвет</th>
-            <th>Вес</th>
 {% if perms.can_view_product_quantity %}
             <th>На складе</th>
             <th>Доступно</th>
@@ -57,9 +55,7 @@
             <td><a href="{% url 'product_detail' product.pk %}">{{ product.name }}</a></td>
             <td>{{ product.sku }}</td>
             <td>{{ product.category }}</td>
-            <td>{{ product.size|default:"-" }}</td>
             <td>{{ product.color|default:"-" }}</td>
-            <td>{{ product.weight|default:"-" }}</td>
 {% if perms.can_view_product_quantity %}
             <td>{{ product.total_quantity }}</td>
             <td>{{ product.available_quantity }}</td>

@@ -39,12 +39,6 @@ class ProductCategory(models.Model):
         verbose_name = "Категория продукции"
         verbose_name_plural = "Категории продукции"
 
-class ProductSize(models.Model):
-    name = models.CharField(max_length=50, unique=True, verbose_name="Размер")
-    def __str__(self): return self.name
-    class Meta:
-        verbose_name = "Размер продукции"
-        verbose_name_plural = "Размеры продукции"
 
 class ProductColor(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name="Цвет")
@@ -64,9 +58,7 @@ class Product(models.Model):
     barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод (штучный)", default=generate_product_barcode, editable=True)
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория")
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за единицу", default=0)
-    size = models.ForeignKey(ProductSize, on_delete=models.PROTECT, verbose_name="Размер", blank=True, null=True)
     color = models.ForeignKey(ProductColor, on_delete=models.PROTECT, verbose_name="Цвет", blank=True, null=True)
-    weight = models.DecimalField(max_digits=10, decimal_places=3, verbose_name="Вес (кг)", blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Изображение")
     # === Складской учет ===
     total_quantity = models.IntegerField(default=0, verbose_name="На балансе")  # Изменено на PositiveIntegerField

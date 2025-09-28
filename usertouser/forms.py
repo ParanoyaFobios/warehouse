@@ -1,15 +1,18 @@
 from django import forms
-from usertouser.models import Message
+from django.contrib.auth.models import User
+from .models import Message
 
 class MessageForm(forms.ModelForm):
+    # Используем ModelMultipleChoiceField для выбора нескольких получателей
+    recipients = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all().prefetch_related('groups').order_by('username'),
+        widget=forms.CheckboxSelectMultiple, # Отображаем в виде чекбоксов
+        label="Получатели"
+    )
+
     class Meta:
         model = Message
-        fields = ['recipient', 'content']
+        fields = ['recipients', 'content']
         widgets = {
-            'recipient': forms.Select(attrs={'class': 'form-control'}),
             'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
-        }
-        labels = {
-            'recipient': 'Получатель',
-            'content': 'Сообщение',
         }
