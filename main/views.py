@@ -72,7 +72,6 @@ class CreateUserWithGroupView(PermissionRequiredMixin, FormView):
     permission_required = 'auth.add_user'
 
     def form_valid(self, form):
-        # Ваша логика здесь уже идеальна для FormView и не требует изменений!
         username = form.cleaned_data['username']
         password = form.cleaned_data['password']
         group = form.cleaned_data['group']

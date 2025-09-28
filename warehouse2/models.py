@@ -82,6 +82,9 @@ class Product(models.Model):
     class Meta:
         verbose_name = "Штучный товар"
         verbose_name_plural = "Штучные товары"
+        permissions = [
+            ("can_view_product_quantity", "Может просматривать количество продукции на складе"),
+        ]
 
 class Package(models.Model):
     """
@@ -166,6 +169,9 @@ class ProductOperation(models.Model):
         verbose_name = "Операция с продукцией"
         verbose_name_plural = "Журнал операций с продукцией"
         ordering = ['-timestamp']
+        permissions = [
+            ("can_return_product", "Может делать возврат накладных"),
+        ]
 
 # ==============================================================================
 # Производство: WorkOrder

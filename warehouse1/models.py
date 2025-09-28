@@ -79,6 +79,9 @@ class Material(models.Model):
     class Meta:
         verbose_name = "Материал"
         verbose_name_plural = "Материалы"
+        permissions = [
+            ("can_view_material_quantity", "Может просматривать количество материалов на складе"),
+        ]
 
 class OperationOutgoingCategory(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Название категории выдачи")

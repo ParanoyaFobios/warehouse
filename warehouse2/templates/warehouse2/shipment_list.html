@@ -46,7 +46,9 @@
                 {% if shipment.can_be_shipped %}
                 <a href="{% url 'shipment_ship' shipment.pk %}" class="btn btn-sm btn-success">Отгрузить</a>
                 {% else %}
+                {% if perms.warehouse2.can_return_product %}
                 <a href="{% url 'shipment_return' shipment.pk %}" class="btn btn-sm btn-danger">Возврат</a>
+                {% endif %}
                 {% endif %}
             </td>
         </tr>

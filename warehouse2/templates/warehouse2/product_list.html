@@ -43,8 +43,10 @@
             <th>Размер</th>
             <th>Цвет</th>
             <th>Вес</th>
+{% if perms.can_view_product_quantity %}
             <th>На складе</th>
             <th>Доступно</th>
+{% endif %}
             <th>Штрихкод</th>
             <th>Цена</th>
         </tr>
@@ -58,8 +60,10 @@
             <td>{{ product.size|default:"-" }}</td>
             <td>{{ product.color|default:"-" }}</td>
             <td>{{ product.weight|default:"-" }}</td>
+{% if perms.can_view_product_quantity %}
             <td>{{ product.total_quantity }}</td>
             <td>{{ product.available_quantity }}</td>
+{% endif %}
             <td><a href="{% url 'generate_barcode' content_type_id=product|get_content_type_id object_id=product.pk %}" alt="Штрихкод" class="img-fluid mb-2">{{ product.barcode }}</a></td>
             <td>{{ product.price }}</td>
         </tr>

@@ -17,9 +17,11 @@
                     <tr><th>Цвет</th><td>{{ product.color }}</td></tr>
                     <tr><th>Вес</th><td>{{ product.weight }}</td></tr>
                     <tr><th>Цена</th><td>{{ product.price }}</td></tr>
+                    {% if perms.can_view_product_quantity %}
                     <tr><th>На складе:</th><td>{{ product.total_quantity }}</td></tr>
-                    <tr><th>Зарезервировано:</th><td>{{ product.reserved_quantity }}</td></tr>
                     <tr class="table-info"><th>Доступно:</th><td class="fw-bold">{{ product.available_quantity }}</td></tr>
+                    {% endif %}
+                    <tr><th>Зарезервировано:</th><td>{{ product.reserved_quantity }}</td></tr>
                 </tbody>
             </table>
             <a href="{% url 'product_edit' product.pk %}" class="btn btn-warning btn-sm">Редактировать товар</a>

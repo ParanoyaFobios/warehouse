@@ -1,8 +1,6 @@
-# inventarization/views.py
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404
 from django.views.generic import ListView, FormView
-from django.urls import reverse
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.contenttypes.models import ContentType
@@ -11,7 +9,6 @@ from django.db.models import Q
 from django.utils import timezone
 from .models import InventoryCount, InventoryCountItem
 from .forms import InventoryItemForm, InventoryItemUpdateForm
-# Импортируем модели с наших складов
 from warehouse1.models import Material
 from warehouse2.models import Product, Package
 from django.views.generic import DetailView, View
@@ -101,7 +98,7 @@ class InventoryCountWorkView(LoginRequiredMixin, FormView):
         
         return redirect('count_work', pk=inventory_count.pk)
 
-class InventoryReconciliationView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
+class InventoryReconciliationView(LoginRequiredMixin, DetailView):
     """
     Представление для сверки завершенного переучета.
     """
@@ -123,7 +120,7 @@ class InventoryReconciliationView(LoginRequiredMixin, UserPassesTestMixin, Detai
         return context
 
 
-class ReconcileInventoryView(LoginRequiredMixin, UserPassesTestMixin, View):
+class ReconcileInventoryView(LoginRequiredMixin, View):
     """
     Обрабатывает POST-запрос на корректировку ОДНОЙ ПОЗИЦИИ.
     """
@@ -202,7 +199,7 @@ class ReconcileInventoryView(LoginRequiredMixin, UserPassesTestMixin, View):
             item.save()
 
 
-class FinalizeInventoryView(LoginRequiredMixin, UserPassesTestMixin, View):
+class FinalizeInventoryView(LoginRequiredMixin, View):
     """Окончательно закрывает переучет, меняя статус на RECONCILED."""
     def test_func(self):
         return self.request.user.is_staff
@@ -303,7 +300,6 @@ def inventory_stock_search(request):
     if len(query) < 2:
         return JsonResponse({'results': results})
 
-    # --- ИСПРАВЛЕННАЯ ЛОГИКА ПОИСКА ---
     # Сначала ищем продукты
     product_query = (
         Q(name__icontains=query) | Q(sku__icontains=query) |

@@ -39,8 +39,10 @@
                             <a href="{% url 'count_work' count.pk %}" class="btn btn-sm btn-info">
                                 {% if count.status == 'in_progress' %}Продолжить{% else %}Просмотр{% endif %}
                             </a>
-                            {% if count.status == 'completed' and user.is_staff %}
+                            {% if count.status == 'completed' %}
+                            {% if perms.inventarization.can_reconcile_inventory %}
                             <a href="{% url 'count_reconcile' count.pk %}" class="btn btn-sm btn-warning mt-1">Сверка</a>
+                            {% endif %}
                             {% endif %}
                         </td>
                     </tr>

@@ -25,7 +25,9 @@
                 <th>Товар/Материал</th>
                 <th>Артикул</th>
                 <th>Склад</th>
+                {% if perms.warehouse2.can_view_product_quantity %}
                 <th>Текущий остаток</th>
+                {% endif %}
                 <th>Дата последнего движения</th>
                 <th>Дней без движения</th>
             </tr>
@@ -35,7 +37,9 @@
                 <td><strong>{{ item.name }}</strong></td>
                 <td>{{ item.sku }}</td>
                 <td>{{ item.warehouse }}</td>
+                {% if perms.warehouse2.can_view_product_quantity %}
                 <td>{{ item.quantity|floatformat:2 }} {{ item.unit }}</td>
+                {% endif %}
                 <td>{{ item.last_movement|date:"d.m.Y H:i" }}</td>
                 <td class="fw-bold {% if item.age_days > 90 %}table-danger{% elif item.age_days > 30 %}table-warning{% endif %}">
                     {{ item.age_days }}

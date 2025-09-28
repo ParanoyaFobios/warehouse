@@ -239,7 +239,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                     data-id="${item.id}" 
                                     data-name="${item.name}">
                                 <strong>${item.name}</strong><br>
+                                {% if perms.warehouse2.can_view_product_quantity %}
                                 <small class="text-muted">${item.info}</small>
+                                {% endif %}
                             </button>
                         `;
                     });

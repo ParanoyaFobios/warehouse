@@ -25,6 +25,9 @@ class InventoryCount(models.Model):
         verbose_name = "Переучет"
         verbose_name_plural = "Переучеты"
         ordering = ['-created_at']
+        permissions = [
+            ("can_reconcile_inventory", "Может проводить сверку переучета"),
+        ]
 
 
 class InventoryCountItem(models.Model):

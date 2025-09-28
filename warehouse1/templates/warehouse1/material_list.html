@@ -16,14 +16,6 @@
                 {% endfor %}
             </select>
         </div>
-        <!-- <div class="col-md-6">
-            <div class="input-group">
-                <input type="text" name="search" class="form-control" 
-                       placeholder="Поиск по названию, артикулу или штрихкоду" 
-                       value="{{ request.GET.search }}"
-                       id="id_search_input">  <button type="button" class="btn btn-outline-secondary" id="scan-btn">📸 Сканировать</button>
-            </div>
-            </div> -->
         <div class="col-md-2">
             <button type="submit" class="btn btn-primary">Фильтровать</button>
             <a href="?" class="btn btn-secondary">Сбросить</a>
@@ -40,13 +32,15 @@
             <th>Артикул</th>
             <th>Категория</th>
             <th>Цвет</th>
+            {% if perms.warehouse1.can_view_material_quantity %}
             <th>Количество</th>
+            {% endif %}
             <th>Штрихкод</th>
             <th>Действия</th>
         </tr>
     </thead>
     <tbody>
-        {% for material in object_list %}
+        {% for material in materials %}
         <tr>
             <td>
                 <a href="{% url 'material_detail' material.pk %}">{{ material.name }}</a>
@@ -54,8 +48,10 @@
             <td>{{ material.article }}</td>
             <td>{{ material.category.name }}</td>
             <td>{{ material.color }}</td>
+            {% if perms.warehouse1.can_view_material_quantity %}
             <td>{{ material.quantity }} {{ material.unit.short_name }}</td>
-            <td><a href="{% url 'material_barcode' material.pk %}">{{ material.barcode }}</a></td>
+            {% endif %}
+            <td><a href="{% url 'material_barcode' material.pk %}" target="_blank" >{{ material.barcode }}</a></td>
             <td>
                 <a href="{% url 'incoming_with_material' material.pk %}" 
                 class="btn btn-success" 

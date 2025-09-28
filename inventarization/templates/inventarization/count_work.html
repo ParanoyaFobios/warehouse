@@ -59,7 +59,7 @@
                                 <form action="{% url 'item_update' item.pk %}" method="post" class="flex-grow-1 d-flex gap-2">
                                     {% csrf_token %}
                                     {{ item.update_form.quantity }}
-                                    <button type="submit" class="btn btn-sm btn-primary">OK</button>
+                                    <!-- <button type="submit" class="btn btn-sm btn-primary">OK</button> -->
                                 </form>
                                 <form action="{% url 'item_delete' item.pk %}" method="post">
                                     {% csrf_token %}

@@ -34,12 +34,14 @@
                 </div>
                 
                 <div class="row mb-3">
+                    {% if perms.warehouse1.can_view_material_quantity %}
                     <div class="col-md-6">
                         <p><strong>Количество:</strong> {{ material.quantity }} {{ material.unit.short_name }}</p>
                     </div>
                     <div class="col-md-6">
                         <p><strong>Единица измерения:</strong> {{ material.unit.name }}</p>
                     </div>
+                    {% endif %}
                     <div class="col-md-6">
                         <p><strong>Минимально допустимое количество:</strong> {{ material.min_quantity }} {{ material.unit.short_name }}</p>
                     </div>
@@ -60,7 +62,7 @@
         </div>
         
         <hr>
-        
+        {% if perms.warehouse1.can_view_material_quantity %}
         <h4>Последние операции</h4>
         {% if operations %}
         <div class="table-responsive">
@@ -89,6 +91,7 @@
         </div>
         {% else %}
         <p>Нет данных об операциях</p>
+        {% endif %}
         {% endif %}
     </div>
 </div>
