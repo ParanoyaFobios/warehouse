@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Исходящие сообщения</h2>
+    <a href="{% url 'compose' %}" class="btn btn-primary mb-3">Написать сообщение</a>
+    <ul class="list-group">
+        {% for message in messages %}
+        <a href="{% url 'message_detail' message.pk %}" class="list-group-item list-group-item-action">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">Кому: {{ message.recipient.username }}</h5>
+                <small class="text-muted">{{ message.timestamp|date:"d.m.Y H:i" }}</small>
+            </div>
+            
+            <small>{% if message.is_read %}Прочитано{% else %}Не прочитано{% endif %}</small>
+        </a>
+        {% empty %}
+        <li class="list-group-item">У вас нет отправленных сообщений.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

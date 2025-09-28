@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'warehouse2.apps.Warehouse2Config',
     'inventarization.apps.InventarizationConfig',
     'reports.apps.ReportsConfig',
+    'usertouser.apps.UsertouserConfig',
 ]
 
 MIDDLEWARE = [
@@ -70,6 +71,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'main.context_processors.global_search_form',  # Добавляем наш процессор для сквозного поиска
+                'usertouser.context_processors.unread_messages_count',  # Добавляем процессор для количества непрочитанных сообщений
             ],
         },
     },
