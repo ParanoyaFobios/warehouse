@@ -3,17 +3,19 @@
 <div class="container mt-4">
     <div class="card">
         <div class="card-header">
-            
+            <h5>{{ message.subject }}</h5>
             <small class="text-muted">
-                От: {{ message.sender.username }} | Для: {{ message.recipient.username }} | {{ message.timestamp|date:"d.m.Y H:i" }}
+                От: {{ message.sender.username }} | 
+                Кому: {{ message.get_recipients_display }} | 
+                {{ message.timestamp|date:"d.m.Y H:i" }}
             </small>
         </div>
         <div class="card-body">
             <p>{{ message.content|linebreaksbr }}</p>
         </div>
         <div class="card-footer">
-            {% if request.user == message.recipient %}
-            <a href="{% url 'message_reply' message.pk %}" class="btn btn-primary">Ответить</a>
+            {% if request.user in message.recipients.all %}
+                <a href="{% url 'message_reply' message.pk %}" class="btn btn-primary">Ответить</a>
             {% endif %}
             <a href="{% url 'inbox' %}" class="btn btn-secondary">К входящим</a>
         </div>

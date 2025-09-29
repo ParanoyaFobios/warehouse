@@ -76,6 +76,7 @@ class Product(models.Model):
         verbose_name_plural = "Штучные товары"
         permissions = [
             ("can_view_product_quantity", "Может просматривать количество продукции на складе"),
+            ("can_edit_product_price", "Может менять цену продукции на складе"),
         ]
 
 class Package(models.Model):

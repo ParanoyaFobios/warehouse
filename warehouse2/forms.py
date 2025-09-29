@@ -4,12 +4,12 @@ from .models import Product, WorkOrder, Shipment, Package
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ['name', 'sku', 'category', 'color', 'total_quantity', 'price', 'image']
+        fields = ['name', 'sku', 'category', 'color', 'price', 'image']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'sku': forms.TextInput(attrs={'class': 'form-control'}),
             'color': forms.Select(attrs={'class': 'form-control'}),
-            'total_quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '1'}),  # step=1 для целых чисел
+            
             'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'image': forms.FileInput(attrs={'class': 'form-control'}),
         }

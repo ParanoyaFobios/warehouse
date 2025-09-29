@@ -6,40 +6,100 @@
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     
+    <!-- Общие ошибки формы (не привязанные к конкретным полям) -->
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+        <strong>Ошибка:</strong>
+        <ul class="mb-0">
+            {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    
     <div class="row">
         <div class="col-md-6">
+            <!-- Поле Name -->
             <div class="mb-3">
                 <label class="form-label">Название</label>
                 {{ form.name }}
+                {% if form.name.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.name.errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
+            
+            <!-- Поле SKU -->
             <div class="mb-3">
                 <label class="form-label">Артикул</label>
                 {{ form.sku }}
+                {% if form.sku.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.sku.errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
+            
+            <!-- Поле Category -->
             <div class="mb-3">
                 <label class="form-label">Категория</label>
                 {{ form.category }}
+                {% if form.category.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.category.errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
         </div>
         
         <div class="col-md-6">
+            <!-- Поле Color -->
             <div class="mb-3">
                 <label class="form-label">Цвет</label>
                 {{ form.color }}
+                {% if form.color.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.color.errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
-            {% if user.is_superuser %}
-            <div class="mb-3">
-                <label class="form-label">Количество на складе</label>
-                {{ form.total_quantity }}
-            </div>
+            
+            <!-- Поле Price -->
+            {% if perms.can_edit_product_price %}
             <div class="mb-3">
                 <label class="form-label">Цена</label>
                 {{ form.price }}
+                {% if form.price.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.price.errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             {% endif %}
+            
+            <!-- Поле Image -->
             <div class="mb-3">
                 <label class="form-label">Изображение</label>
                 {{ form.image }}
+                {% if form.image.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.image.errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

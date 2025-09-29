@@ -29,9 +29,18 @@ class Message(models.Model):
         ordering = ['-timestamp']
         verbose_name = "Сообщение"
         verbose_name_plural = "Сообщения"
+
         
     def __str__(self):
         return f'"От {self.sender.username if self.sender else "N/A"}'
+    
+    def get_recipients_display(self):
+        """Отображение получателей для шаблонов"""
+        return ", ".join([user.username for user in self.recipients.all()])
+
+    def get_recipients_count(self):
+        """Количество получателей"""
+        return self.recipients.count()
 
 
 class MessageRecipient(models.Model):

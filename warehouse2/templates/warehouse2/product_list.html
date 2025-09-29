@@ -60,7 +60,7 @@
             <td>{{ product.total_quantity }}</td>
             <td>{{ product.available_quantity }}</td>
 {% endif %}
-            <td><a href="{% url 'generate_barcode' content_type_id=product|get_content_type_id object_id=product.pk %}" alt="Штрихкод" class="img-fluid mb-2">{{ product.barcode }}</a></td>
+            <td><a href="{% url 'generate_barcode' content_type_id=product|get_content_type_id object_id=product.pk %}" alt="Штрихкод" class="img-fluid mb-2" target="_blank">{{ product.barcode }}</a></td>
             <td>{{ product.price }}</td>
         </tr>
         {% empty %}
