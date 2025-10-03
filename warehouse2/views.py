@@ -7,11 +7,9 @@ from .forms import ProductForm, WorkOrderForm, ShipmentForm, ShipmentItemForm, P
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.http import JsonResponse
 from django.db import models
-from django.views.generic.edit import FormView
-from django.db.models import F
-from django.views.generic.edit import FormMixin
+from django.views.generic.edit import FormView, FormMixin
+from django.db.models import F, Q
 from django.core.exceptions import ValidationError
-from django.db.models import Q
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 

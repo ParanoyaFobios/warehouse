@@ -15,6 +15,7 @@
         <div class="card">
             <div class="card-header">Информация об отгрузке</div>
             <div class="card-body">
+                <p><strong>ФОП:</strong> {{ shipment.sender }}</p>
                 <p><strong>Назначение:</strong> {{ shipment.destination }}</p>
                 <p><strong>Создана:</strong> {{ shipment.created_at|date:"d.m.Y H:i" }} пользователем {{ shipment.created_by }}</p>
                 {% if shipment.shipped_at %}

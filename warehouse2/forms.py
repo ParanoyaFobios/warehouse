@@ -109,12 +109,14 @@ class WorkOrderForm(forms.ModelForm):
 class ShipmentForm(forms.ModelForm):
     class Meta:
         model = Shipment
-        fields = ['destination', 'recipient'] # Оставляем только те поля, что заполняет пользователь
+        fields = ['sender', 'destination', 'recipient'] # Оставляем только те поля, что заполняет пользователь
         widgets = {
+            'sender': forms.Select(attrs={'class': 'form-select', 'placeholder': 'ФОП (отправитель)'}),
             'destination': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Город, адрес склада и т.д.'}),
             'recipient': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Получатель (Ф.И.О. или название компании)'}),  # Добавлено новое поле
         }
         labels = {
+            'sender': 'ФОП (отправитель)',
             'destination': 'Пункт назначения',
             'recipient': 'Получатель (Ф.И.О.)',
         }

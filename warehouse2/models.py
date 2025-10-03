@@ -226,7 +226,17 @@ class WorkOrder(models.Model):
 
 # ==============================================================================
 # Отгрузки: Shipment
-# ==============================================================================
+# ============================================================================== 
+class Sender(models.Model):
+    """Физ/Юр лицо - отправитель отгрузки."""
+    name = models.CharField(max_length=100, unique=True, verbose_name="ФОП отправитель")
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "ФОП отправитель"
+        verbose_name_plural = "ФОП отправителя"
 
 class Shipment(models.Model):
     """Отгрузка (накладная)."""
@@ -238,6 +248,7 @@ class Shipment(models.Model):
     ]
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_shipments', verbose_name="Кем создана")
     processed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_shipments', verbose_name="Кем собрана/отгружена")
+    sender = models.ForeignKey(Sender, on_delete=models.PROTECT, verbose_name="ФОП отпраитель", blank=True, null=True)
     destination = models.CharField(max_length=255, verbose_name="Адрес отгрузки", blank=True)
     recipient = models.CharField(max_length=255, verbose_name="Адрес отгрузки", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")

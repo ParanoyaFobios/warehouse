@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     ProductCategory, ProductColor, Product,
-    WorkOrder, Shipment, ShipmentItem, ProductOperation)
+    WorkOrder, Shipment, ShipmentItem, ProductOperation, Sender)
 from django.urls import reverse
 from django.utils.html import format_html
 
@@ -19,6 +19,10 @@ class ProductColorAdmin(admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
 
+@admin.register(Sender)
+class SenderAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
 # ==============================================================================
 # Основные модели
 # ==============================================================================
@@ -60,6 +64,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
                 order.complete_order()
         self.message_user(request, "Выбранные заказы завершены")
     complete_orders.short_description = "Завершить выбранные заказы"
+
 
 @admin.register(Shipment)
 class ShipmentAdmin(admin.ModelAdmin):
