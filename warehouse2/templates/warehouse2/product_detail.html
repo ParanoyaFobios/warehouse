@@ -29,7 +29,7 @@
             <div class="card">
                 <div class="card-header"><h5>Штрихкод (штучный)</h5></div>
                 <div class="card-body text-center">
-                    <img src="{% url 'generate_barcode' content_type_id=product|get_content_type_id object_id=product.pk %}" alt="Штрихкод" class="img-fluid mb-2">
+                    <img src="{% url 'generate_barcode_image' content_type_id=product.get_content_type_id object_id=product.pk %}" alt="Штрихкод" class="img-fluid mb-2">
                     <p class="mt-2 font-monospace">{{ product.barcode }}</p>
                 </div>
             </div>
@@ -65,7 +65,7 @@
                         <tr>
                             <td>{{ package }}</a></td>
                             <td>{{ package.quantity }} шт.</td>
-                            <td class="font-monospace"><a href="{% url 'generate_barcode' content_type_id=package|get_content_type_id object_id=package.pk %}" alt="Штрихкод" class="img-fluid mb-2">{{ package.barcode }}</a></td>
+                            <td class="font-monospace"><a href="{% url 'barcode_display_page' content_type_id=package.get_content_type_id object_id=package.pk %}" alt="Штрихкод" class="img-fluid mb-2">{{ package.barcode }}</a></td>
                             <td>
                                 <a href="{% url 'package_edit' package.pk %}" class="btn btn-sm btn-outline-primary">✏️</a>
                                 <a href="{% url 'package_delete' package.pk %}" class="btn btn-sm btn-outline-danger">🗑️</a>

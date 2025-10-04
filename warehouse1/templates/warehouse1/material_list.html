@@ -51,7 +51,7 @@
             {% if perms.warehouse1.can_view_material_quantity %}
             <td>{{ material.quantity }} {{ material.unit.short_name }}</td>
             {% endif %}
-            <td><a href="{% url 'material_barcode' material.pk %}" target="_blank" >{{ material.barcode }}</a></td>
+            <td><a href="{% url 'barcode_display_page' content_type_id=material.get_content_type_id object_id=material.pk %}">{{ material.barcode }}</a></td>
             <td>
                 <a href="{% url 'incoming_with_material' material.pk %}" 
                 class="btn btn-success" 

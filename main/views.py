@@ -205,6 +205,16 @@ def generate_barcode_view(request, content_type_id, object_id):
     
     return HttpResponse(final_buffer.getvalue(), content_type='image/png')
 
+
+def barcode_display_page_view(request, content_type_id, object_id):
+    """
+    Отображает HTML-страницу, которая содержит изображение штрихкода и кнопки.
+    """
+    context = {
+        'content_type_id': content_type_id,
+        'object_id': object_id,
+    }
+    return render(request, 'barcode_display.html', context)
 # ==============================================================================
 # Глобальный поиск по названию, артикулу, штрихкоду
 # ==============================================================================

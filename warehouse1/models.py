@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 import uuid
 import re
+from main.models import ContentTypeAware
 
 def generate_unique_barcode_for_model(model_class):
     """Универсальная функция для генерации уникального штрихкода для любой модели."""
@@ -46,7 +47,7 @@ class MaterialColor(models.Model):
         verbose_name = "Цвет материала"
         verbose_name_plural = "Цвета материала"
 
-class Material(models.Model):
+class Material(ContentTypeAware, models.Model):
     name = models.CharField(max_length=200, verbose_name="Название материала")
     article = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
     category = models.ForeignKey(MaterialCategory, on_delete=models.PROTECT, verbose_name="Категория")

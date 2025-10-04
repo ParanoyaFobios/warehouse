@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container text-center mt-5">
+    <div class="card d-inline-block p-4">
+        <img src="{% url 'generate_barcode_image' content_type_id=content_type_id object_id=object_id %}" 
+             alt="Штрихкод" class="img-fluid mb-4">
+
+        <div class="d-flex justify-content-center gap-2">
+            <button class="btn btn-primary" onclick="window.print();">
+                <i class="bi bi-printer"></i> Печать
+            </button>
+            <button class="btn btn-secondary" onclick="window.history.back();">
+                <i class="bi bi-x-circle"></i> Закрыть
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Стиль для печати: скрываем все, кроме штрихкода */
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        .card, .card * {
+            visibility: visible;
+        }
+        .card {
+            position: absolute;
+            left: 0;
+            top: 0;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .btn {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}

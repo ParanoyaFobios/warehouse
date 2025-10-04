@@ -1,4 +1,3 @@
-
 from django.db import models
 from django.db.models import F, Sum
 from django.conf import settings
@@ -9,9 +8,10 @@ from decimal import Decimal
 from django.db.models import Sum
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from main.models import ContentTypeAware
 # ==============================================================================
 # Генераторы штрихкодов
-# ==============================================================================
+# ============================================================================== 
 
 def generate_unique_barcode(model_class):
     """Универсальная функция для генерации уникального штрихкода."""
@@ -51,7 +51,7 @@ class ProductColor(models.Model):
 # Продукция и Упаковки
 # ==============================================================================
 
-class Product(models.Model):
+class Product(ContentTypeAware, models.Model):
     """Модель ПОШТУЧНОЙ готовой продукции."""
     name = models.CharField(max_length=200, verbose_name="Название продукции")
     sku = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
@@ -79,7 +79,7 @@ class Product(models.Model):
             ("can_edit_product_price", "Может менять цену продукции на складе"),
         ]
 
-class Package(models.Model):
+class Package(ContentTypeAware, models.Model):
     """
     Упаковка НЕ имеет своего остатка на складе, она ссылается на `Product`.
     """
