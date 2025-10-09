@@ -37,25 +37,29 @@
             </td>
             <td>
                 {% if shipment.can_be_edited %}
-                <a href="{% url 'shipment_items' shipment.pk %}" class="btn btn-sm btn-primary">Товары</a>
+                    <a href="{% url 'shipment_items' shipment.pk %}" class="btn btn-sm btn-primary">Товары</a>
                 {% endif %}
+            
                 {% if shipment.can_be_deleted %}
-                <a href="{% url 'shipment_delete' shipment.pk %}" class="btn btn-sm btn-danger">Удалить</a>
+                    <a href="{% url 'shipment_delete' shipment.pk %}" class="btn btn-sm btn-danger">Удалить</a>
                 {% endif %}
+            
                 {% if shipment.can_be_packed %}
-                <form action="{% url 'shipment_mark_packaged' shipment.pk %}" method="post" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-warning">
-                        <i class="btn btn-sm btn-info"></i> Отметить как собранную
-                    </button>
-                </form>
+                    <form action="{% url 'shipment_mark_packaged' shipment.pk %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-warning">Собрать</button>
+                    </form>
                 {% endif %}
+                
                 {% if shipment.can_be_shipped %}
-                <a href="{% url 'shipment_ship' shipment.pk %}" class="btn btn-sm btn-success">Отгрузить</a>
-                {% else %}
-                {% if perms.warehouse2.can_return_product %}
-                <a href="{% url 'shipment_return' shipment.pk %}" class="btn btn-sm btn-danger">Возврат</a>
+                    <form action="{% url 'shipment_ship' shipment.pk %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-success">Отгрузить</button>
+                    </form>
                 {% endif %}
+            
+                {% if shipment.status == 'shipped' and perms.warehouse2.can_return_product %}
+                    <a href="{% url 'shipment_return' shipment.pk %}" class="btn btn-sm btn-danger">Возврат</a>
                 {% endif %}
             </td>
         </tr>
