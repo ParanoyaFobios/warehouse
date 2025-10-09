@@ -1,4 +1,4 @@
-from django.shortcuts import redirect, get_object_or_404, render
+from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
@@ -111,6 +111,15 @@ class ProductDetailView(FormMixin, DetailView):
         messages.success(self.request, f'Упаковка на {package.quantity} шт. успешно создана!')
         return super().form_valid(form)
     
+class ProductDeleteView(LoginRequiredMixin, DeleteView):
+    model = Product
+    template_name = 'warehouse2/product_confirm_delete.html'
+    success_url = reverse_lazy('product_list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Продукт успешно удален')
+        return super().form_valid(form)
+
 class ProductIncomingView(LoginRequiredMixin, FormView):
     template_name = 'warehouse2/product_incoming_form.html'
     form_class = ProductIncomingForm
@@ -325,10 +334,34 @@ class ShipmentDeleteView(DeleteView):
     model = Shipment
     template_name = 'warehouse2/shipment_confirm_delete.html'
     success_url = reverse_lazy('shipment_list')
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Проверяем права на удаление до того, как что-либо будет сделано.
+        """
+        shipment = self.get_object()
+        if not shipment.can_be_deleted():
+            messages.error(request, "Нельзя удалить отгруженную или возвращенную накладную.")
+            return redirect('shipment_detail', pk=shipment.pk)
+        return super().dispatch(request, *args, **kwargs)
     
     def form_valid(self, form):
-        messages.success(self.request, f'Отгрузка №{self.object.id} была удалена.')
-        return super().form_valid(form)
+        # Используем transaction.atomic для безопасности:
+        # либо все удалится, либо ничего
+        with transaction.atomic():
+            # self.object - это отгрузка, которую мы собираемся удалить
+            shipment_to_delete = self.get_object()
+            # Перед удалением самой отгрузки, проходим по всем ее позициям
+            # и удаляем их по одной. При этом у каждой сработает ее собственный
+            # метод .delete(), который снимает товар с резерва.
+            for item in shipment_to_delete.items.all():
+                item.delete()
+            # Теперь, когда все резервы сняты, можно безопасно
+            # вызывать стандартный метод удаления для самой отгрузки.
+            response = super().form_valid(form)
+
+        messages.success(self.request, f'Отгрузка №{self.object.id} была удалена, товары возвращены из резерва.')
+        return response
 
 @login_required
 def ship_shipment(request, pk):

@@ -10,6 +10,7 @@ urlpatterns = [
     path('products/search-json/', views.product_search_json, name='product_search_json'),
     path('products/<int:pk>/', views.ProductDetailView.as_view(), name='product_detail'),
     path('products/<int:pk>/edit/', views.ProductUpdateView.as_view(), name='product_edit'),
+    path('products/<int:pk>/delete/', views.ProductDeleteView.as_view(), name='product_delete'), # <<< Добавьте эту строку
 
     path('package/<int:pk>/edit/', views.PackageUpdateView.as_view(), name='package_edit'),
     path('package/<int:pk>/delete/', views.PackageDeleteView.as_view(), name='package_delete'),

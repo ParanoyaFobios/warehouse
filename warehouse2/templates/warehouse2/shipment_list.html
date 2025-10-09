@@ -38,10 +38,17 @@
             <td>
                 {% if shipment.can_be_edited %}
                 <a href="{% url 'shipment_items' shipment.pk %}" class="btn btn-sm btn-primary">Товары</a>
+                {% endif %}
+                {% if shipment.can_be_deleted %}
                 <a href="{% url 'shipment_delete' shipment.pk %}" class="btn btn-sm btn-danger">Удалить</a>
                 {% endif %}
                 {% if shipment.can_be_packed %}
-                <a href="{% url 'shipment_mark_packaged' shipment.pk %}" class="btn btn-sm btn-info">Отметить как собранную</a>
+                <form action="{% url 'shipment_mark_packaged' shipment.pk %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-warning">
+                        <i class="btn btn-sm btn-info"></i> Отметить как собранную
+                    </button>
+                </form>
                 {% endif %}
                 {% if shipment.can_be_shipped %}
                 <a href="{% url 'shipment_ship' shipment.pk %}" class="btn btn-sm btn-success">Отгрузить</a>

@@ -23,6 +23,7 @@
                 </tbody>
             </table>
             <a href="{% url 'product_edit' product.pk %}" class="btn btn-warning btn-sm">Редактировать товар</a>
+            <a href="{% url 'product_delete' product.pk %}" class="btn btn-danger">Удалить</a>
             <a href="{% url 'product_list' %}" class="btn btn-secondary btn-sm">К списку товаров</a>
         </div>
         <div class="col-md-6">

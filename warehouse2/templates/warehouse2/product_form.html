@@ -64,10 +64,10 @@
             <!-- Поле Color -->
             <div class="mb-3">
                 <label class="form-label">Цвет</label>
-                {{ form.color }}
-                {% if form.color.errors %}
+                {{ form.color_text }}
+                {% if form.color_text.errors %}
                 <div class="invalid-feedback d-block">
-                    {% for error in form.color.errors %}
+                    {% for error in form.color_text.errors %}
                     <div>{{ error }}</div>
                     {% endfor %}
                 </div>

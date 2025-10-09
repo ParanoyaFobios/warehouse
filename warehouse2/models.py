@@ -9,6 +9,7 @@ from django.db.models import Sum
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from main.models import ContentTypeAware
+from django.db import transaction
 # ==============================================================================
 # Генераторы штрихкодов
 # ============================================================================== 
@@ -305,40 +306,50 @@ class Shipment(models.Model):
         """Можно ли отгрузить."""
         return self.status != 'shipped' and self.items.exists()
     
+    def can_be_deleted(self):
+        """Отгрузку можно удалить, только если она еще не обработана."""
+        return self.status in ['pending', 'packaged']
+
     def ship(self, user):
         """Отгружает товар и списывает его с баланса."""
         if self.status == 'shipped':
             raise ValidationError("Эта отгрузка уже отгружена.")
         
-        for item in self.items.all():
-            base_product = item.stock_product  # Базовый продукт (для упаковок - product внутри package)
-            units_to_ship = item.base_product_units  # Общее количество в штуках
-            
-            # Проверяем доступность
-            if base_product.available_quantity < units_to_ship:
-                raise ValidationError(
-                    f"Недостаточно товара '{base_product.name}'. "
-                    f"Доступно: {base_product.available_quantity}, требуется: {units_to_ship}"
+        # Для гарантии целостности данных оборачиваем всё в транзакцию
+        with transaction.atomic():
+            for item in self.items.all():
+                base_product = item.stock_product
+                units_to_ship = item.base_product_units
+                
+                # --- 👇 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ 👇 ---
+                # Проверяем не "доступное", а общее количество на балансе,
+                # так как зарезервированное количество мы и собираемся отгрузить.
+                if base_product.total_quantity < units_to_ship:
+                    raise ValidationError(
+                        f"Недостаточно товара '{base_product.name}' на балансе. "
+                        f"На складе: {base_product.total_quantity}, требуется: {units_to_ship}"
+                    )
+                
+                # Списание с баланса и ОДНОВРЕМЕННОЕ снятие с резерва
+                base_product.total_quantity -= units_to_ship
+                base_product.reserved_quantity -= units_to_ship
+                base_product.save()
+
+                # Создание записи в журнале (остается без изменений)
+                ProductOperation.objects.create(
+                    product=base_product,
+                    operation_type=ProductOperation.OperationType.SHIPMENT,
+                    quantity=units_to_ship,
+                    source=self,
+                    user=user,
+                    comment=f"Позиция: {item}"
                 )
             
-            # Списание с баланса БАЗОВОГО продукта
-            base_product.total_quantity -= units_to_ship
-            base_product.reserved_quantity -= units_to_ship
-            base_product.save()
-                        # 👇 Добавляем создание записи в журнале для каждой позиции отгрузки 👇
-            ProductOperation.objects.create(
-                product=base_product,
-                operation_type=ProductOperation.OperationType.SHIPMENT,
-                quantity=units_to_ship,
-                source=self,  # Ссылка на эту отгрузку
-                user=user,
-                comment=f"Позиция: {item}"
-            )
-        
-        self.status = 'shipped'
-        self.processed_by = user
-        self.shipped_at = timezone.now()
-        self.save()
+            # Обновление статуса отгрузки (остается без изменений)
+            self.status = 'shipped'
+            self.processed_by = user
+            self.shipped_at = timezone.now()
+            self.save()
     
     def __str__(self):
         return f"Отгрузка №{self.id} от {self.created_at.strftime('%Y-%m-%d')}"
@@ -392,6 +403,7 @@ class ShipmentItem(models.Model):
             return self.price / total_units
         
         return Decimal('0.00')
+    
     @property
     def stock_product(self):
         """Возвращает товар, у которого нужно проверять остатки на складе."""
@@ -426,11 +438,17 @@ class ShipmentItem(models.Model):
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        # Снимаем с резерва у БАЗОВОГО продукта
-        units_to_release = self.base_product_units
-        base_product = self.stock_product
-        base_product.reserved_quantity -= units_to_release
-        base_product.save()
+        # Снимаем с резерва, только если отгрузка находится в статусе,
+        # где резервирование имеет смысл ('pending' или 'packaged').
+        if self.shipment.status in ['pending', 'packaged']:
+            units_to_release = self.base_product_units
+            base_product = self.stock_product
+            
+            # Уменьшаем резерв, но не даем ему уйти в минус
+            base_product.reserved_quantity = max(0, base_product.reserved_quantity - units_to_release)
+            base_product.save()
+            
+        # Вызываем стандартный метод удаления для самой строки
         super().delete(*args, **kwargs)
 
     class Meta:
