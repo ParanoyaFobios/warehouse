@@ -41,13 +41,6 @@ class ProductCategory(models.Model):
         verbose_name_plural = "Категории продукции"
 
 
-class ProductColor(models.Model):
-    name = models.CharField(max_length=50, unique=True, verbose_name="Цвет")
-    def __str__(self): return self.name
-    class Meta:
-        verbose_name = "Цвет продукции"
-        verbose_name_plural = "Цвета продукции"
-
 # ==============================================================================
 # Продукция и Упаковки
 # ==============================================================================
@@ -57,12 +50,12 @@ class Product(ContentTypeAware, models.Model):
     name = models.CharField(max_length=200, verbose_name="Название продукции")
     sku = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
     barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод (штучный)", default=generate_product_barcode, editable=True)
-    category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория")
+    category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория", blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за единицу", default=0)
-    color = models.ForeignKey(ProductColor, on_delete=models.PROTECT, verbose_name="Цвет", blank=True, null=True)
+    color = models.CharField(max_length=50, unique=True, verbose_name="Цвет", blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Изображение")
     # === Складской учет ===
-    total_quantity = models.IntegerField(default=0, verbose_name="На балансе")  # Изменено на PositiveIntegerField
+    total_quantity = models.IntegerField(default=0, verbose_name="На балансе")
     reserved_quantity = models.IntegerField(default=0, verbose_name="Зарезервировано")
 
     @property
@@ -207,7 +200,7 @@ class WorkOrder(models.Model):
             self.completed_at = timezone.now()
             self.save()
             
-            # 👇 Добавляем создание записи в журнале операций 👇
+            # Добавляем создание записи в журнале операций
             ProductOperation.objects.create(
                 product=self.product,
                 operation_type=ProductOperation.OperationType.PRODUCTION,

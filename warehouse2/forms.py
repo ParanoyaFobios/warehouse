@@ -1,65 +1,30 @@
 from django import forms
-from .models import Product, WorkOrder, Shipment, Package, ProductColor
+from .models import Product, WorkOrder, Shipment, Package
 
 class ProductForm(forms.ModelForm):
-    # 1. Создаем новое текстовое поле для ввода цвета. Оно не связано с моделью.
-    color_text = forms.CharField(
-        label="Цвет",
-        required=False, # Делаем необязательным, как и в модели
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Введите цвет'})
-    )
+
 
     class Meta:
         model = Product
         # 2. Убираем оригинальное поле 'color' из списка, чтобы избежать конфликтов
-        fields = ['name', 'sku', 'category', 'price', 'image'] 
+        fields = ['name', 'sku', 'category', 'color', 'price', 'image'] 
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'sku': forms.TextInput(attrs={'class': 'form-control'}),
+            'color': forms.TextInput(attrs={'class': 'form-control'}),
             'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'image': forms.FileInput(attrs={'class': 'form-control'}),
         }
-    
+
     def __init__(self, *args, **kwargs):
-        # 👇 СНАЧАЛА извлекаем пользователя и удаляем его из kwargs
         self.user = kwargs.pop('user', None)
-        
-        # 👇 ЗАТЕМ вызываем родительский конструктор с "очищенными" kwargs
         super().__init__(*args, **kwargs)
-        
-        # Теперь можно безопасно работать с self.user
+
         if self.user and not self.user.is_superuser:
-            # Ваш код для скрытия полей
-            if 'price' in self.fields:
-                self.fields.pop('price')
-        
-        # 3. Если мы редактируем существующий продукт, предзаполняем наше текстовое поле
-        if self.instance and self.instance.pk and self.instance.color:
-            self.fields['color_text'].initial = self.instance.color.name
+            self.fields.pop('total_quantity')
+            self.fields.pop('price')
+    
 
-    def save(self, commit=True):
-        """
-        Переопределяем метод сохранения, чтобы обработать введенный цвет.
-        """
-        # 4. Получаем название цвета из нашего нового поля
-        color_name = self.cleaned_data.get('color_text', '').strip()
-        
-        # 5. Вызываем стандартный метод save, но пока не сохраняем в БД (commit=False)
-        instance = super().save(commit=False)
-        
-        # 6. Логика "найти или создать"
-        if color_name:
-            # Ищем цвет с таким названием, если нет - создаем новый
-            color_obj, created = ProductColor.objects.get_or_create(name=color_name)
-            instance.color = color_obj
-        else:
-            instance.color = None # Если поле пустое, цвет не указываем
-
-        # 7. Если нужно, сохраняем объект в БД
-        if commit:
-            instance.save()
-            
-        return instance
 
 
 class ProductIncomingForm(forms.Form):

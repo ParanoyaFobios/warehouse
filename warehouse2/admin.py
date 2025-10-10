@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    ProductCategory, ProductColor, Product,
+    ProductCategory, Product,
     WorkOrder, Shipment, ShipmentItem, ProductOperation, Sender)
 from django.urls import reverse
 from django.utils.html import format_html
@@ -11,11 +11,6 @@ from django.utils.html import format_html
 
 @admin.register(ProductCategory)
 class ProductCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name',)
-    search_fields = ('name',)
-
-@admin.register(ProductColor)
-class ProductColorAdmin(admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
 
