@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, api_views
 
 
 urlpatterns = [
@@ -11,6 +11,7 @@ urlpatterns = [
     path('products/<int:pk>/', views.ProductDetailView.as_view(), name='product_detail'),
     path('products/<int:pk>/edit/', views.ProductUpdateView.as_view(), name='product_edit'),
     path('products/<int:pk>/delete/', views.ProductDeleteView.as_view(), name='product_delete'), # <<< Добавьте эту строку
+    path('product-search/', views.product_search, name='product_search'),
 
     path('package/<int:pk>/edit/', views.PackageUpdateView.as_view(), name='package_edit'),
     path('package/<int:pk>/delete/', views.PackageDeleteView.as_view(), name='package_delete'),
@@ -21,7 +22,6 @@ urlpatterns = [
     path('workorders/<int:pk>/edit/', views.WorkOrderUpdateView.as_view(), name='workorder_edit'),
     path('workorders/<int:pk>/delete/', views.WorkOrderDeleteView.as_view(), name='workorder_delete'),
     path('workorders/<int:pk>/complete/', views.complete_workorder, name='workorder_complete'),
-    path('product-search/', views.product_search, name='product_search'),
     
     # Shipment URLs
     path('shipments/', views.ShipmentListView.as_view(), name='shipment_list'),
@@ -34,4 +34,6 @@ urlpatterns = [
     path('shipments/items/<int:pk>/delete/', views.delete_shipment_item, name='delete_shipment_item'),
     path('shipment/<int:pk>/return/', views.ReturnShipmentView.as_view(), name='shipment_return'),
     path('shipment/<int:pk>/mark_packaged/', views.mark_shipment_as_packaged, name='shipment_mark_packaged'),
+    # API endpoint for KeyCRM webhooks
+    path('api/webhooks/order-updated/', api_views.KeyCRMOrderWebhookView.as_view(), name='keycrm_order_webhook'),
 ]

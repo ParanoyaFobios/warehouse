@@ -5,8 +5,8 @@ from openpyxl.styles import Font, Alignment
 from django.http import HttpResponse
 import io
 from openpyxl.styles import PatternFill
-from django.utils.dateparse import parse_datetime
 from django.utils import timezone
+from django.db.models import Q
 
 
 def get_unified_movement_data(filters):

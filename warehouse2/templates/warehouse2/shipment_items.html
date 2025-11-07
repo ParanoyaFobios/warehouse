@@ -132,8 +132,17 @@
                         <i class="bi bi-check-circle"></i> Отметить как собранную
                     </button>
                 </form>
+                <form action="{% url 'shipment_delete' shipment.pk %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger" 
+                            onclick="return confirm('Отменить эту отгрузку? Все позиции будут удалены.')">
+                        <i class="bi bi-x-circle"></i> Отменить
+                    </button>
             </div>
             {% endif %}
+            <div class="mt-3"></div>
+                <a class="d-inline" href="{% url 'shipment_list' %}">Назад</a>
+            </div>
         </div>
     </div>
 </div>
