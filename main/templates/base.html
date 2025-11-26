@@ -27,7 +27,8 @@
                     <a class="nav-link" href="{% url 'material_list' %}">Материалы</a>
                     <a class="nav-link" href="{% url 'product_list' %}">Склад</a>
                     {% if perms.warehouse2.view_workorder %}
-                    <a class="nav-link" href="{% url 'workorder_list' %}">Производство</a>
+                    <a class="nav-link" href="{% url 'workorder_list' %}">Доска</a>
+                    <a class="nav-link" href="{% url 'portfolio_list' %}">Портфель</a>
                     {% endif %}
                     <a class="nav-link" href="{% url 'shipment_list' %}">Отгрузки</a>
                     <a class="nav-link" href="{% url 'count_list' %}">Переучет</a>

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Отчет о выпуске</h2>
+<p>Задание: <b>{{ workorder }}</b></p>
+<p>План: {{ workorder.quantity_planned }} | Сделано: {{ workorder.quantity_produced }} | Осталось: <b>{{ workorder.remaining_to_produce }}</b></p>
+<hr>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Зарегистрировать выпуск</button>
+</form>
+{% endblock %}

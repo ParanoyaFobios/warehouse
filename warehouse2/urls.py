@@ -10,19 +10,12 @@ urlpatterns = [
     path('products/search-json/', views.product_search_json, name='product_search_json'),
     path('products/<int:pk>/', views.ProductDetailView.as_view(), name='product_detail'),
     path('products/<int:pk>/edit/', views.ProductUpdateView.as_view(), name='product_edit'),
-    path('products/<int:pk>/delete/', views.ProductDeleteView.as_view(), name='product_delete'), # <<< Добавьте эту строку
+    path('products/<int:pk>/delete/', views.ProductDeleteView.as_view(), name='product_delete'),
     path('product-search/', views.product_search, name='product_search'),
 
     path('package/<int:pk>/edit/', views.PackageUpdateView.as_view(), name='package_edit'),
     path('package/<int:pk>/delete/', views.PackageDeleteView.as_view(), name='package_delete'),
-    # Производственные заказы
-    path('workorders/', views.WorkOrderListView.as_view(), name='workorder_list'),
-    path('workorders/create/', views.WorkOrderCreateView.as_view(), name='workorder_create'),
-    path('workorders/<int:pk>/', views.WorkOrderDetailView.as_view(), name='workorder_detail'),
-    path('workorders/<int:pk>/edit/', views.WorkOrderUpdateView.as_view(), name='workorder_edit'),
-    path('workorders/<int:pk>/delete/', views.WorkOrderDeleteView.as_view(), name='workorder_delete'),
-    path('workorders/<int:pk>/complete/', views.complete_workorder, name='workorder_complete'),
-    
+
     # Shipment URLs
     path('shipments/', views.ShipmentListView.as_view(), name='shipment_list'),
     path('shipments/create/', views.ShipmentCreateView.as_view(), name='shipment_create'),

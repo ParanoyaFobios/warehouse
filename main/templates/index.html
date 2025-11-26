@@ -40,7 +40,7 @@
                         <p class="card-text display-6">{{ pending_workorders_count }}</p>
                         <p class="text-muted">не выполненных заказов</p>
                         <a href="{% url 'workorder_list' %}" class="btn btn-warning">Управление</a>
-                        <a href="{% url 'workorder_create' %}" class="btn btn-outline-warning mt-2">Создать</a>
+                        <a href="{% url 'workorder_create_adhoc' %}" class="btn btn-outline-warning mt-2">Создать</a>
                     </div>
                 </div>
             </div>
@@ -166,15 +166,7 @@
                                                 {{ workorder.status_display_short }}
                                             </span>
                                         </td>
-                                        <td>{{ workorder.quantity_to_produce }} шт.</td>
-                                        <td>
-                                            <a href="{% url 'workorder_detail' workorder.pk %}" 
-                                               class="btn btn-sm btn-outline-primary">Просмотр</a>
-                                            {% if workorder.status != 'completed' %}
-                                            <a href="{% url 'workorder_complete' workorder.pk %}" 
-                                               class="btn btn-sm btn-outline-success">Завершить</a>
-                                            {% endif %}
-                                        </td>
+                                        <td>{{ workorder.remaining_to_produce }} шт.</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>

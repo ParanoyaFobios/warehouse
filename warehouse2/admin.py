@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     ProductCategory, Product,
-    WorkOrder, Shipment, ShipmentItem, ProductOperation, Sender)
+    Shipment, ShipmentItem, ProductOperation, Sender)
 from django.urls import reverse
 from django.utils.html import format_html
 
@@ -45,21 +45,6 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ('total_quantity', 'reserved_quantity', 'available_quantity')
         }),
     )
-
-@admin.register(WorkOrder)
-class WorkOrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'product', 'quantity_to_produce', 'status', 'created_at')
-    list_filter = ('status', 'created_at')
-    readonly_fields = ('created_at', 'completed_at')
-    actions = ['complete_orders']
-    
-    def complete_orders(self, request, queryset):
-        for order in queryset:
-            if order.status != 'completed':
-                order.complete_order()
-        self.message_user(request, "Выбранные заказы завершены")
-    complete_orders.short_description = "Завершить выбранные заказы"
-
 
 @admin.register(Shipment)
 class ShipmentAdmin(admin.ModelAdmin):

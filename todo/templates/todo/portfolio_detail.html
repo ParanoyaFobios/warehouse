@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Заказ (Портфель) №{{ order.id }}</h2>
+<p>Заказчик: {{ order.customer }}</p>
+<p>К дате: {{ order.due_date }}</p>
+<p>Статус: {{ order.get_status_display }}</p>
+<p>Комментарий: {{ order.comment }}</p>
+<hr>
+
+<h3>Строки заказа (Позиции)</h3>
+<table border="1" cellpadding="5" style="width: 100%;">
+    <thead>
+        <tr>
+            <th>Продукт</th>
+            <th>Запрошено</th>
+            <th>Запланировано</th>
+            <th>Произведено</th>
+            <th>Статус</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for line in order.items.all %}
+        <tr>
+            <td>{{ line.product.name }}</td>
+            <td>{{ line.quantity_requested }}</td>
+            <td>{{ line.quantity_planned }}</td>
+            <td><b>{{ line.quantity_produced }}</b></td>
+            <td>{{ line.get_status_display }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">В заказе нет строк.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<hr>
+<h3>Планирование</h3>
+<a href="{% url 'portfolio_plan_workorders' order.pk %}">
+    <b>>> Создать задания на смену для всех невыполненных строк</b>
+</a>
+<br><br>
+<a href="{% url 'portfolio_list' %}">Назад к портфелю</a>
+{% endblock %}

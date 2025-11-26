@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Подтвердить удаление</h2>
+<p>Вы уверены, что хотите удалить "{{ object }}"?</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">Да, удалить</button>
+    <a href="{{ request.META.HTTP_REFERER|default:'/' }}">Отмена</a>
+</form>
+{% endblock %}

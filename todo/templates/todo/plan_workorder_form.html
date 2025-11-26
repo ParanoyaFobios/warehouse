@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Планирование задания на смену</h2>
+<p>По заказу: <b>{{ production_order }}</b></p>
+<p>Осталось в заказе (всего): <b>{{ production_order.remaining_quantity }} шт.</b></p>
+<hr>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Создать задание на смену</button>
+</form>
+{% endblock %}

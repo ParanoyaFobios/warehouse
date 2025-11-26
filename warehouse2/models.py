@@ -134,7 +134,7 @@ class ProductOperation(models.Model):
     operation_type = models.CharField(max_length=20, choices=OperationType.choices, verbose_name="Тип операции")
     quantity = models.IntegerField(verbose_name="Количество")
     
-    # Связь с документом-основанием (WorkOrder, Shipment, InventoryCount и т.д.)
+    # Связь с документом-основанием (Shipment, InventoryCount и т.д.)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     source = GenericForeignKey('content_type', 'object_id')
@@ -160,63 +160,6 @@ class ProductOperation(models.Model):
             ("can_return_product", "Может делать возврат накладных"),
         ]
 
-# ==============================================================================
-# Производство: WorkOrder
-# ==============================================================================
-
-class WorkOrder(models.Model):
-    STATUS_CHOICES = [('new', 'Новый'), ('in_progress', 'В работе'), ('completed', 'Выполнен')]
-    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name="Продукция")
-    quantity_to_produce = models.PositiveIntegerField(verbose_name="Количество к производству")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
-    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата выполнения")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new', verbose_name="Статус")
-    comment = models.TextField(blank=True, null=True, verbose_name="Комментарий")
-
-    @property
-    def status_badge_class(self):
-        """Возвращает класс для бейджа статуса."""
-        return {
-            'new': 'secondary',
-            'in_progress': 'warning',
-            'completed': 'success'
-        }.get(self.status, 'secondary')
-    
-    @property
-    def status_display_short(self):
-        """Короткое отображение статуса."""
-        return {
-            'new': 'Новый',
-            'in_progress': 'В работе',
-            'completed': 'Выполнен'
-        }.get(self.status, self.status)
-
-    def complete_order(self, user):
-        """Завершает заказ, ставит продукцию на баланс и создает запись в журнале."""
-        if self.status != 'completed':
-            self.product.total_quantity += self.quantity_to_produce
-            self.product.save()
-            self.status = 'completed'
-            self.completed_at = timezone.now()
-            self.save()
-            
-            # Добавляем создание записи в журнале операций
-            ProductOperation.objects.create(
-                product=self.product,
-                operation_type=ProductOperation.OperationType.PRODUCTION,
-                quantity=self.quantity_to_produce,
-                source=self,  # Ссылка на этот производственный заказ
-                user=user
-            )
-            return True
-        return False
-    
-
-    def __str__(self):
-        return f"Заказ №{self.id} на {self.product.name} ({self.quantity_to_produce} шт.)"
-    class Meta:
-        verbose_name = "Производственный заказ"
-        verbose_name_plural = "Производственные заказы"
 
 # ==============================================================================
 # Отгрузки: Shipment

@@ -9,7 +9,8 @@ from barcode.writer import ImageWriter
 import io
 from django.views.generic import View, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from warehouse2.models import Shipment, WorkOrder
+from warehouse2.models import Shipment
+from todo.models import WorkOrder
 from django.contrib import messages
 from django.db.models import F, Q
 from warehouse1.models import Material

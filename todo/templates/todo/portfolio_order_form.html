@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{% if object %}Редактировать заказ №{{ object.id }}{% else %}Новый заказ в портфель{% endif %}</h2>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <h3>1. Общая информация (Шапка)</h3>
+    {{ form.as_p }}
+    
+    <hr>
+    <h3>2. Строки заказа (Позиции)</h3>
+    
+    {{ items_formset.management_form }}
+    
+    <div id="formset-container">
+        {% for form in items_formset %}
+        <div class="inline-form-row card mb-3 p-3"> {{ form.id }}
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <label>Продукт:</label>
+                    {{ form.product }} 
+                    {% if form.product.errors %}
+                        <div class="text-danger">{{ form.product.errors }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-3">
+                    <label>Кол-во:</label>
+                    {{ form.quantity_requested }}
+                    {% if form.quantity_requested.errors %}
+                        <div class="text-danger">{{ form.quantity_requested.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-1 d-flex align-items-center">
+                    {% if items_formset.can_delete %}
+                        <div class="form-check mt-4">
+                             {{ form.DELETE }}
+                             <label for="{{ form.DELETE.id_for_label }}">Удалить</label>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Сохранить заказ</button>
+</form>
+{% endblock %}

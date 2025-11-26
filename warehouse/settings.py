@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'inventarization.apps.InventarizationConfig',
     'reports.apps.ReportsConfig',
     'usertouser.apps.UsertouserConfig',
+    'todo.apps.TodoConfig',
 ]
 
 MIDDLEWARE = [

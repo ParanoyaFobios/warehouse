@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Портфель заказов (Бэклог)</h2>
+<a href="{% url 'portfolio_create' %}">Добавить заказ в портфель</a>
+<hr>
+<table border="1" cellpadding="5" style="width: 100%;">
+    <thead>
+        <tr>
+            <th>Продукт</th>
+            <th>Запрошено</th>
+            <th>Сделано</th>
+            <th>Осталось</th>
+            <th>К дате</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+             <tr style="{% if order.is_completed %}background-color:#c8e6c9;{% endif %}">
+                <td>{{ order.product.name }}<br><small>Заказчик: {{ order.customer }}</small></td>
+                <td>{{ order.quantity_requested }}</td>
+                <td>{{ order.quantity_produced }}</td>
+                <td>{{ order.remaining_quantity }}</td>
+                <td>{{ order.due_date }}</td>
+                <td>{{ order.get_status_display }}</td>
+                <td>
+                    {% if not order.is_completed %}
+                    <a href="{% url 'portfolio_plan_workorder' order.pk %}"><b>Запланировать</b></a> |
+                    {% endif %}
+                    <a href="{% url 'portfolio_detail' order.pk %}">Детали</a> |
+                    <a href="{% url 'portfolio_edit' order.pk %}">Ред.</a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7">Портфель пуст.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
