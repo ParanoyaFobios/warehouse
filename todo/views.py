@@ -103,58 +103,64 @@ class ProductionOrderDeleteView(LoginRequiredMixin, DeleteView):
 
 class PlanWorkOrdersView(LoginRequiredMixin, FormView):
     """
-    Создает WorkOrders (Задания) для ВСЕХ невыполненных строк 
-    в ProductionOrder.
+    Берет "Заказ Портфеля" и создает из него "Задания на смену" (WorkOrders).
     """
-    template_name = 'todo/plan_workorders_form.html' # <-- Новый шаблон
-    form_class = forms.Form # Простая форма, можно и без нее
+    template_name = 'todo/plan_workorders_form.html'
+    form_class = forms.Form # Нам нужна пустая форма просто для CSRF токена и POST запроса
 
     def setup(self, request, *args, **kwargs):
         super().setup(request, *args, **kwargs)
+        # Получаем заказ по ID из URL
         self.portfolio_order = get_object_or_404(ProductionOrder, pk=self.kwargs['pk'])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['order'] = self.portfolio_order
-        context['lines_to_plan'] = self.portfolio_order.lines.filter(
-            quantity_requested__gt=F('quantity_planned') # Находим строки, где план < запроса
+        # Показываем только те строки, где План < Запроса (то есть еще не все отправлено в цех)
+        context['lines_to_plan'] = self.portfolio_order.items.filter(
+            quantity_requested__gt=F('quantity_planned')
         )
         return context
 
     def form_valid(self, form):
         order = self.portfolio_order
-        lines_to_plan = order.lines.filter(quantity_requested__gt=F('quantity_planned'))
+        # Выбираем строки, которые нужно запланировать
+        lines_to_plan = order.items.filter(quantity_requested__gt=F('quantity_planned'))
         
         created_count = 0
+        
+        # transaction.atomic гарантирует: либо создадутся ВСЕ задания, либо (при ошибке) НИ ОДНОГО.
+        # Это защищает от дублей и рассинхрона данных.
         with transaction.atomic():
             for line in lines_to_plan:
                 quantity_to_plan = line.remaining_to_plan
                 
                 if quantity_to_plan > 0:
-                    # Создаем Задание на смену (WorkOrder)
+                    # 1. Создаем Задание на смену (WorkOrder)
                     WorkOrder.objects.create(
-                        order_line=line,
-                        product=line.product,
+                        order_item=line, # Привязываем к строке
+                        product=line.product, # Дублируем продукт для удобства
                         quantity_planned=quantity_to_plan,
                         comment=f"По заказу №{order.id} (Заказчик: {order.customer})"
                     )
                     
-                    # Обновляем строку, что мы ее запланировали
-                    line.quantity_planned = line.quantity_requested
+                    # 2. Обновляем строку (Items): говорим, что мы передали это кол-во в план
+                    line.quantity_planned = F('quantity_planned') + quantity_to_plan
                     line.status = ProductionOrderItem.Status.PLANNED
                     line.save()
                     created_count += 1
             
-            # Обновляем статус "шапки"
+            # 3. Обновляем статус самого Заказа (Header)
             if created_count > 0:
                 order.status = ProductionOrder.Status.PLANNED
                 order.save()
 
         if created_count > 0:
-            messages.success(self.request, f'Создано {created_count} заданий на смену.')
+            messages.success(self.request, f'Успешно создано {created_count} заданий на смену. Они появились на доске.')
         else:
-            messages.info(self.request, 'Нет строк, требующих планирования.')
+            messages.info(self.request, 'Все позиции заказа уже были запланированы ранее.')
             
+        # Возвращаем пользователя на детальную страницу заказа
         return redirect('portfolio_detail', pk=order.pk)
 
 # ==============================================================================
@@ -170,18 +176,71 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
         return WorkOrder.objects.filter(status__in=['new', 'in_progress']).order_by('created_at')
 
 class WorkOrderAdHocCreateView(LoginRequiredMixin, CreateView):
-    # ... (без изменений) ...
+    """
+    Создание задания на смену, не привязанного к портфелю (Ad-Hoc).
+    """
     model = WorkOrder
     form_class = WorkOrderAdHocForm
-    template_name = 'todo/form.html' # <-- Эта форма использует старый шаблон
+    template_name = 'todo/form.html' 
     success_url = reverse_lazy('workorder_list')
-    extra_context = {'form_title': 'Новое Ad-Hoc Задание'}
+    extra_context = {'form_title': 'Новое Ad-Hoc Задание на смену'}
+
+    def form_valid(self, form):
+        # При создании Ad-Hoc задания, order_item остается NULL, 
+        # так как нет привязки к PortfolioOrder.
+        self.object = form.save(commit=False)
+        # Если нужно сохранить пользователя, который создал:
+        # self.object.created_by = self.request.user
+        self.object.save()
+        messages.success(self.request, f"Задание '{self.object.product.name}' успешно создано.")
+        return super().form_valid(form)
 
 class ReportProductionView(LoginRequiredMixin, FormView):
-    # ... (без изменений) ...
+    """
+    Форма для отчета о фактическом производстве по WorkOrder.
+    """
     template_name = 'todo/report_production_form.html'
     form_class = ReportProductionForm
-    # ... (остальная логика) ...
+    
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        # Получаем WorkOrder, по которому отчитываемся
+        self.work_order = get_object_or_404(WorkOrder, pk=self.kwargs['pk'])
+
+    def get_form_kwargs(self):
+        """Передаем WorkOrder в форму, чтобы установить max_value и initial"""
+        kwargs = super().get_form_kwargs()
+        kwargs['work_order'] = self.work_order
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        """Передаем WorkOrder в шаблон для отображения деталей"""
+        context = super().get_context_data(**kwargs)
+        context['workorder'] = self.work_order
+        return context
+
+    def form_valid(self, form):
+        quantity_done = form.cleaned_data['quantity_done']
+        work_order = self.work_order
+
+        if quantity_done <= 0:
+            messages.error(self.request, "Количество должно быть больше нуля.")
+            return self.form_invalid(form)
+
+        if quantity_done > work_order.remaining_to_produce:
+            messages.error(self.request, f"Нельзя выпустить больше, чем осталось в плане ({work_order.remaining_to_produce} шт.).")
+            return self.form_invalid(form)
+
+        # Вызываем метод, который мы определили в models.py
+        success, message = work_order.report_production(quantity_done, self.request.user)
+
+        if success:
+            messages.success(self.request, message)
+        else:
+            messages.error(self.request, message)
+
+        # Редирект обратно на Доску объявлений
+        return redirect('workorder_list')
     
 # ... (WorkOrderUpdateView, WorkOrderDeleteView без изменений) ...
 class WorkOrderUpdateView(LoginRequiredMixin, UpdateView):

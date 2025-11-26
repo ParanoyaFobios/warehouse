@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth.models import User
 from warehouse2.models import Product, ProductOperation
+from django.db import transaction
 
 # ==============================================================================
 # Модель 1: "Шапка" Заказа
@@ -117,35 +118,54 @@ class WorkOrder(models.Model):
         return self.remaining_to_produce <= 0
 
     def report_production(self, quantity_done: int, user: User):
-        if self.status == self.Status.COMPLETED:
-            return False, "Задание уже завершено"
-            
-        self.product.total_quantity = F('total_quantity') + quantity_done
-        self.product.save()
+            if self.status == self.Status.COMPLETED:
+                return False, "Задание уже завершено"
+                
+            # 1. Сначала обновляем фактическое количество в WorkOrder и в Товаре на складе
+            with transaction.atomic():
+                # Обновление WorkOrder: добавляем факт
+                WorkOrder.objects.filter(pk=self.pk).update(
+                    quantity_produced=F('quantity_produced') + quantity_done
+                )
+                
+                # Обновление Склада: добавляем факт
+                self.product.total_quantity = F('total_quantity') + quantity_done
+                self.product.save()
 
-        ProductOperation.objects.create(
-            product=self.product,
-            operation_type=ProductOperation.OperationType.PRODUCTION,
-            quantity=quantity_done,
-            source=self,
-            user=user
-        )
+                # Создание записи об операции
+                ProductOperation.objects.create(
+                    product=self.product,
+                    operation_type=ProductOperation.OperationType.PRODUCTION,
+                    quantity=quantity_done,
+                    source=self,
+                    user=user
+                )
 
-        self.quantity_produced = F('quantity_produced') + quantity_done
-        if (self.quantity_produced + quantity_done) >= self.quantity_planned:
-            self.status = self.Status.COMPLETED
-            self.completed_at = timezone.now()
-        else:
-            self.status = self.Status.IN_PROGRESS
-        self.save()
-        
-        if self.order_item:
-            self.order_item.quantity_produced = F('quantity_produced') + quantity_done
-            self.order_item.save()
-            self.order_item.refresh_from_db()
-            self.order_item.update_status()
+                # 2. Получаем актуальные данные из базы для проверки статуса
+                self.refresh_from_db()
 
-        return True, f"Выпуск {quantity_done} шт. зарегистрирован"
+                # 3. Проверяем статус и сохраняем изменения
+                if self.quantity_produced >= self.quantity_planned:
+                    self.status = self.Status.COMPLETED
+                    self.completed_at = timezone.now()
+                elif self.quantity_produced > 0:
+                    self.status = self.Status.IN_PROGRESS
+                # else: status остается 'new'
+
+                self.save() # Сохраняем статус и completed_at
+
+                # 4. Обновление родительской строки заказа (ProductionOrderItem)
+                if self.order_item:
+                    # Обновляем произведенное количество в строке заказа
+                    ProductionOrderItem.objects.filter(pk=self.order_item.pk).update(
+                        quantity_produced=F('quantity_produced') + quantity_done
+                    )
+                    
+                    # Получаем обновленную строку заказа и обновляем ее статус
+                    self.order_item.refresh_from_db()
+                    self.order_item.update_status() # Метод update_status внутри ProductionOrderItem
+
+            return True, f"Выпуск {quantity_done} шт. зарегистрирован. Задание №{self.pk}"
 
     def get_absolute_url(self):
         return reverse('workorder_list')

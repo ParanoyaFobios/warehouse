@@ -17,4 +17,6 @@ urlpatterns = [
     path('portfolio/<int:pk>/', views.ProductionOrderDetailView.as_view(), name='portfolio_detail'),
     path('portfolio/<int:pk>/edit/', views.ProductionOrderUpdateView.as_view(), name='portfolio_edit'),
     path('portfolio/<int:pk>/delete/', views.ProductionOrderDeleteView.as_view(), name='portfolio_delete'),
+
+    path('portfolio/<int:pk>/plan/', views.PlanWorkOrdersView.as_view(), name='portfolio_plan_workorders'),
 ]

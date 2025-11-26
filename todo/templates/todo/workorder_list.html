@@ -1,42 +1,67 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<h2>Доска объявлений (Задания на смену)</h2>
-<a href="{% url 'workorder_create_adhoc' %}">Добавить Ad-Hoc задание</a>
-<hr>
-<table border="1" cellpadding="5" style="width: 100%;">
-    <thead>
-        <tr>
-            <th>Продукт</th>
-            <th>План</th>
-            <th>Факт</th>
-            <th>Осталось</th>
-            <th>Статус</th>
-            <th>Из портфеля?</th>
-            <th>Действия</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for wo in workorders %}
-            <tr style="background-color:{% if wo.status == 'in_progress' %}#fff9e6{% else %}#fff{% endif %};">
-                <td>{{ wo.product.name }}<br><small>{{ wo.comment }}</small></td>
-                <td>{{ wo.quantity_planned }}</td>
-                <td><b>{{ wo.quantity_produced }}</b></td>
-                <td><b>{{ wo.remaining_to_produce }}</b></td>
-                <td>{{ wo.get_status_display }}</td>
-                <td>
-                    {% if wo.production_order %}
-                        <a href="{{ wo.production_order.get_absolute_url }}">Заказ №{{ wo.production_order.pk }}</a>
-                    {% else %} (Срочно) {% endif %}
-                </td>
-                <td>
-                    <a href="{% url 'workorder_report' wo.pk %}"><b>Отчитаться о выпуске</b></a> |
-                    <a href="{% url 'workorder_edit' wo.pk %}">Ред.</a> |
-                    <a href="{% url 'workorder_delete' wo.pk %}">Удал.</a>
-                </td>
-            </tr>
-        {% empty %}
-            <tr><td colspan="7">Нет активных заданий на смену.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>📋 Задание на смену (Доска)</h2>
+    <a href="{% url 'workorder_create_adhoc' %}" class="btn btn-outline-primary">
+        + Срочная задача (Ad-Hoc)
+    </a>
+</div>
+
+<form method="get" class="row g-3 mb-4 p-3 bg-white border rounded shadow-sm">
+    <div class="col-md-4">
+        <input type="text" class="form-control" name="q" placeholder="Поиск по названию..." value="{{ request.GET.q }}">
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">Найти</button>
+    </div>
+    <div class="col-md-2">
+        <a href="{% url 'workorder_list' %}" class="btn btn-secondary w-100">Сбросить</a>
+    </div>
+</form>
+
+<div class="row">
+    {% for wo in workorders %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-sm border-start border-4 {% if wo.status == 'in_progress' %}border-warning{% else %}border-secondary{% endif %}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="badge {% if wo.status == 'in_progress' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                        {{ wo.get_status_display }}
+                    </span>
+                    <small class="text-muted">#{{ wo.id }}</small>
+                </div>
+                
+                <h5 class="card-title">{{ wo.product.name }}</h5>
+                <p class="card-text text-muted small mb-2">{{ wo.comment|default:"" }}</p>
+
+                <div class="progress mb-3" style="height: 20px;">
+                    {% widthratio wo.quantity_produced wo.quantity_planned 100 as percent %}
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ percent }}%;" aria-valuenow="{{ percent }}" aria-valuemin="0" aria-valuemax="100">
+                        {{ wo.quantity_produced }} / {{ wo.quantity_planned }}
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted d-block">Осталось: <strong>{{ wo.remaining_to_produce }}</strong></small>
+                    </div>
+                    <a href="{% url 'workorder_report' wo.pk %}" class="btn btn-success btn-sm">
+                        ✅ Отчитаться
+                    </a>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-top-0 text-end">
+                <a href="{% url 'workorder_edit' wo.pk %}" class="text-decoration-none text-secondary me-2 small">Изм.</a>
+                <a href="{% url 'workorder_delete' wo.pk %}" class="text-decoration-none text-danger small">Удал.</a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <h4 class="text-muted">На сегодня задач нет 🎉</h4>
+        <p>Или вы все выполнили, или пора планировать новые заказы.</p>
+    </div>
+    {% endfor %}
+</div>
 {% endblock %}

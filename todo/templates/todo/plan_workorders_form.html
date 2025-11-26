@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-primary shadow">
+            <div class="card-header bg-primary text-white">
+                <h4>🚀 Планирование производства</h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">Вы собираетесь создать задания на смену для заказа: <strong>{{ order }}</strong></p>
+                
+                <h5 class="mt-4">Будут созданы следующие задания:</h5>
+                <ul class="list-group mb-4">
+                    {% for line in lines_to_plan %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ line.product.name }}
+                            <span class="badge bg-primary rounded-pill">{{ line.remaining_to_plan }} шт.</span>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item list-group-item-warning">
+                            Нет позиций, требующих планирования (все уже в работе или выполнены).
+                        </li>
+                    {% endfor %}
+                </ul>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'portfolio_detail' order.pk %}" class="btn btn-secondary">Отмена</a>
+                        {% if lines_to_plan %}
+                            <button type="submit" class="btn btn-success">Подтвердить и создать</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

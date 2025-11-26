@@ -1,140 +1,49 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<h2>{{ form_title }}</h2>
-
-<form method="post">
-    {% csrf_token %}
-
-    {% if form.product %}
-        
-        <div class="mb-3">
-            <label for="product-search" class="form-label">Поиск продукта</label>
-            <input type="text" id="product-search" class="form-control" placeholder="Начните вводить название, артикул или штрихкод...">
-        </div>
-
-        <div id="search-results" class="list-group mb-3" style="display: none; position: relative; z-index: 1000;">
-            <div id="search-results-list">
-                </div>
-        </div>
-
-        <div id="selected-product-info" class="card mb-3" style="display: none;">
-            <div class="card-header">Выбранный продукт</div>
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h4 class="mb-0">{{ form_title|default:"Заполните форму" }}</h4>
+            </div>
             <div class="card-body">
-                <h5 class="card-title" id="selected-product-name"></h5>
-                <p class="card-text mb-0" id="selected-product-sku"></p>
-                <p class="card-text mb-0" id="selected-product-barcode"></p>
-                <p class="card-text" id="selected-product-available"></p>
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% for field in form %}
+                        <div class="mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                            
+                            {% if field.field.widget.input_type == 'hidden' %}
+                                {{ field }}
+                            {% else %}
+                                {{ field }} 
+                                <script>
+                                    var input = document.getElementById('{{ field.id_for_label }}');
+                                    if(input.tagName === 'SELECT') input.classList.add('form-select');
+                                    else if (input.type !== 'checkbox') input.classList.add('form-control');
+                                    else input.classList.add('form-check-input');
+                                </script>
+                            {% endif %}
+                            
+                            {% if field.help_text %}
+                                <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+                            
+                            {% for error in field.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                        <a href="javascript:history.back()" class="btn btn-secondary">Отмена</a>
+                    </div>
+                </form>
             </div>
         </div>
-
-        {{ form.product }}
-
-        {% for field in form %}
-            {% if field.name != 'product' %}
-                <div class="mb-3">
-                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}<small class="form-text">{{ field.help_text }}</small>{% endif %}
-                    {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
-                </div>
-            {% endif %}
-        {% endfor %}
-
-    {% else %}
-        {{ form.as_p }}
-    {% endif %}
-
-    <button type="submit" class="btn btn-primary">Сохранить</button>
-</form>
-
-
-{% if form.product %}
-<script>
-// Ваш JavaScript-код для поиска продуктов (копи-паст)
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('product-search');
-    const searchResults = document.getElementById('search-results');
-    const resultsList = document.getElementById('search-results-list');
-    
-    // Это ID нашего <input type="hidden">
-    const productSelect = document.getElementById('product-select'); 
-    
-    const selectedProductInfo = document.getElementById('selected-product-info');
-    const selectedProductName = document.getElementById('selected-product-name');
-    const selectedProductSku = document.getElementById('selected-product-sku');
-    const selectedProductBarcode = document.getElementById('selected-product-barcode');
-    const selectedProductAvailable = document.getElementById('selected-product-available');
-    
-    let searchTimeout;
-    
-    searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        const query = this.value.trim();
-        
-        if (query.length < 2) {
-            searchResults.style.display = 'none';
-            return;
-        }
-        
-        searchTimeout = setTimeout(() => {
-            // Убедитесь, что URL 'product_search' существует
-            fetch(`{% url 'product_search' %}?q=${encodeURIComponent(query)}`)
-                .then(response => response.json())
-                .then(data => {
-                    resultsList.innerHTML = '';
-                    
-                    if (data.results.length === 0) {
-                        resultsList.innerHTML = '<div class="list-group-item">Продукты не найдены</div>';
-                    } else {
-                        data.results.forEach(product => {
-                            const item = document.createElement('button');
-                            item.type = 'button';
-                            item.className = 'list-group-item list-group-item-action';
-                            item.innerHTML = `
-                                <strong>${product.name}</strong><br>
-                                <small>Артикул: ${product.sku} | Штрихкод: ${product.barcode}</small><br>
-                                <small>Категория: ${product.category} | Доступно: ${product.available_quantity}</small>
-                            `;
-                            item.addEventListener('click', () => {
-                                selectProduct(product);
-                            });
-                            resultsList.appendChild(item);
-                        });
-                    }
-                    
-                    searchResults.style.display = 'block';
-                });
-        }, 300);
-    });
-    
-    function selectProduct(product) {
-        // Устанавливаем ID продукта в наше скрытое поле
-        productSelect.value = product.id; 
-        
-        // Показываем информацию о выбранном продукте
-        selectedProductName.textContent = product.name;
-        selectedProductSku.textContent = `Артикул: ${product.sku}`;
-        selectedProductBarcode.textContent = `Штрихкод: ${product.barcode}`;
-        selectedProductAvailable.textContent = `Доступно: ${product.available_quantity}`;
-        selectedProductInfo.style.display = 'block';
-        
-        // Прячем поиск
-        searchResults.style.display = 'none';
-        searchInput.value = '';
-    }
-    
-    // Если редактирование существующего заказа (для UpdateView)
-    // ВАЖНО: Добавлены |escapejs для безопасности
-    {% if form.instance.product %}
-    selectProduct({
-        id: '{{ form.instance.product.id }}',
-        name: '{{ form.instance.product.name|escapejs }}',
-        sku: '{{ form.instance.product.sku|escapejs }}',
-        barcode: '{{ form.instance.product.barcode|escapejs }}',
-        available_quantity: '{{ form.instance.product.available_quantity }}'
-    });
-    {% endif %}
-});
-</script>
-{% endif %}
+    </div>
+</div>
 {% endblock %}

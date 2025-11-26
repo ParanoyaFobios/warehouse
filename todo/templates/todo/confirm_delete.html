@@ -1,10 +1,26 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<h2>Подтвердить удаление</h2>
-<p>Вы уверены, что хотите удалить "{{ object }}"?</p>
-<form method="post">
-    {% csrf_token %}
-    <button type="submit">Да, удалить</button>
-    <a href="{{ request.META.HTTP_REFERER|default:'/' }}">Отмена</a>
-</form>
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card border-danger shadow">
+            <div class="card-header bg-danger text-white">
+                Подтверждение удаления
+            </div>
+            <div class="card-body text-center">
+                <h5 class="card-title">Вы уверены?</h5>
+                <p class="card-text">
+                    Вы собираетесь удалить объект: <strong>"{{ object }}"</strong>.<br>
+                    Это действие нельзя отменить.
+                </p>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Да, удалить</button>
+                    <a href="{{ request.META.HTTP_REFERER|default:'/' }}" class="btn btn-secondary">Отмена</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
