@@ -4,27 +4,24 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django import forms
-
-# Импортируем НОВЫЕ модели и формы
 from .models import ProductionOrder, ProductionOrderItem, WorkOrder
 from .forms import (
     ProductionOrderForm, ProductionOrderItemFormSet, 
-    WorkOrderAdHocForm, ReportProductionForm
-)
+    WorkOrderAdHocForm, ReportProductionForm)
 
 # ==============================================================================
-# Вью для "Портфеля заказов" (Header/Detail) - ОБНОВЛЕНО
+# Вью для "Портфеля заказов" (Header/Detail)
 # ==============================================================================
 
 class ProductionOrderListView(LoginRequiredMixin, ListView):
-    model = ProductionOrder # <-- Новая "шапка"
+    model = ProductionOrder
     template_name = 'todo/portfolio_list.html'
     context_object_name = 'orders'
 
 class ProductionOrderDetailView(LoginRequiredMixin, DetailView):
-    model = ProductionOrder # <-- Новая "шапка"
+    model = ProductionOrder
     template_name = 'todo/portfolio_detail.html'
     context_object_name = 'order'
     # 'order.items.all' будет доступен в шаблоне
@@ -168,12 +165,47 @@ class PlanWorkOrdersView(LoginRequiredMixin, FormView):
 # ==============================================================================
 
 class WorkOrderListView(LoginRequiredMixin, ListView):
-    # ... (без изменений) ...
     model = WorkOrder
     template_name = 'todo/workorder_list.html'
     context_object_name = 'workorders'
+
     def get_queryset(self):
-        return WorkOrder.objects.filter(status__in=['new', 'in_progress']).order_by('created_at')
+        # 1. Получаем параметр даты из GET-запроса
+        due_date_str = self.request.GET.get('due_date')
+        
+        # 2. Базовый QuerySet
+        queryset = WorkOrder.objects.all()
+
+        if due_date_str:
+            # Пользователь выбрал дату: ищем задания, связанные с заказами на эту дату
+            try:
+                # Фильтруем WorkOrder по полю order_item -> order -> due_date.
+                # Также включаем WorkOrder, которые не привязаны к заказу (Ad-Hoc), 
+                # но были завершены в этот день (для полноты картины).
+                queryset = queryset.filter(
+                    Q(order_item__production_order__due_date=due_date_str) | 
+                    Q(completed_at__date=due_date_str, order_item__isnull=True)
+                ).order_by('-completed_at', 'created_at') # Сортируем по дате завершения, чтобы выполненные были сверху
+                
+                # Сохраняем дату в контексте, чтобы вернуть ее в шаблон
+                self.filtered_date = due_date_str
+                
+            except ValueError:
+                # Если дата введена некорректно, игнорируем фильтр
+                messages.error(self.request, "Введена некорректная дата.")
+                self.filtered_date = None
+                
+        # Если фильтр по дате НЕ применен или был некорректен, показываем только активные задания
+        if not due_date_str or not hasattr(self, 'filtered_date'):
+            queryset = queryset.filter(status__in=[WorkOrder.Status.NEW, WorkOrder.Status.IN_PROGRESS]).order_by('created_at')
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Передаем статус фильтрации в шаблон
+        context['is_filtered_by_date'] = hasattr(self, 'filtered_date') and self.filtered_date
+        return context
 
 class WorkOrderAdHocCreateView(LoginRequiredMixin, CreateView):
     """
@@ -190,7 +222,7 @@ class WorkOrderAdHocCreateView(LoginRequiredMixin, CreateView):
         # так как нет привязки к PortfolioOrder.
         self.object = form.save(commit=False)
         # Если нужно сохранить пользователя, который создал:
-        # self.object.created_by = self.request.user
+        self.object.created_by = self.request.user
         self.object.save()
         messages.success(self.request, f"Задание '{self.object.product.name}' успешно создано.")
         return super().form_valid(form)
