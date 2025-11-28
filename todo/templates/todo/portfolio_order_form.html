@@ -1,52 +1,247 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<h2>{% if object %}Редактировать заказ №{{ object.id }}{% else %}Новый заказ в портфель{% endif %}</h2>
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <h2 class="mb-4">Создание заказа (Портфель)</h2>
 
-<form method="post">
-    {% csrf_token %}
-    
-    <h3>1. Общая информация (Шапка)</h3>
-    {{ form.as_p }}
-    
-    <hr>
-    <h3>2. Строки заказа (Позиции)</h3>
-    
-    {{ items_formset.management_form }}
-    
-    <div id="formset-container">
-        {% for form in items_formset %}
-        <div class="inline-form-row card mb-3 p-3"> {{ form.id }}
+        <form method="post" id="main-order-form">
+            {% csrf_token %}
             
-            <div class="row">
-                <div class="col-md-8">
-                    <label>Продукт:</label>
-                    {{ form.product }} 
-                    {% if form.product.errors %}
-                        <div class="text-danger">{{ form.product.errors }}</div>
-                    {% endif %}
-                </div>
-                
-                <div class="col-md-3">
-                    <label>Кол-во:</label>
-                    {{ form.quantity_requested }}
-                    {% if form.quantity_requested.errors %}
-                        <div class="text-danger">{{ form.quantity_requested.errors }}</div>
-                    {% endif %}
-                </div>
+            <input type="hidden" name="items_data" id="id_items_data">
 
-                <div class="col-md-1 d-flex align-items-center">
-                    {% if items_formset.can_delete %}
-                        <div class="form-check mt-4">
-                             {{ form.DELETE }}
-                             <label for="{{ form.DELETE.id_for_label }}">Удалить</label>
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light"><h5>Основные данные</h5></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Заказчик</label>
+                            {{ form.customer }}
+                            <div class="text-danger small">{{ form.customer.errors }}</div>
                         </div>
-                    {% endif %}
+                        <div class="col-md-6">
+                            <label class="form-label">Дата сдачи</label>
+                            {{ form.due_date }}
+                            <div class="text-danger small">{{ form.due_date.errors }}</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Комментарий</label>
+                            {{ form.comment }}
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-        {% endfor %}
-    </div>
 
-    <button type="submit" class="btn btn-primary">Сохранить заказ</button>
-</form>
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light"><h5>Товары</h5></div>
+                <div class="card-body">
+                    
+                    <div class="mb-3 position-relative">
+                        <label class="form-label">Добавить товар (Поиск по названию/артикулу)</label>
+                        <input type="text" id="product-search-input" class="form-control" placeholder="Начните вводить..." autocomplete="off">
+                        <div id="search-results-dropdown" class="list-group position-absolute w-100 shadow" style="z-index: 1000; display: none;"></div>
+                    </div>
+
+                    <table class="table table-bordered align-middle mt-3">
+                        <thead class="table-secondary">
+                            <tr>
+                                <th>Наименование</th>
+                                <th style="width: 150px;">Кол-во</th>
+                                <th style="width: 80px;">Удалить</th>
+                            </tr>
+                        </thead>
+                        <tbody id="selected-items-tbody">
+                            <tr id="empty-row-msg">
+                                <td colspan="3" class="text-center text-muted py-3">Список пуст. Найдите и добавьте товары выше.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                </div>
+            </div>
+
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-success btn-lg">Сохранить заказ</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="col-lg-10">
+    <form method="post" id="main-order-form">
+        <textarea id="initial-items-data" style="display:none;">{{ existing_items_json|safe }}</textarea>
+
+        </form>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        // ПЕРЕМЕННЫЕ
+        const searchInput = document.getElementById('product-search-input');
+        const resultsDropdown = document.getElementById('search-results-dropdown');
+        const tableBody = document.getElementById('selected-items-tbody');
+        const emptyMsg = document.getElementById('empty-row-msg');
+        const mainForm = document.getElementById('main-order-form');
+        const hiddenInput = document.getElementById('id_items_data');
+        const initialDataField = document.getElementById('initial-items-data'); // Для UpdateView
+        
+        const SEARCH_URL = "{% url 'product_search' %}";
+        let searchTimeout;
+    
+        // ------------------------------------------------
+        // --- 1. ДОБАВЛЕНИЕ В ТАБЛИЦУ (ЕДИНАЯ ФУНКЦИЯ) ---
+        // ------------------------------------------------
+        function addProductToTable(product, isExisting = false) {
+            if (emptyMsg) emptyMsg.style.display = 'none';
+    
+            // Проверка на дубликаты (для Create/Update - запрещаем дубликаты ID товара)
+            // Исключение: разрешаем добавлять, если это старая строка (есть PK)
+            const existingRow = document.querySelector(`tr[data-id="${product.id}"]:not([data-pk])`);
+            if(existingRow) {
+                alert("Этот товар уже находится в списке (или не был сохранен).");
+                return;
+            }
+            
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-id', product.id); // ID продукта
+            
+            // Устанавливаем PK строки, если она существует (только для UpdateView)
+            if (isExisting && product.pk) {
+                 tr.setAttribute('data-pk', product.pk); 
+            }
+    
+            const initialQty = product.qty !== undefined ? product.qty : 1; 
+    
+            tr.innerHTML = `
+                <td>
+                    <strong>${product.name}</strong><br>
+                    <small class="text-muted">Арт: ${product.sku}</small>
+                </td>
+                <td>
+                    <input type="number" class="form-control item-qty" value="${initialQty}" min="1">
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-btn">X</button>
+                </td>
+            `;
+    
+            tr.querySelector('.remove-btn').addEventListener('click', function() {
+                tr.remove();
+                if(tableBody.querySelectorAll('tr[data-id]').length === 0) {
+                    emptyMsg.style.display = 'table-row';
+                }
+            });
+    
+            tableBody.appendChild(tr);
+        }
+    
+        // ------------------------------------------------
+        // --- 2. ЛОГИКА ПОИСКА (ИСПОЛЬЗУЕТ addProductToTable) ---
+        // ------------------------------------------------
+        
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim();
+            clearTimeout(searchTimeout);
+            
+            if (query.length < 2) {
+                resultsDropdown.style.display = 'none';
+                return;
+            }
+    
+            searchTimeout = setTimeout(() => {
+                fetch(`${SEARCH_URL}?q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        renderSearchResults(data.results);
+                    })
+                    .catch(err => console.error(err));
+            }, 300);
+        });
+    
+        function renderSearchResults(results) {
+            resultsDropdown.innerHTML = '';
+            if (results.length === 0) {
+                resultsDropdown.innerHTML = '<div class="list-group-item text-muted">Ничего не найдено</div>';
+                resultsDropdown.style.display = 'block';
+                return;
+            }
+    
+            results.forEach(prod => {
+                const item = document.createElement('a');
+                item.href = "#";
+                item.className = "list-group-item list-group-item-action";
+                item.innerHTML = `<strong>${prod.name}</strong> <small class="text-muted">(${prod.sku})</small>`;
+                
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Используем объединенную функцию, isExisting = false
+                    addProductToTable(prod, false); 
+                    searchInput.value = '';
+                    resultsDropdown.style.display = 'none';
+                });
+                
+                resultsDropdown.appendChild(item);
+            });
+            resultsDropdown.style.display = 'block';
+        }
+    
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !resultsDropdown.contains(e.target)) {
+                resultsDropdown.style.display = 'none';
+            }
+        });
+    
+    
+        // ------------------------------------------------
+        // --- 3. ИНИЦИАЛИЗАЦИЯ ДЛЯ РЕЖИМА ОБНОВЛЕНИЯ ---
+        // ------------------------------------------------
+        
+        if (initialDataField && initialDataField.value.trim().length > 0) {
+            try {
+                const initialItems = JSON.parse(initialDataField.value);
+                if (initialItems.length > 0) {
+                    if (emptyMsg) emptyMsg.style.display = 'none'; 
+                    
+                    initialItems.forEach(item => {
+                        // Используем объединенную функцию, isExisting = true
+                        addProductToTable(item, true); 
+                    });
+                }
+            } catch (e) {
+                console.error("Ошибка парсинга начальных данных:", e);
+            }
+        }
+    
+    
+        // ------------------------------------------------
+        // --- 4. СБОР ДАННЫХ ПЕРЕД ОТПРАВКОЙ (ЕДИНЫЙ ОБРАБОТЧИК) ---
+        // ------------------------------------------------
+        
+        mainForm.addEventListener('submit', function(e) {
+            const rows = tableBody.querySelectorAll('tr[data-id]');
+            const items = [];
+            
+            rows.forEach(row => {
+                const id = row.getAttribute('data-id'); // ID продукта
+                const pk = row.getAttribute('data-pk') || null; // PK строки заказа
+                const qty = row.querySelector('.item-qty').value;
+                
+                if(id && qty > 0) {
+                    items.push({
+                        id: parseInt(id),
+                        pk: pk ? parseInt(pk) : null, // Отправляем PK только если он есть
+                        qty: parseInt(qty)
+                    });
+                }
+            });
+    
+            if (items.length === 0) {
+                e.preventDefault();
+                alert("Пожалуйста, добавьте хотя бы один товар.");
+                return;
+            }
+    
+            hiddenInput.value = JSON.stringify(items);
+        });
+    });
+    </script>
 {% endblock %}

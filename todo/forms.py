@@ -1,35 +1,16 @@
 from django import forms
-from django.forms import inlineformset_factory
-from .models import ProductionOrder, ProductionOrderItem, WorkOrder
+from .models import ProductionOrder, WorkOrder
+
 
 class ProductionOrderForm(forms.ModelForm):
     class Meta:
         model = ProductionOrder
         fields = ['customer', 'due_date', 'comment']
         widgets = {
-            'due_date': forms.DateInput(attrs={'type': 'date'}),
+            'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'customer': forms.TextInput(attrs={'class': 'form-control'}),
+            'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
-
-class ProductionOrderItemForm(forms.ModelForm):
-    class Meta:
-        # ИСПРАВЛЕНО: имя модели
-        model = ProductionOrderItem 
-        fields = ['product', 'quantity_requested']
-        widgets = {
-            # Пока используем обычный Select, чтобы не ломать голову с JS сейчас
-            'product': forms.Select(attrs={'class': 'form-control product-select-field'}),
-        }
-
-# ИСПРАВЛЕНО: Имена моделей
-ProductionOrderItemFormSet = inlineformset_factory(
-    ProductionOrder,      
-    ProductionOrderItem,  
-    form=ProductionOrderItemForm,
-    fields=['product', 'quantity_requested'],
-    extra=1,              
-    can_delete=True,
-    can_delete_extra=True
-)
 
 class WorkOrderAdHocForm(forms.ModelForm):
     class Meta:

@@ -7,10 +7,9 @@ from django.db import transaction
 from django.db.models import F, Q
 from django import forms
 from .models import ProductionOrder, ProductionOrderItem, WorkOrder
-from .forms import (
-    ProductionOrderForm, ProductionOrderItemFormSet, 
-    WorkOrderAdHocForm, ReportProductionForm)
-
+from .forms import ProductionOrderForm, WorkOrderAdHocForm, ReportProductionForm
+import json
+from warehouse2.models import Product
 # ==============================================================================
 # Вью для "Портфеля заказов" (Header/Detail)
 # ==============================================================================
@@ -27,67 +26,141 @@ class ProductionOrderDetailView(LoginRequiredMixin, DetailView):
     # 'order.items.all' будет доступен в шаблоне
 
 class ProductionOrderCreateView(LoginRequiredMixin, CreateView):
-    """Создание Заказа (шапка) + Строк (инлайн-формсет)"""
     model = ProductionOrder
     form_class = ProductionOrderForm
-    template_name = 'todo/portfolio_order_form.html' # <-- Новый шаблон
+    template_name = 'todo/portfolio_order_form.html'
     success_url = reverse_lazy('portfolio_list')
 
-    def get_context_data(self, **kwargs):
-        data = super().get_context_data(**kwargs)
-        if self.request.POST:
-            data['items_formset'] = ProductionOrderItemFormSet(self.request.POST)
-        else:
-            data['items_formset'] = ProductionOrderItemFormSet()
-        return data
-
     def form_valid(self, form):
-        context = self.get_context_data()
-        items_formset = context['items_formset']
+        # 1. Получаем JSON строку из скрытого инпута
+        items_json = self.request.POST.get('items_data')
         
-        with transaction.atomic(): # <-- Гарантируем, что все или ничего
-            self.object = form.save()
-            if items_formset.is_valid():
-                items_formset.instance = self.object
-                items_formset.save()
-            else:
-                # Если формсет невалиден, откатываем все
-                return self.form_invalid(form)
+        if not items_json:
+            messages.error(self.request, "Список товаров пуст.")
+            return self.form_invalid(form)
 
-        messages.success(self.request, 'Заказ успешно создан')
-        return super().form_valid(form)
+        try:
+            items_data = json.loads(items_json)
+        except json.JSONDecodeError:
+            messages.error(self.request, "Ошибка данных (неверный JSON).")
+            return self.form_invalid(form)
+
+        if not items_data:
+            messages.error(self.request, "Добавьте хотя бы один товар в заказ.")
+            return self.form_invalid(form)
+
+        # Открываем транзакцию: либо сохраним всё, либо ничего
+        with transaction.atomic():
+            # 2. Сохраняем сам заказ (Header)
+            self.object = form.save()
+
+            # 3. Проходим циклом по JSON и создаем строки (Items)
+            for item in items_data:
+                product_id = item.get('id')
+                qty = item.get('qty')
+
+                if product_id and qty:
+                    try:
+                        product_obj = Product.objects.get(pk=product_id)
+                        ProductionOrderItem.objects.create(
+                            production_order=self.object, # Привязка к родителю
+                            product=product_obj,
+                            quantity_requested=int(qty)
+                        )
+                    except Product.DoesNotExist:
+                        # Если вдруг товара уже нет в базе
+                        pass 
+
+        messages.success(self.request, f"Заказ №{self.object.id} успешно создан ({len(items_data)} поз.)")
+        return redirect(self.success_url)
 
 class ProductionOrderUpdateView(LoginRequiredMixin, UpdateView):
-    """Обновление Заказа (шапка) + Строк (инлайн-формсет)"""
+    """
+    Обновление Заказа (шапка) с синхронизацией строк по данным из JSON.
+    """
     model = ProductionOrder
     form_class = ProductionOrderForm
-    template_name = 'todo/portfolio_order_form.html' # <-- Новый шаблон
+    template_name = 'todo/portfolio_order_form.html'
     success_url = reverse_lazy('portfolio_list')
 
     def get_context_data(self, **kwargs):
-        data = super().get_context_data(**kwargs)
-        if self.request.POST:
-            data['items_formset'] = ProductionOrderItemFormSet(
-                self.request.POST, instance=self.object
-            )
-        else:
-            data['items_formset'] = ProductionOrderItemFormSet(instance=self.object)
-        return data
+        context = super().get_context_data(**kwargs)
+        # Загружаем существующие строки заказа для JS
+        existing_items = self.object.items.all().select_related('product')
+        
+        # Преобразуем данные в JSON-строку для использования в JavaScript
+        items_data_for_js = []
+        for item in existing_items:
+            # Важно: включаем PK строки, чтобы JS знал, что ее нужно обновить, а не создать
+            items_data_for_js.append({
+                'pk': item.pk, 
+                'id': item.product.pk, # ID продукта
+                'name': item.product.name,
+                'sku': item.product.sku,
+                'qty': float(item.quantity_requested) # Передаем как число
+            })
+            
+        # Отправляем JSON-строку в контекст
+        context['existing_items_json'] = json.dumps(items_data_for_js)
+        return context
 
     def form_valid(self, form):
-        context = self.get_context_data()
-        items_formset = context['items_formset']
+        items_json = self.request.POST.get('items_data')
         
-        with transaction.atomic():
-            self.object = form.save()
-            if items_formset.is_valid():
-                items_formset.instance = self.object
-                items_formset.save()
-            else:
-                return self.form_invalid(form)
+        if not items_json:
+            messages.error(self.request, "Список товаров пуст.")
+            return self.form_invalid(form)
 
-        messages.success(self.request, 'Заказ успешно обновлен')
-        return super().form_valid(form)
+        try:
+            new_items_data = json.loads(items_json)
+        except json.JSONDecodeError:
+            messages.error(self.request, "Ошибка данных (неверный JSON).")
+            return self.form_invalid(form)
+
+        with transaction.atomic():
+            # 1. Сохраняем шапку заказа
+            self.object = form.save()
+            current_item_pks = set()
+            
+            # 2. Обрабатываем новые/существующие строки из POST
+            for item in new_items_data:
+                item_pk = item.get('pk')
+                product_id = item.get('id')
+                qty = int(item.get('qty', 0))
+
+                if product_id and qty > 0:
+                    
+                    if item_pk:
+                        # СТРОКА СУЩЕСТВУЕТ: ОБНОВЛЯЕМ
+                        item_obj = ProductionOrderItem.objects.get(pk=item_pk, production_order=self.object)
+                        item_obj.quantity_requested = qty
+                        item_obj.save()
+                        current_item_pks.add(item_pk)
+                    else:
+                        # СТРОКА НОВАЯ: СОЗДАЕМ
+                        product_obj = Product.objects.get(pk=product_id)
+                        new_item = ProductionOrderItem.objects.create(
+                            production_order=self.object,
+                            product=product_obj,
+                            quantity_requested=qty
+                        )
+                        current_item_pks.add(new_item.pk)
+
+            # 3. Удаляем строки, которые отсутствуют в новом списке
+            # Находим все PK, которые были в базе, но НЕ пришли в POST
+            items_to_delete = self.object.items.exclude(pk__in=current_item_pks)
+            
+            # Внимание: здесь нужно добавить проверку! Нельзя удалять строки, 
+            # по которым уже начато производство (quantity_planned > 0)
+            
+            safe_to_delete_count = items_to_delete.filter(quantity_planned=0).count()
+            items_to_delete.filter(quantity_planned=0).delete()
+            
+            if items_to_delete.filter(quantity_planned__gt=0).exists():
+                 messages.warning(self.request, "Не удалось удалить некоторые позиции, так как по ним уже начато производство!")
+            
+        messages.success(self.request, 'Заказ успешно обновлен.')
+        return redirect(self.get_success_url())
 
 class ProductionOrderDeleteView(LoginRequiredMixin, DeleteView):
     model = ProductionOrder
@@ -170,41 +243,66 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
     context_object_name = 'workorders'
 
     def get_queryset(self):
-        # 1. Получаем параметр даты из GET-запроса
+        # 1. Получаем параметры из GET-запроса
         due_date_str = self.request.GET.get('due_date')
+        # ИСПРАВЛЕНО: используем правильное имя production_order_id
+        production_order_id_str = self.request.GET.get('production_order_id') 
+        
+        # Флаг для отслеживания, была ли применена фильтрация пользователем
+        is_filtered = False
         
         # 2. Базовый QuerySet
         queryset = WorkOrder.objects.all()
 
+        # --- Фильтрация по дате (если задана) ---
         if due_date_str:
-            # Пользователь выбрал дату: ищем задания, связанные с заказами на эту дату
+            is_filtered = True
             try:
-                # Фильтруем WorkOrder по полю order_item -> order -> due_date.
-                # Также включаем WorkOrder, которые не привязаны к заказу (Ad-Hoc), 
-                # но были завершены в этот день (для полноты картины).
+                # Фильтруем WorkOrder по дате заказа ИЛИ по дате завершения (для Ad-Hoc)
                 queryset = queryset.filter(
                     Q(order_item__production_order__due_date=due_date_str) | 
                     Q(completed_at__date=due_date_str, order_item__isnull=True)
-                ).order_by('-completed_at', 'created_at') # Сортируем по дате завершения, чтобы выполненные были сверху
-                
-                # Сохраняем дату в контексте, чтобы вернуть ее в шаблон
+                )
                 self.filtered_date = due_date_str
-                
             except ValueError:
-                # Если дата введена некорректно, игнорируем фильтр
                 messages.error(self.request, "Введена некорректная дата.")
                 self.filtered_date = None
+                # Если дата некорректна, фактически фильтрация не состоялась.
                 
-        # Если фильтр по дате НЕ применен или был некорректен, показываем только активные задания
-        if not due_date_str or not hasattr(self, 'filtered_date'):
-            queryset = queryset.filter(status__in=[WorkOrder.Status.NEW, WorkOrder.Status.IN_PROGRESS]).order_by('created_at')
+        # --- Фильтрация по номеру заказа (если задана) ---
+        if production_order_id_str and production_order_id_str.isdigit():
+            is_filtered = True
+            try:
+                production_order_id = int(production_order_id_str)
+                # Фильтруем WorkOrder, которые привязаны к строке заказа, 
+                # которая, в свою очередь, привязана к указанному ProductionOrder.id
+                # Эта фильтрация ДОБАВЛЯЕТСЯ к предыдущей (если она была)
+                queryset = queryset.filter(order_item__production_order__id=production_order_id)
+                self.filtered_production_order_id = production_order_id_str
+            except ValueError:
+                # Хотя мы проверили isdigit(), оставляем на всякий случай
+                messages.error(self.request, "Некорректный идентификатор заказа.")
+                self.filtered_production_order_id = None
+        
+        # --- Логика по умолчанию ---
+        
+        # Если НЕ БЫЛО применено никаких фильтров (ни дата, ни номер заказа),
+        # показываем только активные задания (NEW, IN_PROGRESS).
+        if not is_filtered:
+            queryset = queryset.filter(
+                status__in=[WorkOrder.Status.NEW, WorkOrder.Status.IN_PROGRESS]
+            ).order_by('created_at')
+        else:
+            # Если фильтры были, применяем общую сортировку (сначала выполненные)
+            queryset = queryset.order_by('-completed_at', 'created_at')
 
         return queryset
-
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Передаем статус фильтрации в шаблон
-        context['is_filtered_by_date'] = hasattr(self, 'filtered_date') and self.filtered_date
+        # Улучшенная проверка: true, если хотя бы один из параметров был задан и корректен
+        context['is_filtered'] = bool(self.request.GET.get('due_date') or self.request.GET.get('production_order_id'))
         return context
 
 class WorkOrderAdHocCreateView(LoginRequiredMixin, CreateView):

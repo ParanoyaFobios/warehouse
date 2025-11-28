@@ -23,6 +23,15 @@
                name="due_date" 
                value="{{ request.GET.due_date|default:'' }}">
     </div>
+    <div class="col-md-3">
+        <label for="id_production_order_id" class="form-label">№ заказа:</label>
+        <input type="number" 
+               class="form-control" 
+               id="id_production_order_id" 
+               name="production_order_id" 
+               value="{{ request.GET.production_order_id|default:'' }}" 
+               min="1">
+    </div>
     <div class="col-md-2">
         <button type="submit" class="btn btn-primary w-100">Фильтровать</button>
     </div>
