@@ -65,9 +65,10 @@
                     <small class="text-muted">#{{ wo.id }}</small>
                 </div>
                 <a href="{% url 'product_detail' wo.order_item.product.pk %}">
-                <h5 class="card-title">{{ wo.product.name }}</h5>
+                    <h5 class="card-title">{{ wo.product.name }}</h5>
                 </a>
                 <a href="{% url 'portfolio_detail' wo.order_item.production_order.pk %}">
+                    на {{ wo.order_item.production_order.due_date|date:"d.m.Y" }}
                 <p class="card-text text-muted small mb-2">{{ wo.comment|default:"" }}</p>
 
                 {% if is_filtered_by_date and wo.order_item %}

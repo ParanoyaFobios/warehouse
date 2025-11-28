@@ -256,7 +256,10 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
         is_filtered = False
         
         # 2. Базовый QuerySet
-        queryset = WorkOrder.objects.all()
+        queryset = WorkOrder.objects.select_related(
+            'order_item', # Загружает ProductionOrderItem
+            'order_item__production_order' # Загружает ProductionOrder через ProductionOrderItem
+        )
 
         # --- Фильтрация по дате (если задана) ---
         if due_date_str:
