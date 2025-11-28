@@ -1,5 +1,5 @@
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, FormView
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -18,12 +18,16 @@ class ProductionOrderListView(LoginRequiredMixin, ListView):
     model = ProductionOrder
     template_name = 'todo/portfolio_list.html'
     context_object_name = 'orders'
+    
+    def get_queryset(self):
+        # Добавляем prefetch_related('items'), чтобы Django загрузил строки заранее.
+        # Это нужно для свойств total_requested и total_produced.
+        return ProductionOrder.objects.prefetch_related('items').order_by('due_date')
 
 class ProductionOrderDetailView(LoginRequiredMixin, DetailView):
     model = ProductionOrder
     template_name = 'todo/portfolio_detail.html'
     context_object_name = 'order'
-    # 'order.items.all' будет доступен в шаблоне
 
 class ProductionOrderCreateView(LoginRequiredMixin, CreateView):
     model = ProductionOrder
@@ -305,25 +309,6 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
         context['is_filtered'] = bool(self.request.GET.get('due_date') or self.request.GET.get('production_order_id'))
         return context
 
-class WorkOrderAdHocCreateView(LoginRequiredMixin, CreateView):
-    """
-    Создание задания на смену, не привязанного к портфелю (Ad-Hoc).
-    """
-    model = WorkOrder
-    form_class = WorkOrderAdHocForm
-    template_name = 'todo/form.html' 
-    success_url = reverse_lazy('workorder_list')
-    extra_context = {'form_title': 'Новое Ad-Hoc Задание на смену'}
-
-    def form_valid(self, form):
-        # При создании Ad-Hoc задания, order_item остается NULL, 
-        # так как нет привязки к PortfolioOrder.
-        self.object = form.save(commit=False)
-        # Если нужно сохранить пользователя, который создал:
-        self.object.created_by = self.request.user
-        self.object.save()
-        messages.success(self.request, f"Задание '{self.object.product.name}' успешно создано.")
-        return super().form_valid(form)
 
 class ReportProductionView(LoginRequiredMixin, FormView):
     """
@@ -350,27 +335,39 @@ class ReportProductionView(LoginRequiredMixin, FormView):
         return context
 
     def form_valid(self, form):
-        quantity_done = form.cleaned_data['quantity_done']
-        work_order = self.work_order
+            quantity_done = form.cleaned_data['quantity_done']
+            work_order = self.work_order
 
-        if quantity_done <= 0:
-            messages.error(self.request, "Количество должно быть больше нуля.")
-            return self.form_invalid(form)
+            if quantity_done <= 0:
+                messages.error(self.request, "Количество должно быть больше нуля.")
+                return self.form_invalid(form)
 
-        if quantity_done > work_order.remaining_to_produce:
-            messages.error(self.request, f"Нельзя выпустить больше, чем осталось в плане ({work_order.remaining_to_produce} шт.).")
-            return self.form_invalid(form)
+            if quantity_done > work_order.remaining_to_produce:
+                messages.error(self.request, f"Нельзя выпустить больше, чем осталось в плане ({work_order.remaining_to_produce} шт.).")
+                return self.form_invalid(form)
 
-        # Вызываем метод, который мы определили в models.py
-        success, message = work_order.report_production(quantity_done, self.request.user)
+            # Вызываем метод модели
+            success, message = work_order.report_production(quantity_done, self.request.user)
 
-        if success:
-            messages.success(self.request, message)
-        else:
-            messages.error(self.request, message)
+            if success:
+                messages.success(self.request, message)
+            else:
+                messages.error(self.request, message)
 
-        # Редирект обратно на Доску объявлений
-        return redirect('workorder_list')
+            # --- ЛОГИКА ВОЗВРАТА С ФИЛЬТРАМИ ---
+            
+            # 1. Получаем базовый URL списка
+            redirect_url = reverse('workorder_list')
+            
+            # 2. Получаем строку параметров из текущего URL (они там есть, т.к. action формы был пустой)
+            # urlencode() соберет строку типа "due_date=2025-11-28&production_order_id=5"
+            query_params = self.request.GET.urlencode()
+            
+            # 3. Если параметры есть, приклеиваем их к URL редиректа
+            if query_params:
+                redirect_url = f"{redirect_url}?{query_params}"
+
+            return redirect(redirect_url)
     
 # ... (WorkOrderUpdateView, WorkOrderDeleteView без изменений) ...
 class WorkOrderUpdateView(LoginRequiredMixin, UpdateView):

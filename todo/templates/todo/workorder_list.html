@@ -9,9 +9,6 @@
         <h2>📋 Активные Задания на смену (Доска)</h2>
     {% endif %}
     
-    <a href="{% url 'workorder_create_adhoc' %}" class="btn btn-outline-primary">
-        + Срочная задача (Ad-Hoc)
-    </a>
 </div>
 
 <form method="get" class="row g-3 mb-4 p-3 bg-white border rounded shadow-sm align-items-end">
@@ -67,16 +64,19 @@
                     </span>
                     <small class="text-muted">#{{ wo.id }}</small>
                 </div>
-                
+                <a href="{% url 'product_detail' wo.order_item.product.pk %}">
                 <h5 class="card-title">{{ wo.product.name }}</h5>
+                </a>
+                <a href="{% url 'portfolio_detail' wo.order_item.production_order.pk %}">
                 <p class="card-text text-muted small mb-2">{{ wo.comment|default:"" }}</p>
 
                 {% if is_filtered_by_date and wo.order_item %}
+                
                     <p class="text-info small mb-1">Заказ: №{{ wo.order_item.production_order.id }} | Срок: {{ wo.order_item.production_order.due_date|date:"d.m.Y" }}</p>
-                {% elif is_filtered_by_date and not wo.order_item %}
+                
+                    {% elif is_filtered_by_date and not wo.order_item %}
                     <p class="text-info small mb-1">Срочное (Ad-Hoc) задание. Выполнено: {{ wo.completed_at|date:"d.m.Y" }}</p>
                 {% endif %}
-
                 <div class="progress mb-3" style="height: 20px;">
                     {% widthratio wo.quantity_produced wo.quantity_planned 100 as percent %}
                     <div class="progress-bar {% if status == 'completed' %}bg-success{% else %}bg-info{% endif %}" 
@@ -86,18 +86,18 @@
                         {{ wo.quantity_produced }} / {{ wo.quantity_planned }}
                     </div>
                 </div>
-
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <small class="text-muted d-block">Осталось: <strong>{{ wo.remaining_to_produce }}</strong></small>
                     </div>
-                    {% if status != 'completed' %}
-                        <a href="{% url 'workorder_report' wo.pk %}" class="btn btn-success btn-sm">
-                            ✅ Отчитаться
-                        </a>
-                    {% else %}
-                        <span class="text-success fw-bold">Завершено</span>
-                    {% endif %}
+                </a>
+                {% if status != 'completed' %}
+                <a href="{% url 'workorder_report' wo.pk %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
+                    ✅ Отчитаться
+                </a>
+                {% else %}
+                <span class="text-success fw-bold">Завершено</span>
+                {% endif %}
                 </div>
             </div>
             <div class="card-footer bg-transparent border-top-0 text-end">

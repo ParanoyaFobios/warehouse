@@ -22,6 +22,42 @@ class ProductionOrder(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="Статус")
     comment = models.TextField(blank=True, null=True, verbose_name="Комментарий к заказу")
 
+    @property
+    def total_requested(self):
+        """Сумма всех запрошенных товаров в заказе"""
+        # Используем sum() по связанным объектам
+        return sum(item.quantity_requested for item in self.items.all())
+
+    @property
+    def total_produced(self):
+        """Сумма всех произведенных товаров в заказе"""
+        return sum(item.quantity_produced for item in self.items.all())
+
+    # --- ДОБАВЛЯЕМ ЛОГИКУ ОБНОВЛЕНИЯ СТАТУСА ---
+    def update_status(self):
+        """Пересчитывает статус всего заказа на основе статусов строк"""
+        items = self.items.all()
+        
+        if not items.exists():
+            self.status = self.Status.PENDING
+        
+        # Если ВСЕ строки завершены -> Заказ выполнен
+        elif all(item.is_completed for item in items):
+            self.status = self.Status.COMPLETED
+            
+        # Если есть хоть какое-то движение (производство > 0) -> Частично выполнен
+        elif any(item.quantity_produced > 0 for item in items):
+            self.status = self.Status.PARTIAL
+            
+        # Если производство 0, но планы уже созданы -> В плане
+        elif any(item.quantity_planned > 0 for item in items):
+            self.status = self.Status.PLANNED
+            
+        else:
+            self.status = self.Status.PENDING
+            
+        self.save()
+
     def get_absolute_url(self):
         return reverse('portfolio_detail', kwargs={'pk': self.pk})
 
@@ -68,15 +104,19 @@ class ProductionOrderItem(models.Model):
         return self.quantity_produced >= self.quantity_requested
 
     def update_status(self):
-        if self.is_completed:
-            self.status = self.Status.COMPLETED
-        elif self.quantity_produced > 0:
-            self.status = self.Status.PARTIAL
-        elif self.quantity_planned > 0:
-             self.status = self.Status.PLANNED
-        else:
-            self.status = self.Status.PENDING
-        self.save()
+            # 1. Обновляем статус самой строки
+            if self.is_completed:
+                self.status = self.Status.COMPLETED
+            elif self.quantity_produced > 0:
+                self.status = self.Status.PARTIAL
+            elif self.quantity_planned > 0:
+                self.status = self.Status.PLANNED
+            else:
+                self.status = self.Status.PENDING
+            self.save()
+            # 2.
+            # Обновляем статус РОДИТЕЛЬСКОГО заказа
+            self.production_order.update_status()
 
     def __str__(self):
         return f"Строка: {self.product.name} ({self.quantity_requested} шт.)"

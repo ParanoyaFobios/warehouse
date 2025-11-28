@@ -6,7 +6,6 @@ from todo import views
 urlpatterns = [
     # --- "ДОСКА ОБЪЯВЛЕНИЙ" (Задания на смену) ---
     path('workorders/', views.WorkOrderListView.as_view(), name='workorder_list'),
-    path('workorders/create_adhoc/', views.WorkOrderAdHocCreateView.as_view(), name='workorder_create_adhoc'),
     path('workorders/<int:pk>/report/', views.ReportProductionView.as_view(), name='workorder_report'),
     path('workorders/<int:pk>/edit/', views.WorkOrderUpdateView.as_view(), name='workorder_edit'),
     path('workorders/<int:pk>/delete/', views.WorkOrderDeleteView.as_view(), name='workorder_delete'),

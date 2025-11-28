@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-
 {% block content %}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2>📁 Портфель заказов</h2>
     <a href="{% url 'portfolio_create' %}" class="btn btn-success">
@@ -16,6 +16,7 @@
                     <th>ID</th>
                     <th>Заказчик</th>
                     <th>Дата сдачи</th>
+                    <th class="text-center">План / Факт</th>
                     <th>Статус</th>
                     <th class="text-end">Действия</th>
                 </tr>
@@ -26,13 +27,22 @@
                     <td><strong>#{{ order.id }}</strong></td>
                     <td>{{ order.customer|default:"-" }}</td>
                     <td>{{ order.due_date|date:"d.m.Y" }}</td>
+                    
+                    <td class="text-center">
+                        <span class="fw-bold">{{ order.total_requested }}</span>
+                        <span class="text-muted mx-1">/</span>
+                        <span class="{% if order.total_produced >= order.total_requested %}text-success fw-bold{% else %}text-primary{% endif %}">
+                            {{ order.total_produced }}
+                        </span>
+                    </td>
+
                     <td>
-                        {% if order.status == 'new' or order.status == 'pending' %}
+                        {% if order.status == 'pending' %}
                             <span class="badge bg-secondary">Ожидает</span>
                         {% elif order.status == 'planned' %}
                             <span class="badge bg-info text-dark">В плане</span>
                         {% elif order.status == 'partial' %}
-                            <span class="badge bg-warning text-dark">Частично</span>
+                            <span class="badge bg-warning text-dark">В работе</span>
                         {% elif order.status == 'completed' %}
                             <span class="badge bg-success">Готов</span>
                         {% endif %}
@@ -45,7 +55,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-4 text-muted">
+                    <td colspan="6" class="text-center py-4 text-muted">
                         В портфеле пока нет заказов.
                     </td>
                 </tr>

@@ -36,7 +36,7 @@
 
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-success btn-lg">Записать выпуск</button>
-                        <a href="{% url 'workorder_list' %}" class="btn btn-outline-secondary">Отмена</a>
+                        <a href="{% url 'workorder_list' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary">Отмена</a>
                     </div>
                 </form>
             </div>
