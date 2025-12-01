@@ -65,8 +65,8 @@ class ProductionOrder(models.Model):
         return f"Заказ №{self.id} (Заказчик: {self.customer}) к {self.due_date}"
 
     class Meta:
-        verbose_name = "Заказ (Портфель)"
-        verbose_name_plural = "Портфель заказов"
+        verbose_name = "Планирование заказов"
+        verbose_name_plural = "Планирование заказов"
         ordering = ['due_date']
 
 # ==============================================================================

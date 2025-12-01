@@ -101,7 +101,8 @@ class ProductionOrderUpdateView(LoginRequiredMixin, UpdateView):
                 'id': item.product.pk, # ID продукта
                 'name': item.product.name,
                 'sku': item.product.sku,
-                'qty': float(item.quantity_requested) # Передаем как число
+                'qty': float(item.quantity_requested), # Передаем как число
+                'available_quantity': float(item.product.available_quantity) # Текущее количество на складе
             })
             
         # Отправляем JSON-строку в контекст
@@ -302,8 +303,10 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
         else:
             # Если фильтры были, применяем общую сортировку (сначала выполненные)
             queryset = queryset.order_by('-completed_at', 'created_at')
+        
+        ordering = ['order_item__production_order', '-completed_at', 'created_at']
 
-        return queryset
+        return queryset.order_by(*ordering)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -345,9 +348,9 @@ class ReportProductionView(LoginRequiredMixin, FormView):
                 messages.error(self.request, "Количество должно быть больше нуля.")
                 return self.form_invalid(form)
 
-            if quantity_done > work_order.remaining_to_produce:
-                messages.error(self.request, f"Нельзя выпустить больше, чем осталось в плане ({work_order.remaining_to_produce} шт.).")
-                return self.form_invalid(form)
+            # if quantity_done > work_order.remaining_to_produce:
+            #     messages.error(self.request, f"Нельзя выпустить больше, чем осталось в плане ({work_order.remaining_to_produce} шт.).")
+            #     return self.form_invalid(form)
 
             # Вызываем метод модели
             success, message = work_order.report_production(quantity_done, self.request.user)
@@ -372,15 +375,3 @@ class ReportProductionView(LoginRequiredMixin, FormView):
 
             return redirect(redirect_url)
     
-# ... (WorkOrderUpdateView, WorkOrderDeleteView без изменений) ...
-class WorkOrderUpdateView(LoginRequiredMixin, UpdateView):
-    model = WorkOrder
-    form_class = WorkOrderAdHocForm
-    template_name = 'todo/form.html'
-    success_url = reverse_lazy('workorder_list')
-    extra_context = {'form_title': 'Редактировать задание'}
-
-class WorkOrderDeleteView(LoginRequiredMixin, DeleteView):
-    model = WorkOrder
-    template_name = 'todo/confirm_delete.html'
-    success_url = reverse_lazy('workorder_list')

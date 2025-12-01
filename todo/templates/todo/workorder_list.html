@@ -1,33 +1,24 @@
 {% extends 'base.html' %}
-{% load static %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    {% if is_filtered_by_date %}
-        <h2>📅 Задания за день (Фильтр)</h2>
+    {% if is_filtered %}
+        <h2>📅 Результаты фильтрации</h2>
     {% else %}
-        <h2>📋 Активные Задания на смену (Доска)</h2>
+        <h2>📋 Задания на смену (Доска)</h2>
     {% endif %}
     
+
 </div>
 
 <form method="get" class="row g-3 mb-4 p-3 bg-white border rounded shadow-sm align-items-end">
     <div class="col-md-3">
-        <label for="id_due_date" class="form-label">Дата потребности заказа:</label>
-        <input type="date" 
-               class="form-control" 
-               id="id_due_date" 
-               name="due_date" 
-               value="{{ request.GET.due_date|default:'' }}">
+        <label for="id_due_date" class="form-label">Дата потребности:</label>
+        <input type="date" class="form-control" id="id_due_date" name="due_date" value="{{ request.GET.due_date|default:'' }}">
     </div>
     <div class="col-md-3">
         <label for="id_production_order_id" class="form-label">№ заказа:</label>
-        <input type="number" 
-               class="form-control" 
-               id="id_production_order_id" 
-               name="production_order_id" 
-               value="{{ request.GET.production_order_id|default:'' }}" 
-               min="1">
+        <input type="number" class="form-control" id="id_production_order_id" name="production_order_id" value="{{ request.GET.production_order_id|default:'' }}" min="1">
     </div>
     <div class="col-md-2">
         <button type="submit" class="btn btn-primary w-100">Фильтровать</button>
@@ -37,88 +28,131 @@
     </div>
 </form>
 
+{% regroup workorders by order_item.production_order as grouped_orders %}
+
 <div class="row">
-    {% for wo in workorders %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        {% with wo.status as status %}
+    {% for group in grouped_orders %}
         
-        {% if status == 'completed' %}
-            {% with 'border-success' as card_border %}
-            {% endwith %}
-        {% elif status == 'in_progress' %}
-            {% with 'border-warning' as card_border %}
-            {% endwith %}
+        {% if group.grouper %}
+            <div class="col-12 mb-4">
+                <div class="card shadow-sm border-primary">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap">
+                        <div>
+                            <h5 class="mb-0 text-primary">
+                                Заказ №{{ group.grouper.id }} 
+                                <small class="text-muted ms-2">({{ group.grouper.customer }})</small>
+                            </h5>
+                            <small class="text-muted">
+                                Срок: <strong>{{ group.grouper.due_date|date:"d.m.Y" }}</strong> | 
+                                Статус: {{ group.grouper.get_status_display }}
+                            </small>
+                        </div>
+                        
+                        <div class="text-end">
+                            <span class="badge bg-white text-dark border">
+                                План: {{ group.grouper.total_requested }} шт.
+                            </span>
+                            <span class="badge {% if group.grouper.total_produced >= group.grouper.total_requested %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                Факт: {{ group.grouper.total_produced }} шт.
+                            </span>
+                        </div>
+                    </div>
+
+                    <ul class="list-group list-group-flush">
+                        {% for wo in group.list %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap {% if wo.status == 'completed' %}bg-light{% endif %}">
+                                
+                                <div class="ms-2 me-auto py-2">
+                                    <div class="fw-bold">
+                                        <a href="{% url 'product_detail' wo.product.pk %}" class="text-decoration-none text-dark">
+                                            {{ wo.product.name }}
+                                        </a>
+                                        {% if wo.status == 'completed' %}
+                                            <span class="badge bg-success ms-2">Готов</span>
+                                        {% elif wo.status == 'in_progress' %}
+                                            <span class="badge bg-warning text-dark ms-2">В работе</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary ms-2">Новый</span>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">{{ wo.product.sku }}</small>
+                                    {% if wo.comment %}<br><small class="text-info">Com: {{ wo.comment }}</small>{% endif %}
+                                </div>
+
+                                <div class="text-end d-flex align-items-center gap-3">
+                                    
+                                    <div style="min-width: 120px; text-align: right;">
+                                        <span class="d-block fw-bold {% if wo.is_completed %}text-success{% endif %}">
+                                            {{ wo.quantity_produced }} / {{ wo.quantity_planned }}
+                                        </span>
+                                        <small class="text-muted">Осталось: {{ wo.remaining_to_produce }}</small>
+                                    </div>
+
+                                    {% if wo.status != 'completed' %}
+                                        <a href="{% url 'workorder_report' wo.pk %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
+                                            Отчитаться
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-outline-secondary btn-sm" disabled>✔</button>
+                                    {% endif %}
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
         {% else %}
-            {% with 'border-primary' as card_border %}
-            {% endwith %}
-        {% endif %}
-
-        <div class="card h-100 shadow-sm border-start border-4 {{ card_border }}">
-            <div class="card-body">
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="badge 
-                        {% if status == 'completed' %}bg-success
-                        {% elif status == 'in_progress' %}bg-warning text-dark
-                        {% else %}bg-primary{% endif %}">
-                        {{ wo.get_status_display }}
-                    </span>
-                    <small class="text-muted">#{{ wo.id }}</small>
-                </div>
-                <a href="{% url 'product_detail' wo.order_item.product.pk %}">
-                    <h5 class="card-title">{{ wo.product.name }}</h5>
-                </a>
-                <a href="{% url 'portfolio_detail' wo.order_item.production_order.pk %}">
-                    на {{ wo.order_item.production_order.due_date|date:"d.m.Y" }}
-                <p class="card-text text-muted small mb-2">{{ wo.comment|default:"" }}</p>
-
-                {% if is_filtered_by_date and wo.order_item %}
-                
-                    <p class="text-info small mb-1">Заказ: №{{ wo.order_item.production_order.id }} | Срок: {{ wo.order_item.production_order.due_date|date:"d.m.Y" }}</p>
-                
-                    {% elif is_filtered_by_date and not wo.order_item %}
-                    <p class="text-info small mb-1">Срочное (Ad-Hoc) задание. Выполнено: {{ wo.completed_at|date:"d.m.Y" }}</p>
-                {% endif %}
-                <div class="progress mb-3" style="height: 20px;">
-                    {% widthratio wo.quantity_produced wo.quantity_planned 100 as percent %}
-                    <div class="progress-bar {% if status == 'completed' %}bg-success{% else %}bg-info{% endif %}" 
-                         role="progressbar" 
-                         style="width: {{ percent }}%;" 
-                         aria-valuenow="{{ percent }}" aria-valuemin="0" aria-valuemax="100">
-                        {{ wo.quantity_produced }} / {{ wo.quantity_planned }}
+            {% if group.list %}
+            <div class="col-12 mb-3">
+                <h4 class="text-secondary border-bottom pb-2">⚡ Срочные задачи (Ad-Hoc)</h4>
+            </div>
+            
+            {% for wo in group.list %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 shadow-sm border-start border-4 border-info">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="badge bg-info text-dark">Ad-Hoc</span>
+                                <small class="text-muted">#{{ wo.id }}</small>
+                            </div>
+                            <h5 class="card-title">{{ wo.product.name }}</h5>
+                            <p class="card-text text-muted small">{{ wo.comment|default:"Без комментария" }}</p>
+                            
+                            <div class="progress mb-2" style="height: 15px;">
+                                {% widthratio wo.quantity_produced wo.quantity_planned 100 as percent %}
+                                <div class="progress-bar bg-info" style="width: {{ percent }}%;">
+                                    {{ wo.quantity_produced }}/{{ wo.quantity_planned }}
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <small>Остаток: <b>{{ wo.remaining_to_produce }}</b></small>
+                                {% if wo.status != 'completed' %}
+                                    <a href="{% url 'workorder_report' wo.pk %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">Отчитаться</a>
+                                {% else %}
+                                    <span class="text-success fw-bold">Готово</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent border-top-0 text-end">
+                             <a href="{% url 'workorder_edit' wo.pk %}" class="text-secondary small">Ред.</a>
+                             <a href="{% url 'workorder_delete' wo.pk %}" class="text-danger small ms-2">Удал.</a>
+                        </div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <small class="text-muted d-block">Осталось: <strong>{{ wo.remaining_to_produce }}</strong></small>
-                    </div>
-                </a>
-                {% if status != 'completed' %}
-                <a href="{% url 'workorder_report' wo.pk %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
-                    ✅ Отчитаться
-                </a>
-                {% else %}
-                <span class="text-success fw-bold">Завершено</span>
-                {% endif %}
-                </div>
-            </div>
-            <div class="card-footer bg-transparent border-top-0 text-end">
-                <a href="{% url 'workorder_edit' wo.pk %}" class="text-decoration-none text-secondary me-2 small">Изм.</a>
-                <a href="{% url 'workorder_delete' wo.pk %}" class="text-decoration-none text-danger small">Удал.</a>
-            </div>
-        </div>
-        {% endwith %}
-    </div>
-    {% empty %}
-    <div class="col-12 text-center py-5">
-        <h4 class="text-muted">
-            {% if is_filtered_by_date %}
-                На выбранную дату заданий не найдено.
-            {% else %}
-                На сегодня активных задач нет 🎉
+            {% endfor %}
+            <div class="col-12"><hr class="my-4"></div>
             {% endif %}
-        </h4>
-        <p>Нажмите "Сбросить" или выберите другую дату.</p>
-    </div>
+
+        {% endif %}
+        
     {% endfor %}
+    
+    {% if not workorders %}
+         <div class="col-12 text-center py-5">
+            <h4 class="text-muted">Нет задач для отображения 🎉</h4>
+         </div>
+    {% endif %}
 </div>
 {% endblock %}

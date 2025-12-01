@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>📁 Портфель заказов</h2>
+    <h2>Планирование заказов</h2>
     <a href="{% url 'portfolio_create' %}" class="btn btn-success">
         + Новый заказ
     </a>
@@ -50,7 +50,9 @@
                     <td class="text-end">
                         <a href="{% url 'portfolio_detail' order.pk %}" class="btn btn-sm btn-primary table-action-btn">Детали</a>
                         <a href="{% url 'portfolio_edit' order.pk %}" class="btn btn-sm btn-outline-secondary table-action-btn">Ред.</a>
+                        {% if order.status == 'planned' or order.status == 'pending' %}
                         <a href="{% url 'portfolio_delete' order.pk %}" class="btn btn-sm btn-outline-danger">Удал.</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

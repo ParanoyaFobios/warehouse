@@ -3,7 +3,7 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-10">
-        <h2 class="mb-4">Создание заказа (Портфель)</h2>
+        <h2 class="mb-4">Создание заказа (Планирование)</h2>
 
         <form method="post" id="main-order-form">
             {% csrf_token %}
@@ -109,19 +109,20 @@
                  tr.setAttribute('data-pk', product.pk); 
             }
     
-            const initialQty = product.qty !== undefined ? product.qty : 1; 
+            const initialQty = product.qty !== undefined ? product.qty : 1;
+            const stockQty = product.available_quantity !== undefined ? product.available_quantity : 0;
     
             tr.innerHTML = `
-                <td>
-                    <strong>${product.name}</strong><br>
-                    <small class="text-muted">Арт: ${product.sku}</small>
-                </td>
-                <td>
-                    <input type="number" class="form-control item-qty" value="${initialQty}" min="1">
-                </td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-btn">X</button>
-                </td>
+            <td>
+                <strong>${product.name}</strong><br>
+                <small class="text-muted">Арт: ${product.sku} | На складе: <b>${stockQty}</b></small>
+            </td>
+            <td>
+                <input type="number" class="form-control item-qty" value="${initialQty}" min="1">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger remove-btn">X</button>
+            </td>
             `;
     
             tr.querySelector('.remove-btn').addEventListener('click', function() {
@@ -169,15 +170,20 @@
                 const item = document.createElement('a');
                 item.href = "#";
                 item.className = "list-group-item list-group-item-action";
-                item.innerHTML = `<strong>${prod.name}</strong> <small class="text-muted">(${prod.sku})</small>`;
-                
-                item.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // Используем объединенную функцию, isExisting = false
-                    addProductToTable(prod, false); 
-                    searchInput.value = '';
-                    resultsDropdown.style.display = 'none';
-                });
+                const stockQty = prod.available_quantity !== undefined ? prod.available_quantity : 0;
+                item.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <span><strong>${prod.name}</strong> <small class="text-muted">(${prod.sku})</small></span>
+                    <span class="badge bg-light text-dark">Склад: ${stockQty}</span>
+                </div>
+            `;
+            
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                addProductToTable(prod, false); 
+                searchInput.value = '';
+                resultsDropdown.style.display = 'none';
+            });
                 
                 resultsDropdown.appendChild(item);
             });
