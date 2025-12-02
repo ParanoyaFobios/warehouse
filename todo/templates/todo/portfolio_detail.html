@@ -36,11 +36,23 @@
 <div class="d-flex justify-content-between align-items-center mb-2">
     <h3>📦 Позиции заказа (Товары)</h3>
     
-    {% if order.status != 'completed' %}
-    <a href="{% url 'portfolio_plan_workorders' order.pk %}" class="btn btn-warning">
-        🚀 Отправить остатки в работу (На доску)
-    </a>
-    {% endif %}
+    <div class="btn-group">
+        {% if order.status != 'completed' %}
+        <a href="{% url 'portfolio_plan_workorders' order.pk %}" class="btn btn-warning">
+            🚀 В работу
+        </a>
+        {% endif %}
+
+        {% if order.total_produced > 0 %}
+        <form action="{% url 'portfolio_create_shipment' order.pk %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary ms-2">
+                🚚 Создать отгрузку
+            </button>
+        </form>
+        {% endif %}
+    </div>
+    
 </div>
 
 <div class="table-responsive">

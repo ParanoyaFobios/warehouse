@@ -14,6 +14,11 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">Информация об отгрузке</div>
+            {% if can_edit %}
+            <a href="{% url 'shipment_edit' shipment.pk %}" class="btn btn-primary btn-sm">
+                ✏️ Редактировать шапку
+            </a>
+        {% endif %}
             <div class="card-body">
                 <p><strong>ФОП:</strong> {{ shipment.sender }}</p>
                 <p><strong>Назначение:</strong> {{ shipment.destination }}</p>

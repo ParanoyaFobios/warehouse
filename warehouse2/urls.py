@@ -20,6 +20,7 @@ urlpatterns = [
     path('shipments/', views.ShipmentListView.as_view(), name='shipment_list'),
     path('shipments/create/', views.ShipmentCreateView.as_view(), name='shipment_create'),
     path('shipments/<int:pk>/', views.ShipmentDetailView.as_view(), name='shipment_detail'),
+    path('shipments/<int:pk>/edit/', views.ShipmentUpdateView.as_view(), name='shipment_edit'),
     path('shipments/<int:pk>/delete/', views.ShipmentDeleteView.as_view(), name='shipment_delete'),
     path('shipments/<int:pk>/ship/', views.ship_shipment, name='shipment_ship'),
     path('shipments/<int:pk>/items/', views.ShipmentItemsView.as_view(), name='shipment_items'),

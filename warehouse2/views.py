@@ -13,7 +13,6 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 
-
 # ==============================================================================
 # Продукция
 # ==============================================================================
@@ -408,6 +407,34 @@ class ShipmentItemsView(FormView):
             return self.form_invalid(form)
         
         return super().form_valid(form)
+    
+class ShipmentUpdateView(LoginRequiredMixin, UpdateView):
+    """
+    Редактирование шапки отгрузки (Отправитель, Адрес, Получатель).
+    Доступно только если отгрузка еще не уехала.
+    """
+    model = Shipment
+    form_class = ShipmentForm
+    template_name = 'warehouse2/shipment_form.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        """Проверка прав на редактирование перед открытием страницы."""
+        obj = self.get_object()
+        
+        # Используем метод модели can_be_edited (pending или packaged)
+        if not obj.can_be_edited():
+            messages.error(request, "Нельзя редактировать уже отгруженную или возвращенную накладную.")
+            return redirect('shipment_detail', pk=obj.pk)
+            
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Данные накладной успешно обновлены.')
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        # Возвращаемся обратно в детали отгрузки
+        return reverse_lazy('shipment_detail', kwargs={'pk': self.object.pk})
 
 class ReturnShipmentView(LoginRequiredMixin, DetailView):
     model = Shipment

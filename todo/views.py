@@ -9,7 +9,8 @@ from django import forms
 from .models import ProductionOrder, ProductionOrderItem, WorkOrder
 from .forms import ProductionOrderForm, WorkOrderAdHocForm, ReportProductionForm
 import json
-from warehouse2.models import Product
+from django.views import View
+from warehouse2.models import Shipment, ShipmentItem, Sender, Product
 # ==============================================================================
 # Вью для "Портфеля заказов" (Header/Detail)
 # ==============================================================================
@@ -375,3 +376,84 @@ class ReportProductionView(LoginRequiredMixin, FormView):
 
             return redirect(redirect_url)
     
+class CreateShipmentFromOrderView(LoginRequiredMixin, View):
+    """
+    Создает черновик отгрузки (Shipment) на основе выполненного заказа (ProductionOrder).
+    """
+    
+    def post(self, request, pk):
+        production_order = get_object_or_404(ProductionOrder, pk=pk)
+        
+        # Проверка: создаем отгрузку, только если есть что отгружать
+        # (например, есть произведенные товары)
+        if production_order.total_produced == 0:
+            messages.error(request, "Нельзя создать отгрузку: по заказу еще ничего не произведено.")
+            return redirect('portfolio_detail', pk=pk)
+
+        try:
+            with transaction.atomic():
+                # 1. Получаем или создаем Отправителя по умолчанию (ID=1)
+                # Если Sender с ID=1 нет, берем первого попавшегося или создаем заглушку
+                sender = Sender.objects.filter(pk=1).first()
+                if not sender:
+                    sender = Sender.objects.first()
+                    if not sender:
+                        # Если совсем нет отправителей, создаем технического
+                        sender = Sender.objects.create(name="Основной склад")
+
+                # 2. Создаем "Шапку" Отгрузки
+                shipment = Shipment.objects.create(
+                    created_by=request.user,
+                    sender=sender,
+                    # Копируем заказчика в поле 'Адрес отгрузки' (или recipient)
+                    destination=production_order.customer or "Не указан", 
+                    status='pending' # Статус "В процессе сборки"
+                )
+
+                # 3. Создаем строки Отгрузки (Items)
+                items_created_count = 0
+                
+                for item in production_order.items.all():
+                    # Отгружаем только то, что реально произведено (или запланировано, как решите)
+                    # Логичнее отгружать то, что запрошено (quantity_requested), 
+                    # но модель ShipmentItem при создании попытается зарезервировать товар.
+                    # Если на складе 20 (произведено), а просим 30 -> будет ошибка валидации.
+                    
+                    qty_to_ship = item.quantity_requested
+                    
+                    # Проверка: есть ли столько на свободном остатке?
+                    # item.product.available_quantity уже включает в себя то, что мы произвели.
+                    
+                    if qty_to_ship > 0:
+                        # Если на складе меньше, чем нужно, берем сколько есть (или кидаем ошибку)
+                        # Вариант: берем min(запрошено, доступно)
+                        qty_real = min(qty_to_ship, item.product.available_quantity)
+                        
+                        if qty_real > 0:
+                            ShipmentItem.objects.create(
+                                shipment=shipment,
+                                product=item.product,
+                                quantity=qty_real,
+                                # Цена подтянется автоматически в save() модели ShipmentItem
+                            )
+                            items_created_count += 1
+                        else:
+                            # Можно добавить warning, что товара нет на остатке
+                            pass
+
+                if items_created_count == 0:
+                    # Если ни одной строки не создалось (нет остатков), откатываем транзакцию
+                    raise ValueError("Не удалось добавить товары в отгрузку (нет свободных остатков на складе).")
+
+                messages.success(request, f"Отгрузка №{shipment.id} успешно создана! ({items_created_count} позиций)")
+                
+                # Редирект на страницу редактирования новой отгрузки (в приложении warehouse2)
+                # Предполагаем, что у вас есть url 'shipment_detail' или 'shipment_edit'
+                return redirect('shipment_detail', pk=shipment.pk)
+
+        except ValueError as e:
+            messages.error(request, str(e))
+            return redirect('portfolio_detail', pk=pk)
+        except Exception as e:
+            messages.error(request, f"Ошибка при создании отгрузки: {e}")
+            return redirect('portfolio_detail', pk=pk)
