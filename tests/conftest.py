@@ -1,8 +1,9 @@
 import pytest
 from django.contrib.auth.models import User
+from decimal import Decimal
 from warehouse2.models import Product, Sender
 from todo.models import ProductionOrder, ProductionOrderItem, WorkOrder
-
+from warehouse1.models import MaterialCategory, UnitOfMeasure, MaterialColor, Material, OperationOutgoingCategory, MaterialOperation
 
 # Фикстура для создания юзера
 @pytest.fixture
@@ -70,3 +71,69 @@ def planned_work_order(production_order, product):
         status=WorkOrder.Status.NEW
     )
     return work_order
+
+@pytest.fixture
+def material_category():
+    """Фикстура для категории материалов"""
+    return MaterialCategory.objects.create(
+        name="Тестовая категория"
+    )
+
+@pytest.fixture
+def unit_of_measure():
+    """Фикстура для единицы измерения"""
+    return UnitOfMeasure.objects.create(
+        name="Килограмм",
+        short_name="кг"
+    )
+
+@pytest.fixture
+def material_color():
+    """Фикстура для цвета материала"""
+    return MaterialColor.objects.create(
+        name="Белый"
+    )
+
+@pytest.fixture
+def operation_outgoing_category():
+    """Фикстура для категории выдачи"""
+    return OperationOutgoingCategory.objects.create(
+        name="Производство"
+    )
+
+@pytest.fixture
+def material(material_category, unit_of_measure, material_color):
+    """Фикстура для материала"""
+    return Material.objects.create(
+        name="Тестовый материал",
+        article="TEST-MAT-001",
+        category=material_category,
+        quantity=Decimal('100.00'),
+        min_quantity=Decimal('10.00'),
+        color=material_color,
+        unit=unit_of_measure,
+        description="Тестовое описание материала"
+    )
+
+@pytest.fixture
+def material_operation_incoming(user, material):
+    """Фикстура для операции прихода материала"""
+    return MaterialOperation.objects.create(
+        material=material,
+        operation_type='incoming',
+        quantity=50.00,
+        user=user,
+        comment="Тестовый приход"
+    )
+
+@pytest.fixture
+def material_operation_outgoing(user, material, operation_outgoing_category):
+    """Фикстура для операции расхода материала"""
+    return MaterialOperation.objects.create(
+        material=material,
+        operation_type='outgoing',
+        outgoing_category=operation_outgoing_category,
+        quantity=20.00,
+        user=user,
+        comment="Тестовый расход"
+    )

@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 import uuid
 import re
+from decimal import Decimal
 from main.models import ContentTypeAware
 
 def generate_unique_barcode_for_model(model_class):
@@ -61,12 +62,16 @@ class Material(ContentTypeAware, models.Model):
 
     def add_quantity(self, quantity):
         """Увеличение количества материала (прием)"""
+        # Приводим входящее значение к Decimal
+        quantity = Decimal(str(quantity)) 
         self.quantity += quantity
         self.save()
 
-    
     def subtract_quantity(self, quantity):
         """Уменьшение количества материала (выдача/списание)"""
+        # Приводим входящее значение к Decimal
+        quantity = Decimal(str(quantity))
+        
         if self.quantity < quantity:
             raise ValueError("Недостаточно материала на складе")
         self.quantity -= quantity
