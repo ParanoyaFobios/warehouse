@@ -7,7 +7,7 @@ from django.db import transaction
 from django.db.models import F, Q
 from django import forms
 from .models import ProductionOrder, ProductionOrderItem, WorkOrder
-from .forms import ProductionOrderForm, WorkOrderAdHocForm, ReportProductionForm
+from .forms import ProductionOrderForm, ReportProductionForm
 import json
 from django.views import View
 from warehouse2.models import Shipment, ShipmentItem, Sender, Product
