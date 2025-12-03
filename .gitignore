@@ -17,3 +17,4 @@ __pycache__
 /pip-cache
 wms_venv
 htmlcov
+.coverage
