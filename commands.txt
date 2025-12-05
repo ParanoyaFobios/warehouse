@@ -6,3 +6,8 @@ pytest --cov=todo --cov-report html
 --cov-report html: Создает красивый HTML-отчет (файл htmlcov/index.html), который покажет тебе каждая строка в твоем коде,
 которая не была затронута тестами (она будет выделена красным).
 
+pytest tests/warehouse1/ -v
+# Запуск всех тестов для warehouse1
+
+pytest tests/warehouse1/test_warehouse1_views.py -v
+# Запуск тестов только для представлений warehouse1

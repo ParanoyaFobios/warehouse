@@ -4,6 +4,8 @@ from decimal import Decimal
 from warehouse2.models import Product, Sender
 from todo.models import ProductionOrder, ProductionOrderItem, WorkOrder
 from warehouse1.models import MaterialCategory, UnitOfMeasure, MaterialColor, Material, OperationOutgoingCategory, MaterialOperation
+from warehouse2.models import (Product, Sender, ProductCategory, Package, ProductOperation,
+    generate_product_barcode, generate_package_barcode, Shipment, ShipmentItem)
 
 # Фикстура для создания юзера
 @pytest.fixture
@@ -136,4 +138,126 @@ def material_operation_outgoing(user, material, operation_outgoing_category):
         quantity=20.00,
         user=user,
         comment="Тестовый расход"
+    )
+
+# фикстуры для приложения warehouse2
+
+@pytest.fixture
+def product_category():
+    """Фикстура для категории продукции"""
+    return ProductCategory.objects.create(
+        name="Тестовая категория продукции"
+    )
+
+@pytest.fixture
+def product(product_category):
+    """Фикстура для продукта"""
+    return Product.objects.create(
+        name="Тестовая Подушка",
+        sku="TEST-SKU-001",
+        barcode="123456789012",
+        category=product_category,
+        price=1000.00,
+        color="Красный",
+        total_quantity=100,
+        reserved_quantity=20
+    )
+
+@pytest.fixture
+def product_without_category():
+    """Фикстура для продукта без категории"""
+    return Product.objects.create(
+        name="Продукт без категории",
+        sku="NO-CAT-001",
+        barcode="987654321098",
+        price=500.00,
+        total_quantity=50,
+        reserved_quantity=5
+    )
+
+@pytest.fixture
+def package(product):
+    """Фикстура для упаковки"""
+    return Package.objects.create(
+        name="Тестовая упаковка",
+        product=product,
+        quantity=10
+    )
+
+@pytest.fixture
+def product_operation_incoming(user, product):
+    """Фикстура для операции прихода продукции"""
+    from django.contrib.contenttypes.models import ContentType
+    
+    # Создаем "источник" операции - например, инвентаризацию
+    class MockSource:
+        id = 1
+    
+    content_type = ContentType.objects.get(app_label='warehouse2', model='product')
+    
+    operation = ProductOperation.objects.create(
+        product=product,
+        operation_type=ProductOperation.OperationType.INCOMING,
+        quantity=50,
+        content_type=content_type,
+        object_id=1,
+        user=user,
+        comment="Тестовый приход продукции"
+    )
+    return operation
+
+@pytest.fixture
+def product_operation_shipment(user, product):
+    """Фикстура для операции отгрузки продукции"""
+    from django.contrib.contenttypes.models import ContentType
+    
+    content_type = ContentType.objects.get(app_label='warehouse2', model='product')
+    
+    operation = ProductOperation.objects.create(
+        product=product,
+        operation_type=ProductOperation.OperationType.SHIPMENT,
+        quantity=20,
+        content_type=content_type,
+        object_id=2,
+        user=user,
+        comment="Тестовая отгрузка"
+    )
+    return operation
+
+@pytest.fixture
+def sender():
+    """Фикстура для отправителя"""
+    return Sender.objects.create(
+        name="Тестовый ФОП"
+    )
+
+@pytest.fixture
+def shipment(user, sender):
+    """Фикстура для отгрузки"""
+    return Shipment.objects.create(
+        created_by=user,
+        sender=sender,
+        destination="Тестовый адрес",
+        recipient="Тестовый получатель",
+        status='pending'
+    )
+
+@pytest.fixture
+def shipment_item_product(shipment, product):
+    """Фикстура для позиции отгрузки с продуктом"""
+    return ShipmentItem.objects.create(
+        shipment=shipment,
+        product=product,
+        quantity=5,
+        price=product.price
+    )
+
+@pytest.fixture
+def shipment_item_package(shipment, package):
+    """Фикстура для позиции отгрузки с упаковкой"""
+    return ShipmentItem.objects.create(
+        shipment=shipment,
+        package=package,
+        quantity=2,
+        price=package.price
     )

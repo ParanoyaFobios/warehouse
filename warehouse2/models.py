@@ -144,12 +144,24 @@ class ProductOperation(models.Model):
     comment = models.TextField(blank=True, verbose_name="Комментарий")
 
     def __str__(self):
-        if self.operation_type == self.OperationType.ADJUSTMENT:
-            # Для корректировки показываем реальное значение со знаком
-            sign = '+' if self.operation_type in [self.OperationType.PRODUCTION, self.OperationType.RETURN, self.OperationType.INCOMING] else '-'
-            return f"[{self.get_operation_type_display()}] {self.product.name}: {sign}{self.quantity}"
+        # Определяем список всех операций, увеличивающих количество
+        POSITIVE_OPERATIONS = [
+            self.OperationType.PRODUCTION, 
+            self.OperationType.RETURN, 
+            self.OperationType.INCOMING
+        ]
+        
+        if self.operation_type == self.OperationType.ADJUSTMENT:     
+            # Если quantity положительно, знак "+", иначе "-"
+            adj_sign = '+' if self.quantity >= 0 else '' # знак '-' будет в quantity
+            return f"[{self.get_operation_type_display()}] {self.product.name}: {adj_sign}{self.quantity}"
+
         else:
-            sign = '+' if self.operation_type in [self.OperationType.PRODUCTION, self.OperationType.RETURN] else '-'
+            # Для остальных операций, где quantity всегда должно быть положительным числом, 
+            # но знак отображается в зависимости от типа
+            sign = '+' if self.operation_type in POSITIVE_OPERATIONS else '-'
+            
+            # Используем abs(self.quantity) на случай, если кто-то сохранил отрицательное число
             return f"[{self.get_operation_type_display()}] {self.product.name}: {sign}{abs(self.quantity)}"
 
     class Meta:
