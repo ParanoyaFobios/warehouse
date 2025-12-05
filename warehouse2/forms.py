@@ -2,8 +2,6 @@ from django import forms
 from .models import Product, Shipment, Package
 
 class ProductForm(forms.ModelForm):
-
-
     class Meta:
         model = Product
         # 2. Убираем оригинальное поле 'color' из списка, чтобы избежать конфликтов
@@ -15,16 +13,6 @@ class ProductForm(forms.ModelForm):
             'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'image': forms.FileInput(attrs={'class': 'form-control'}),
         }
-
-    def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)
-        super().__init__(*args, **kwargs)
-
-        if self.user and not self.user.is_superuser:
-            self.fields.pop('total_quantity')
-            self.fields.pop('price')
-    
-
 
 
 class ProductIncomingForm(forms.Form):
@@ -45,7 +33,7 @@ class ProductIncomingForm(forms.Form):
 class ProductSearchForm(forms.Form):
     barcode = forms.CharField(
         label='Штрихкод',
-        max_length=50,
+        max_length=12,
         required=False,
         widget=forms.TextInput(attrs={'placeholder': 'Введите штрихкод'})
     )
@@ -63,16 +51,21 @@ class ProductSearchForm(forms.Form):
     )
 
 class PackageForm(forms.ModelForm):
+    quantity = forms.IntegerField(
+        label="Количество",
+        min_value=1, #Устанавливаем минимальное значение 1
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Кол-во штук в упаковке'}),
+    )
+
     class Meta:
         model = Package
-        fields = ['name', 'quantity']
+        fields = ['name', 'quantity'] 
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Например, пак (10)'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Кол-во штук в упаковке'}),
+             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Например, пак (10)'}),
         }
         labels = {
             'name': 'Название упаковки',
-            'quantity': 'Количество',
+            'quantity': 'Количество', # Label берется из переопределенного поля
         }
 
 
