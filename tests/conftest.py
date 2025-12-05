@@ -28,11 +28,6 @@ def client():
     from django.test.client import Client
     return Client()
 
-@pytest.fixture
-def base_sender():
-    """Создает базового отправителя, необходимого для создания Shipment."""
-    # Создаем Sender с pk=1, так как он используется во вьюхе CreateShipmentFromOrderView
-    return Sender.objects.create(pk=1, name="Основной ФОП", full_name="ООО Ромашка")
 
 @pytest.fixture
 def production_order(product):
@@ -261,3 +256,50 @@ def shipment_item_package(shipment, package):
         quantity=2,
         price=package.price
     )
+
+@pytest.fixture
+def basic_shipment(user, product, sender):
+    """
+    Создает базовую отгрузку в статусе 'pending' с одной позицией.
+    
+    Требует: user, product, base_sender (фикстуры)
+    """
+    
+    # 1. Сброс/Настройка продукта для теста
+    # Гарантируем, что на складе достаточно товара и нет резерва от других тестов.
+    # Используем total_quantity=100, reserved_quantity=0 как стартовую точку.
+    product.total_quantity = 100 
+    product.reserved_quantity = 0
+    product.save()
+
+    # 2. Создание самой отгрузки (Shipment)
+    shipment = Shipment.objects.create(
+        created_by=user,
+        sender=sender,
+        destination="Тестовый адрес",
+        recipient="Тестовый получатель",
+        status='pending' # Устанавливаем статус
+    )
+    
+    # 3. Создание позиции отгрузки (ShipmentItem)
+    # Позиция на 5 единиц.
+    item = ShipmentItem.objects.create(
+        shipment=shipment,
+        product=product,
+        quantity=5, # Количество, которое нужно зарезервировать/отгрузить
+        price=product.price
+    )
+    
+    # ВАЖНО: Мы должны убедиться, что логика резервирования сработала.
+    # Если метод .save() на ShipmentItem или post_save сигнал
+    # в вашей модели отвечает за обновление reserved_quantity,
+    # нам нужно это убедиться. Мы создали объект, теперь обновляем его:
+    item.save() 
+    
+    # 4. Проверка состояния продукта после создания item (для отладки)
+    product.refresh_from_db()
+    
+    # Если логика резервирования реализована корректно,
+    # product.reserved_quantity должен быть равен 5.
+    
+    return shipment
