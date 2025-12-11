@@ -4,10 +4,15 @@
 <div class="container mt-4">
     <h2>Управление товарами для отгрузки №{{ shipment.id }}</h2>
     <p>Пункт назначения: <strong>{{ shipment.destination }}</strong></p>
+    <p>ФОП отправитель: <strong>{{ shipment.sender }}</strong></p>
     <p>Статус: <span class="badge bg-{% if shipment.status == 'pending' %}secondary{% elif shipment.status == 'packaged' %}warning{% else %}success{% endif %}">
         {{ shipment.get_status_display }}
     </span></p>
-
+    {% if can_edit %}
+    <a href="{% url 'shipment_edit' shipment.pk %}" class="btn btn-primary btn-sm">
+        ✏️ Редактировать шапку
+    </a>
+    {% endif %}
     <div class="row">
         <div class="col-md-6">
             <div class="card">

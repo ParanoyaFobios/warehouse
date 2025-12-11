@@ -1,9 +1,8 @@
 import pytest
 import json
-from decimal import Decimal
 from django.urls import reverse
 from django.contrib.messages import get_messages
-from warehouse2.models import Product, ProductOperation, Shipment, ShipmentItem, Package, Sender
+from warehouse2.models import Product, ProductOperation, Shipment, ShipmentItem, Package
 
 # ==============================================================================
 # Тесты для Product Views (Бизнес-логика)
@@ -218,7 +217,7 @@ class TestShipmentViewsLogic:
         
         # 1. Проверка статуса отгрузки
         shipment.refresh_from_db()
-        assert shipment.status == 'shipped' # 🟢 Должно пройти
+        assert shipment.status == 'shipped' # Должно пройти
         
         # 2. Проверка списания со склада и резерва
         product.refresh_from_db()
