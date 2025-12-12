@@ -1,6 +1,6 @@
 from django.shortcuts import redirect, get_object_or_404
 from django.views.generic import ListView, FormView
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.contenttypes.models import ContentType
@@ -98,16 +98,14 @@ class InventoryCountWorkView(LoginRequiredMixin, FormView):
         
         return redirect('count_work', pk=inventory_count.pk)
 
-class InventoryReconciliationView(LoginRequiredMixin, DetailView):
+class InventoryReconciliationView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """
     Представление для сверки завершенного переучета.
     """
     model = InventoryCount
     template_name = 'inventarization/count_reconcile.html'
     context_object_name = 'inventory_count'
-
-    def test_func(self):
-        return self.request.user.is_staff
+    permission_required = 'inventarization.can_reconcile_inventory'
 
     def get_queryset(self):
         # Показываем только те, что ожидают сверки
@@ -120,12 +118,11 @@ class InventoryReconciliationView(LoginRequiredMixin, DetailView):
         return context
 
 
-class ReconcileInventoryView(LoginRequiredMixin, View):
+class ReconcileInventoryView(LoginRequiredMixin, PermissionRequiredMixin,View):
     """
     Обрабатывает POST-запрос на корректировку ОДНОЙ ПОЗИЦИИ.
     """
-    def test_func(self):
-        return self.request.user.is_staff
+    permission_required = 'inventarization.can_reconcile_inventory'
 
     def post(self, request, pk, *args, **kwargs):
         # pk здесь - это pk для InventoryCount
@@ -199,10 +196,9 @@ class ReconcileInventoryView(LoginRequiredMixin, View):
             item.save()
 
 
-class FinalizeInventoryView(LoginRequiredMixin, View):
+class FinalizeInventoryView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Окончательно закрывает переучет, меняя статус на RECONCILED."""
-    def test_func(self):
-        return self.request.user.is_staff
+    permission_required = 'inventarization.can_reconcile_inventory'
 
     def post(self, request, pk, *args, **kwargs):
         inventory_count = get_object_or_404(
@@ -265,9 +261,9 @@ def complete_inventory_count(request, pk):
 
         # 2. Затем проверяем права доступа: это владелец ИЛИ администратор/менеджер?
         #    (is_staff обычно используется для доступа к админке)
-        if inventory_count.user != request.user and not request.user.is_staff and not request.user.is_superuser:
-            messages.error(request, "У вас нет прав для завершения этого переучета.")
-            return redirect('count_list') # Возвращаем в список
+        if inventory_count.user != request.user and not request.user.has_perm('inventarization.can_reconcile_inventory'):
+            messages.error(request, "У вас нет прав...")
+            return redirect('count_list')
 
         # 3. Основная логика остается без изменений
         if inventory_count.status == 'in_progress':

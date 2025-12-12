@@ -1,11 +1,13 @@
 import pytest
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Permission
 from decimal import Decimal
 from warehouse2.models import Product, Sender
 from todo.models import ProductionOrder, ProductionOrderItem, WorkOrder
 from warehouse1.models import MaterialCategory, UnitOfMeasure, MaterialColor, Material, OperationOutgoingCategory, MaterialOperation
 from warehouse2.models import (Product, Sender, ProductCategory, Package, ProductOperation,
     generate_product_barcode, generate_package_barcode, Shipment, ShipmentItem)
+from django.contrib.contenttypes.models import ContentType
+from inventarization.models import InventoryCount
 
 # Фикстура для создания юзера
 @pytest.fixture
@@ -303,3 +305,24 @@ def basic_shipment(user, product, sender):
     # product.reserved_quantity должен быть равен 5.
     
     return shipment
+
+#====================================
+#фикстура для инвентаризации
+#====================================
+@pytest.fixture
+def staff_user(db):
+    """
+    Пользователь с правом проводить сверку инвентаризации.
+    """
+    user = User.objects.create_user(username='staff', password='password', is_staff=True)
+    
+    # Получаем право из базы
+    content_type = ContentType.objects.get_for_model(InventoryCount)
+    permission = Permission.objects.get(
+        codename='can_reconcile_inventory',
+        content_type=content_type,
+    )
+    
+    # Выдаем право пользователю
+    user.user_permissions.add(permission)
+    return user
