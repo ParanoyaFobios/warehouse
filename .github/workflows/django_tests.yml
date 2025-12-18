@@ -56,7 +56,7 @@ jobs:
         # Передаем настройки подключения к БД сервисам GitHub
         SECRET_KEY: ${{ secrets.SECRET_KEY }}
         KEYCRM_API_KEY: ${{ secrets.KEYCRM_API_KEY }}
-        DATABASE_URL: postgresql://warehousedb:warehouse@localhost:5432/warehousedb
+        DATABASE_URL: postgresql://warehouse:warehouse@localhost:5432/warehousedb
         REDIS_URL: redis://localhost:6379/0
         DEBUG: "True"
       run: |
