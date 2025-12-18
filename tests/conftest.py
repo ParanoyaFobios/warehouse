@@ -8,6 +8,7 @@ from warehouse2.models import (Product, Sender, ProductCategory, Package, Produc
     generate_product_barcode, generate_package_barcode, Shipment, ShipmentItem)
 from django.contrib.contenttypes.models import ContentType
 from inventarization.models import InventoryCount
+from usertouser.models import Message, MessageRecipient
 
 # Фикстура для создания юзера
 @pytest.fixture
@@ -307,7 +308,7 @@ def basic_shipment(user, product, sender):
     return shipment
 
 #====================================
-#фикстура для инвентаризации
+# фикстура для инвентаризации
 #====================================
 @pytest.fixture
 def staff_user(db):
@@ -326,3 +327,18 @@ def staff_user(db):
     # Выдаем право пользователю
     user.user_permissions.add(permission)
     return user
+
+#====================================
+# фикстура для сообщений
+#====================================
+@pytest.fixture
+def another_user(db):
+    """Второй пользователь для переписки"""
+    return User.objects.create_user(username='recipient_user', password='password')
+
+@pytest.fixture
+def direct_message(user, another_user):
+    """Создает сообщение от user к another_user"""
+    msg = Message.objects.create(sender=user, content="Привет, это тестовое сообщение!")
+    MessageRecipient.objects.create(message=msg, user=another_user)
+    return msg
