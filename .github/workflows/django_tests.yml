@@ -58,8 +58,6 @@ jobs:
         KEYCRM_API_KEY: ${{ secrets.KEYCRM_API_KEY }}
         DATABASE_URL: postgresql://warehousedb:warehouse@localhost:5432/warehousedb
         REDIS_URL: redis://localhost:6379/0
-        # Даже если ты считаешь, что ключ не нужен, Django упадет без SECRET_KEY при инициализации тестов
-        SECRET_KEY: "ci-test-key"
         DEBUG: "True"
       run: |
         pytest
