@@ -16,7 +16,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_DB: warehousedb
-          POSTGRES_USER: warehousedb
+          POSTGRES_USER: warehouse
           POSTGRES_PASSWORD: warehouse
         ports:
           - 5432:5432
