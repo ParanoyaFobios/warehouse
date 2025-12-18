@@ -16,8 +16,8 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_DB: warehousedb
-          POSTGRES_USER: warehouse
-          POSTGRES_PASSWORD: 0880
+          POSTGRES_USER: warehousedb
+          POSTGRES_PASSWORD: warehouse
         ports:
           - 5432:5432
         # Ждем, пока Postgres станет доступен для подключений
@@ -45,9 +45,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.12.3'
-
-    - name: List files (Debug)
-      run: ls -R  # Это покажет нам структуру папок в консоли GitHub
 
     - name: Install Dependencies
       run: |
