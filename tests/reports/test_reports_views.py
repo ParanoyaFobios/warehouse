@@ -4,9 +4,13 @@ from django.utils import timezone
 from datetime import timedelta, date
 import json
 from warehouse1.models import Material
-from warehouse2.models import ShipmentItem
+from warehouse2.models import ShipmentItem, Product
 import io
 from openpyxl import load_workbook
+from decimal import Decimal
+from warehouse1.models import MaterialOperation
+from warehouse2.models import ProductOperation
+from django.contrib.contenttypes.models import ContentType
 
 
 # ==================== ReportsHomeView ====================
@@ -478,3 +482,141 @@ class TestReportsIntegration:
         for url in api_urls:
             response = client.get(url)
             assert response.status_code in [200, 400], f"URL {url} вернул статус {response.status_code}"
+
+
+@pytest.mark.django_db
+class TestReportsSecurity:
+    def test_all_reports_redirect_anonymous(self, client):
+        """Проверка, что анонимный пользователь перенаправляется на логин"""
+        report_urls = [
+            reverse('reports_home'),
+            reverse('sales_over_time'),
+            reverse('movement_report'),
+            reverse('low_stock_report'),
+            reverse('stock_ageing_report'),
+        ]
+        for url in report_urls:
+            response = client.get(url)
+            assert response.status_code == 302
+            assert 'login/' in response.url
+
+
+@pytest.mark.django_db
+class TestSalesApiDeepDive:
+    def test_sales_chart_api_filters_status(self, client, user, shipment, product):
+        """API должен игнорировать заказы, которые не в статусе 'shipped'"""
+        client.force_login(user)
+        # Создаем ShipmentItem для заказа в статусе 'pending' (из фикстуры)
+        ShipmentItem.objects.create(shipment=shipment, product=product, quantity=10, price=100)
+        
+        response = client.get(reverse('sales_chart_data_api'))
+        data = json.loads(response.content)
+        # Сумма должна быть 0, так как статус 'pending', а не 'shipped'
+        assert sum(data['data']) == 0
+
+    def test_sales_by_product_math(self, client, user, shipment, product):
+        client.force_login(user)
+        shipment.items.all().delete()
+        
+        # Если цена берется из продукта, меняем её в продукте
+        product.price = Decimal('150.50')
+        product.save()
+
+        shipment.status = 'shipped'
+        shipment.shipped_at = timezone.now()
+        shipment.save()
+
+        ShipmentItem.objects.create(shipment=shipment, product=product, quantity=10, price=product.price)
+        
+        response = client.get(reverse('sales_by_product_api'))
+        data = json.loads(response.content)
+        assert data['data'][0] == 1505.00
+
+
+@pytest.mark.django_db
+class TestLowStockEdgeCases:
+    def test_low_stock_exact_boundary(self, client, user, material):
+        """Материал должен попасть в отчет, если остаток РОВНО равен min_quantity"""
+        client.force_login(user)
+        material.quantity = Decimal('10.00')
+        material.min_quantity = Decimal('10.00')
+        material.save()
+        
+        response = client.get(reverse('low_stock_report'))
+        assert material in response.context['materials']
+
+    def test_low_stock_ignore_zero_threshold(self, client, user, material):
+        """Если min_quantity = 0, материал не считается дефицитным, даже если остаток 0"""
+        client.force_login(user)
+        material.quantity = 0
+        material.min_quantity = 0
+        material.save()
+        
+        response = client.get(reverse('low_stock_report'))
+        assert material not in response.context['materials']
+
+
+@pytest.mark.django_db
+class TestStockAgeingLogic:
+    def test_stock_ageing_combined_sorting(self, client, user, product, material):
+            """Проверка ручной сортировки (Товары + Материалы)"""
+            client.force_login(user)
+            from django.utils import timezone
+            from datetime import timedelta
+            from django.contrib.contenttypes.models import ContentType
+
+            # 1. Полная очистка
+            ProductOperation.objects.all().delete()
+            MaterialOperation.objects.all().delete()
+
+            # 2. Фиксируем даты
+            now = timezone.now().replace(microsecond=0)
+            old_date = now - timedelta(days=10)
+            new_date = now - timedelta(days=1)
+
+            # 3. Создаем операцию для ТОВАРА и ПРИНУДИТЕЛЬНО ставим дату через .update()
+            product_ct = ContentType.objects.get_for_model(Product)
+            op_p = ProductOperation.objects.create(
+                product=product,
+                operation_type=ProductOperation.OperationType.INCOMING,
+                quantity=1,
+                user=user,
+                content_type=product_ct,
+                object_id=product.id
+            )
+            # .update() обходит auto_now_add=True
+            ProductOperation.objects.filter(id=op_p.id).update(timestamp=old_date)
+
+            # 4. Создаем операцию для МАТЕРИАЛА и ПРИНУДИТЕЛЬНО ставим дату
+            op_m = MaterialOperation.objects.create(
+                material=material,
+                operation_type='incoming',
+                quantity=1,
+                user=user
+            )
+            # Для материала поле называется 'date' судя по твоему View
+            MaterialOperation.objects.filter(id=op_m.id).update(date=new_date)
+
+            # 5. Выполняем запрос
+            res_asc = client.get(reverse('stock_ageing_report'), {'sort': 'asc'})
+            items_asc = res_asc.context['items']
+
+            # Теперь в last_movement ДОЛЖНЫ быть наши даты
+            # Проверяем возраст первого элемента (должен быть товар, 10 дней)
+            assert items_asc[0]['name'] == product.name
+            assert items_asc[0]['age_days'] >= 10
+
+@pytest.mark.django_db
+class TestMovementReportRobustness:
+    def test_per_page_validation(self, client, user):
+        """Проверка обработки некорректных параметров пагинации"""
+        client.force_login(user)
+        url = reverse('movement_report')
+        
+        # Кейс 1: Слишком большое число (должно ограничиться 500)
+        response = client.get(url, {'per_page': 9999})
+        assert response.context['per_page'] == 500
+        
+        # Кейс 2: Не число (должно сброситься на 25)
+        response = client.get(url, {'per_page': 'invalid'})
+        assert response.context['per_page'] == 25
