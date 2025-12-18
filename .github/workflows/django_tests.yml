@@ -17,7 +17,7 @@ jobs:
         env:
           POSTGRES_DB: warehousedb
           POSTGRES_USER: warehouse
-          POSTGRES_PASSWORD: warehouse
+          POSTGRES_PASSWORD: "0880"
         ports:
           - 5432:5432
         # Ждем, пока Postgres станет доступен для подключений
@@ -56,7 +56,7 @@ jobs:
         # Передаем настройки подключения к БД сервисам GitHub
         SECRET_KEY: ${{ secrets.SECRET_KEY }}
         KEYCRM_API_KEY: ${{ secrets.KEYCRM_API_KEY }}
-        DATABASE_URL: postgresql://warehouse:warehouse@localhost:5432/warehousedb
+        DATABASE_URL: postgresql://warehouse:0880@localhost:5432/warehousedb
         REDIS_URL: redis://localhost:6379/0
         DEBUG: "True"
       run: |
