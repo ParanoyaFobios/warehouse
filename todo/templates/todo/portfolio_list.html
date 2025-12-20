@@ -35,7 +35,7 @@
                     <th>ID</th>
                     <th>Заказчик</th>
                     <th>Дата сдачи</th>
-                    <th class="text-center">План / Факт</th>
+                    <th class="text-center">План / Факт / В отгрузке</th>
                     <th>Статус</th>
                     <th class="text-end">Действия</th>
                 </tr>
@@ -48,11 +48,28 @@
                     <td>{{ order.due_date|date:"d.m.Y" }}</td>
                     
                     <td class="text-center">
-                        <span class="fw-bold">{{ order.total_requested }}</span>
-                        <span class="text-muted mx-1">/</span>
-                        <span class="{% if order.total_produced >= order.total_requested %}text-success fw-bold{% else %}text-primary{% endif %}">
-                            {{ order.total_produced }}
-                        </span>
+                        <div class="d-flex flex-column align-items-center">
+                            <div class="mb-1">
+                                <span class="fw-bold" title="Заказано (План)">{{ order.total_requested }}</span>
+                                <span class="text-muted mx-1">/</span>
+                                <span class="text-primary fw-bold" title="Произведено (Цех)">{{ order.total_produced }}</span>
+                                <span class="text-muted mx-1">/</span>
+                                <span class="{% if order.is_under_shipped %}text-danger{% else %}text-success{% endif %} fw-bold" title="Отгружено (Накладная)">
+                                    {{ order.total_shipped }}
+                                </span>
+                            </div>
+                    
+                            <div class="progress w-100" style="height: 6px; background-color: #e9ecef; border-radius: 3px;">
+                                <div class="progress-bar bg-primary" role="progressbar" 
+                                     style="width: {% widthratio order.total_produced order.total_requested 100 %}%"></div>
+                            </div>
+                            
+                            {% if order.status == 'shipped' and order.is_under_shipped %}
+                                <small class="text-danger fw-bold" style="font-size: 0.75rem; margin-top: 2px;">
+                                    ⚠ Недогруз: {{ order.shipment_gap }} шт.
+                                </small>
+                            {% endif %}
+                        </div>
                     </td>
 
                     <td>

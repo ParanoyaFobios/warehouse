@@ -34,6 +34,25 @@ class ProductionOrder(models.Model):
     def total_produced(self):
         """Сумма всех произведенных товаров в заказе"""
         return sum(item.quantity_produced for item in self.items.all())
+    
+    @property
+    def total_shipped(self):
+        """Сумма всех фактически отгруженных товаров по связанной накладной"""
+        if not self.linked_shipment:
+            return 0
+        # Используем aggregate для скорости (выполняется на уровне БД)
+        from django.db.models import Sum
+        return self.linked_shipment.items.aggregate(total=Sum('quantity'))['total'] or 0
+    
+    @property
+    def shipment_gap(self):
+        """Разница между планом и фактом отгрузки"""
+        return self.total_requested - self.total_shipped
+
+    @property
+    def is_under_shipped(self):
+        """Флаг недогруза: если отгружено меньше, чем просили в заказе"""
+        return self.total_shipped < self.total_requested
 
     # --- ДОБАВЛЯЕМ ЛОГИКУ ОБНОВЛЕНИЯ СТАТУСА ---
     def update_status(self):

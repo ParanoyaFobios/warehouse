@@ -171,6 +171,8 @@ def test_create_shipment_from_order(client, user, product):
     order.refresh_from_db()
     assert order.linked_shipment == shipment
     assert order.status == ProductionOrder.Status.SHIPPED
+    assert order.total_shipped == 10
+    assert order.is_under_shipped is True
 
 
 
