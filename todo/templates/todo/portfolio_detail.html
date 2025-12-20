@@ -7,7 +7,9 @@
     </div>
     <div class="col-md-4 text-end">
         <a href="{% url 'portfolio_list' %}" class="btn btn-outline-secondary">← Назад</a>
+        {% if order.status != 'shipped' %}
         <a href="{% url 'portfolio_edit' order.pk %}" class="btn btn-primary">Редактировать</a>
+        {% endif %}
     </div>
 </div>
 
@@ -37,6 +39,7 @@
     <h3>📦 Позиции заказа (Товары)</h3>
     
     <div class="btn-group">
+    {% if order.status != 'shipped' %}
         {% if order.status != 'completed' %}
         <a href="{% url 'portfolio_plan_workorders' order.pk %}" class="btn btn-warning">
             🚀 В работу
@@ -51,6 +54,7 @@
             </button>
         </form>
         {% endif %}
+    {% endif %}
     </div>
     
 </div>
@@ -63,6 +67,7 @@
                 <th class="text-center">Запрошено</th>
                 <th class="text-center">В плане</th>
                 <th class="text-center">Готово (Факт)</th>
+                <th class="text-center">На складе</th>
                 <th class="text-center">Статус строки</th>
             </tr>
         </thead>
@@ -84,6 +89,7 @@
                         {{ item.quantity_produced }}
                     {% endif %}
                 </td>
+                <td class="text-center">{{ item.product.total_quantity }}</td>
                 <td class="text-center">
                     {% if item.status == 'completed' %}
                         <span class="badge bg-success">Выполнено</span>

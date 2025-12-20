@@ -167,12 +167,10 @@ def test_create_shipment_from_order(client, user, product):
     assert shipment.items.count() == 1
     shipment_item = shipment.items.first()
     assert shipment_item.product == product
-    # Внимание: логика вьюхи берет min(запрошено, доступно)
-    # Запрошено 20, доступно 100 -> берет 20.
-    # НО мы в item.quantity_produced написали 10.
-    # Вьюха смотрит на item.quantity_requested (20). 
-    # Если на складе есть 20, она создаст на 20.
-    assert shipment_item.quantity == 20
+    assert shipment_item.quantity == 10
+    order.refresh_from_db()
+    assert order.linked_shipment == shipment
+    assert order.status == ProductionOrder.Status.SHIPPED
 
 
 

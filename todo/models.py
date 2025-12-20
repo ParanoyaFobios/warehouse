@@ -15,12 +15,14 @@ class ProductionOrder(models.Model):
         PLANNED = 'planned', 'В плане'
         PARTIAL = 'partial', 'Частично выполнен'
         COMPLETED = 'completed', 'Выполнен'
+        SHIPPED = 'shipped', 'Передано в отгрузку'
 
     customer = models.CharField(max_length=255, blank=True, verbose_name="Заказчик (Поставщик)")
     due_date = models.DateField(verbose_name="Дата потребности (срок)")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="Статус")
     comment = models.TextField(blank=True, null=True, verbose_name="Комментарий к заказу")
+    linked_shipment = models.ForeignKey('warehouse2.Shipment', on_delete=models.SET_NULL, null=True, blank=True, related_name='source_orders', verbose_name="Связанная накладная")
 
     @property
     def total_requested(self):
@@ -35,28 +37,26 @@ class ProductionOrder(models.Model):
 
     # --- ДОБАВЛЯЕМ ЛОГИКУ ОБНОВЛЕНИЯ СТАТУСА ---
     def update_status(self):
-        """Пересчитывает статус всего заказа на основе статусов строк"""
-        items = self.items.all()
-        
-        if not items.exists():
-            self.status = self.Status.PENDING
-        
-        # Если ВСЕ строки завершены -> Заказ выполнен
-        elif all(item.is_completed for item in items):
-            self.status = self.Status.COMPLETED
-            
-        # Если есть хоть какое-то движение (производство > 0) -> Частично выполнен
-        elif any(item.quantity_produced > 0 for item in items):
-            self.status = self.Status.PARTIAL
-            
-        # Если производство 0, но планы уже созданы -> В плане
-        elif any(item.quantity_planned > 0 for item in items):
-            self.status = self.Status.PLANNED
-            
-        else:
-            self.status = self.Status.PENDING
-            
-        self.save()
+            """Пересчитывает статус всего заказа"""
+            # Если к заказу уже привязана накладная — это приоритетный статус
+            if self.linked_shipment:
+                self.status = self.Status.SHIPPED
+                self.save()
+                return
+
+            items = self.items.all()
+            if not items.exists():
+                self.status = self.Status.PENDING
+            elif all(item.is_completed for item in items):
+                self.status = self.Status.COMPLETED
+            elif any(item.quantity_produced > 0 for item in items):
+                self.status = self.Status.PARTIAL
+            elif any(item.quantity_planned > 0 for item in items):
+                self.status = self.Status.PLANNED
+            else:
+                self.status = self.Status.PENDING
+                
+            self.save()
 
     def get_absolute_url(self):
         return reverse('portfolio_detail', kwargs={'pk': self.pk})
@@ -78,6 +78,7 @@ class ProductionOrderItem(models.Model):
         PLANNED = 'planned', 'В плане'
         PARTIAL = 'partial', 'Частично выполнен'
         COMPLETED = 'completed', 'Выполнен'
+        SHIPPED = 'shipped', 'Передано в отгрузку'
 
     production_order = models.ForeignKey(
         ProductionOrder,
@@ -104,8 +105,10 @@ class ProductionOrderItem(models.Model):
         return self.quantity_produced >= self.quantity_requested
 
     def update_status(self):
-            # 1. Обновляем статус самой строки
-            if self.is_completed:
+            # Если у родителя есть накладная, то и строка считается отгруженной
+            if self.production_order.linked_shipment:
+                self.status = self.Status.SHIPPED
+            elif self.is_completed:
                 self.status = self.Status.COMPLETED
             elif self.quantity_produced > 0:
                 self.status = self.Status.PARTIAL
@@ -114,8 +117,8 @@ class ProductionOrderItem(models.Model):
             else:
                 self.status = self.Status.PENDING
             self.save()
-            # 2.
-            # Обновляем статус РОДИТЕЛЬСКОГО заказа
+            
+            # Обновляем статус родителя (там сработает проверка на linked_shipment)
             self.production_order.update_status()
 
     def __str__(self):

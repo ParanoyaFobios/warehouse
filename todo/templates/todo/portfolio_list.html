@@ -8,6 +8,25 @@
     </a>
 </div>
 
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">Дата сдачи</label>
+                <input type="date" name="due_date" class="form-control" value="{{ filter_due_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">ID заказа</label>
+                <input type="number" name="order_id" class="form-control" placeholder="Напр: 15" value="{{ filter_order_id }}">
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary">Найти</button>
+                <a href="{% url 'portfolio_list' %}" class="btn btn-outline-secondary">Сбросить</a>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-body">
         <table class="table table-hover align-middle">
@@ -37,6 +56,15 @@
                     </td>
 
                     <td>
+                    {% if order.status == 'shipped' %}
+                        <span class="badge bg-info">Накладная создана</span>
+                        {% if order.linked_shipment %}
+                            <br>
+                            <a href="{% url 'shipment_items' order.linked_shipment.pk %}" class="small">
+                                Документ №{{ order.linked_shipment.id }}
+                            </a>
+                        {% endif %}
+                    {% else %}
                         {% if order.status == 'pending' %}
                             <span class="badge bg-secondary">Ожидает</span>
                         {% elif order.status == 'planned' %}
@@ -46,10 +74,13 @@
                         {% elif order.status == 'completed' %}
                             <span class="badge bg-success">Готов</span>
                         {% endif %}
+                    {% endif %}
                     </td>
                     <td class="text-end">
                         <a href="{% url 'portfolio_detail' order.pk %}" class="btn btn-sm btn-primary table-action-btn">Детали</a>
+                        {% if order.status != 'shipped' %}
                         <a href="{% url 'portfolio_edit' order.pk %}" class="btn btn-sm btn-outline-secondary table-action-btn">Ред.</a>
+                        {% endif %}
                         {% if order.status == 'planned' or order.status == 'pending' %}
                         <a href="{% url 'portfolio_delete' order.pk %}" class="btn btn-sm btn-outline-danger">Удал.</a>
                         {% endif %}
@@ -66,4 +97,41 @@
         </table>
     </div>
 </div>
+
+{% if is_paginated %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">
+                            &laquo; Назад
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">
+                                {{ num }}
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">
+                            Вперед &raquo;
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
 {% endblock %}

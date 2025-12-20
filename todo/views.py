@@ -19,11 +19,30 @@ class ProductionOrderListView(LoginRequiredMixin, ListView):
     model = ProductionOrder
     template_name = 'todo/portfolio_list.html'
     context_object_name = 'orders'
-    
+    paginate_by = 20  # Установим для примера 10 заказов на страницу
+
     def get_queryset(self):
-        # Добавляем prefetch_related('items'), чтобы Django загрузил строки заранее.
-        # Это нужно для свойств total_requested и total_produced.
-        return ProductionOrder.objects.prefetch_related('items').order_by('due_date')
+        # Базовый кверисет с предзагрузкой строк
+        queryset = ProductionOrder.objects.prefetch_related('items').order_by('due_date')
+        
+        # Получаем параметры фильтрации
+        due_date = self.request.GET.get('due_date')
+        order_id = self.request.GET.get('order_id')
+
+        if due_date:
+            queryset = queryset.filter(due_date=due_date)
+        
+        if order_id and order_id.isdigit():
+            queryset = queryset.filter(id=order_id)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Передаем текущие фильтры обратно в контекст, чтобы форма их "помнила"
+        context['filter_due_date'] = self.request.GET.get('due_date', '')
+        context['filter_order_id'] = self.request.GET.get('order_id', '')
+        return context
 
 class ProductionOrderDetailView(LoginRequiredMixin, DetailView):
     model = ProductionOrder
@@ -410,46 +429,35 @@ class CreateShipmentFromOrderView(LoginRequiredMixin, View):
                     status='pending' # Статус "В процессе сборки"
                 )
 
-                # 3. Создаем строки Отгрузки (Items)
+                production_order.linked_shipment = shipment
+                # Статус обновится автоматически внутри метода update_status
+                production_order.update_status() 
+                # --------------------------
+
+                # 3. Создаем строки Отгрузки
                 items_created_count = 0
-                
                 for item in production_order.items.all():
-                    # Отгружаем только то, что реально произведено (или запланировано, как решите)
-                    # Логичнее отгружать то, что запрошено (quantity_requested), 
-                    # но модель ShipmentItem при создании попытается зарезервировать товар.
-                    # Если на складе 20 (произведено), а просим 30 -> будет ошибка валидации.
-                    
-                    qty_to_ship = item.quantity_requested
-                    
-                    # Проверка: есть ли столько на свободном остатке?
-                    # item.product.available_quantity уже включает в себя то, что мы произвели.
-                    
+                    # Берем то, что реально произведено (факт)
+                    qty_to_ship = item.quantity_produced 
+                   
                     if qty_to_ship > 0:
-                        # Если на складе меньше, чем нужно, берем сколько есть (или кидаем ошибку)
-                        # Вариант: берем min(запрошено, доступно)
-                        qty_real = min(qty_to_ship, item.product.available_quantity)
+                        # Важно: ShipmentItem при сохранении может уменьшить доступное кол-во на складе
+                        ShipmentItem.objects.create(
+                            shipment=shipment,
+                            product=item.product,
+                            quantity=qty_to_ship,
+                        )
+                        items_created_count += 1
                         
-                        if qty_real > 0:
-                            ShipmentItem.objects.create(
-                                shipment=shipment,
-                                product=item.product,
-                                quantity=qty_real,
-                                # Цена подтянется автоматически в save() модели ShipmentItem
-                            )
-                            items_created_count += 1
-                        else:
-                            # Можно добавить warning, что товара нет на остатке
-                            pass
+                        # Обновляем статус строки
+                        item.status = ProductionOrderItem.Status.SHIPPED
+                        item.save()
 
                 if items_created_count == 0:
-                    # Если ни одной строки не создалось (нет остатков), откатываем транзакцию
-                    raise ValueError("Не удалось добавить товары в отгрузку (нет свободных остатков на складе).")
+                    raise ValueError("Нет товаров с зарегистрированным выпуском для отгрузки.")
 
-                messages.success(request, f"Отгрузка №{shipment.id} успешно создана! ({items_created_count} позиций)")
-                
-                # Редирект на страницу редактирования новой отгрузки (в приложении warehouse2)
-                # Предполагаем, что у вас есть url 'shipment_detail' или 'shipment_edit'
-                return redirect('shipment_detail', pk=shipment.pk)
+                messages.success(request, f"Накладная №{shipment.id} создана и связана с заказом!")
+                return redirect('shipment_items', pk=shipment.pk)
 
         except ValueError as e:
             messages.error(request, str(e))
