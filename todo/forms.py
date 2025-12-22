@@ -7,10 +7,20 @@ class ProductionOrderForm(forms.ModelForm):
         model = ProductionOrder
         fields = ['customer', 'due_date', 'comment']
         widgets = {
-            'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'due_date': forms.DateInput(
+                format='%Y-%m-%d', # Важно: именно такой формат понимает HTML5
+                attrs={
+                    'type': 'date', # Превращает обычное поле в календарь
+                    'class': 'form-control'}),
             'customer': forms.TextInput(attrs={'class': 'form-control'}),
             'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Это гарантирует, что при редактировании дата будет в нужном формате
+        if self.instance and self.instance.due_date:
+            self.initial['due_date'] = self.instance.due_date.strftime('%Y-%m-%d')
 
 class WorkOrderAdHocForm(forms.ModelForm):
     class Meta:

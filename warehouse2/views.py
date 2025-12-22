@@ -234,7 +234,7 @@ class ShipmentListView(ListView):
     model = Shipment
     template_name = 'warehouse2/shipment_list.html'
     context_object_name = 'shipments'
-    paginate_by = 2
+    paginate_by = 20
     ordering = ['-created_at']
     
     def get_queryset(self):

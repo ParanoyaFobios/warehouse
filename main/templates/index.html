@@ -39,7 +39,7 @@
                         <h5 class="card-title">Производство</h5>
                         <p class="card-text display-6">{{ pending_workorders_count }}</p>
                         <p class="text-muted">не выполненных заказов</p>
-                        <a href="{% url 'workorder_list' %}" class="btn btn-warning">Управление</a>
+                        <a href="{% url 'portfolio_list' %}" class="btn btn-warning">Управление</a>
                         <a href="{% url 'portfolio_create' %}" class="btn btn-outline-warning mt-2">Создать</a>
                     </div>
                 </div>
@@ -153,20 +153,37 @@
                                         <th>Продукт</th>
                                         <th>Статус</th>
                                         <th>Количество</th>
-                                        <th>Действия</th>
+                                        
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for workorder in pending_workorders %}
                                     <tr>
-                                        <td><strong>#{{ workorder.id }}</strong></td>
+                                        <td>
+                                            {% if workorder.order_item %}
+                                                <span class="badge bg-primary">Заказ №{{ workorder.order_item.production_order.id }}</span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark">Линия #{{ workorder.id }}</span>
+                                            {% endif %}
+                                        </td>
                                         <td>{{ workorder.product.name|truncatechars:25 }}</td>
                                         <td>
                                             <span class="badge bg-{{ workorder.status_badge_class }}">
                                                 {{ workorder.status_display_short }}
                                             </span>
                                         </td>
-                                        <td>{{ workorder.remaining_to_produce }} шт.</td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <span class="small fw-bold">
+                                                    {{ workorder.quantity_planned }} / {{ workorder.quantity_produced }} шт.
+                                                </span>
+                                                <div class="progress" style="height: 4px; width: 80px;">
+                                                    <div class="progress-bar bg-success" role="progressbar" 
+                                                         style="width: {% widthratio workorder.quantity_produced workorder.quantity_planned 100 %}%">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>

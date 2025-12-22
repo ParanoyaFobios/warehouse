@@ -174,6 +174,22 @@ class WorkOrder(models.Model):
     @property
     def remaining_to_produce(self):
         return self.quantity_planned - self.quantity_produced
+    
+    @property
+    def status_display_short(self):
+        """Возвращает человекочитаемый статус"""
+        return self.get_status_display()
+
+    @property
+    def status_badge_class(self):
+        """Возвращает цвет для Bootstrap badge"""
+        choices = {
+            'new': 'info',
+            'in_progress': 'primary',
+            'completed': 'success',
+            'canceled': 'danger',
+        }
+        return choices.get(self.status, 'secondary')
 
     @property
     def is_completed(self):

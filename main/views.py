@@ -105,8 +105,11 @@ class IndexView(LoginRequiredMixin, View):
         
         # Не выполненные производственные заказы
         pending_workorders = WorkOrder.objects.filter(
-            status__in=['new', 'in_progress']
-        ).select_related('product').order_by('-created_at')[:10]
+                    status__in=['new', 'in_progress']
+                ).select_related(
+                    'product', 
+                    'order_item__production_order'
+                ).order_by('-created_at')[:10]
         
         # F('min_quantity') позволяет сравнить значение поля quantity со значением поля min_quantity
         low_stock_materials_count = Material.objects.filter(
