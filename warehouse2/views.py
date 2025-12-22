@@ -24,31 +24,31 @@ class ProductListView(ListView):
     paginate_by = 20 #поменять
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        
-        # Фильтр по категории (остается без изменений)
-        category = self.request.GET.get('category')
-        if category:
-            queryset = queryset.filter(category_id=category)
+            queryset = super().get_queryset().order_by('name') # Хорошая практика: всегда сортировать при пагинации
             
-        # Поиск по названию, артикулу или штрихкоду
-        search = self.request.GET.get('search')
-        if search:
-            # Добавляем поиск по штрихкодам связанных упаковок
-            product_query = (
-                models.Q(name__icontains=search) | 
-                models.Q(sku__icontains=search) |
-                models.Q(barcode__exact=search) |
-                models.Q(packages__barcode__exact=search)
-            )
-            queryset = queryset.filter(product_query).distinct()
-        
-        return queryset
+            category = self.request.GET.get('category')
+            if category:
+                queryset = queryset.filter(category_id=category)
+                
+            search = self.request.GET.get('search')
+            if search:
+                product_query = (
+                    models.Q(name__icontains=search) | 
+                    models.Q(sku__icontains=search) |
+                    models.Q(barcode__exact=search) |
+                    models.Q(packages__barcode__exact=search)
+                )
+                queryset = queryset.filter(product_query).distinct()
+            
+            return queryset
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['categories'] = ProductCategory.objects.all()
-        return context
+            context = super().get_context_data(**kwargs)
+            context['categories'] = ProductCategory.objects.all()
+            # Сохраняем значения фильтров для использования в ссылках пагинации
+            context['current_category'] = self.request.GET.get('category', '')
+            context['current_search'] = self.request.GET.get('search', '')
+            return context
 
 class ProductCreateView(CreateView):
     model = Product
@@ -234,12 +234,31 @@ class ShipmentListView(ListView):
     model = Shipment
     template_name = 'warehouse2/shipment_list.html'
     context_object_name = 'shipments'
-    paginate_by = 20 #поменять
+    paginate_by = 2
     ordering = ['-created_at']
     
     def get_queryset(self):
         # Аннотируем queryset для оптимизации
-        return Shipment.objects.prefetch_related('items').all()
+        queryset = Shipment.objects.prefetch_related('items').all().order_by('-created_at')
+                # Получаем параметры фильтрации
+        created_at = self.request.GET.get('created_at')
+        order_id = self.request.GET.get('order_id')
+
+        if created_at:
+            # Ищем записи за конкретный день, игнорируя время
+            queryset = queryset.filter(created_at__date=created_at)
+        
+        if order_id and order_id.isdigit():
+            queryset = queryset.filter(id=order_id)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Передаем текущие фильтры обратно в контекст, чтобы форма их "помнила"
+        context['filter_created_at'] = self.request.GET.get('created_at', '')
+        context['filter_order_id'] = self.request.GET.get('order_id', '')
+        return context
 
 class ShipmentDetailView(DetailView):
     model = Shipment

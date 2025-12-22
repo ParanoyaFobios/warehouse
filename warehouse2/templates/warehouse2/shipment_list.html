@@ -6,6 +6,26 @@
     <a href="{% url 'shipment_create' %}" class="btn btn-primary">Создать отгрузку</a>
 </div>
 
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">Дата отгрузки</label>
+                <input type="date" name="created_at" class="form-control" value="{{ filter_created_at }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">№ отгрузки</label>
+                <input type="number" name="order_id" class="form-control" placeholder="Напр: 15" value="{{ filter_order_id }}">
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary">Найти</button>
+                <a href="{% url 'shipment_list' %}" class="btn btn-outline-secondary">Сбросить</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+
 <table class="table table-striped">
     <thead>
         <tr>
@@ -71,24 +91,34 @@
     </tbody>
 </table>
 {% if is_paginated %}
-<nav aria-label="Page navigation">
-    <ul class="pagination">
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
         {% if page_obj.has_previous %}
-        <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Предыдущая</a>
-        </li>
+            <li class="page-item">
+                <a class="page-link" href="?page=1&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">Первая</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">Назад</a>
+            </li>
         {% endif %}
-        
+
         {% for num in page_obj.paginator.page_range %}
-        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
-            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-        </li>
+            {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">{{ num }}</a>
+                </li>
+            {% endif %}
         {% endfor %}
-        
+
         {% if page_obj.has_next %}
-        <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Следующая</a>
-        </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">Далее</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">Последняя</a>
+            </li>
         {% endif %}
     </ul>
 </nav>

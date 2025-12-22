@@ -21,24 +21,31 @@ class MaterialListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().order_by('name')
+        
         # Фильтр по категории
         category = self.request.GET.get('category')
         if category:
             queryset = queryset.filter(category_id=category)
+            
         # Поиск по названию или артикулу
         search = self.request.GET.get('search')
         if search:
+            # Прямо применяем фильтр через Q-объекты к текущему queryset
             queryset = queryset.filter(
                 models.Q(name__icontains=search) | 
                 models.Q(article__icontains=search) |
-                models.Q(barcode__icontains=search))
+                models.Q(barcode__icontains=search)
+            ).distinct()
         
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['categories'] = MaterialCategory.objects.all()
+        # Сохраняем значения фильтров для использования в ссылках пагинации
+        context['current_category'] = self.request.GET.get('category', '')
+        context['current_search'] = self.request.GET.get('search', '')
         return context
 
 class MaterialCreateView(LoginRequiredMixin, CreateView):
