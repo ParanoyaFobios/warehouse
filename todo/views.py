@@ -4,13 +4,16 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import F, Q, Sum
 from django import forms
 from .models import ProductionOrder, ProductionOrderItem, WorkOrder
 from .forms import ProductionOrderForm, ReportProductionForm
-import json
 from django.views import View
 from warehouse2.models import Shipment, ShipmentItem, Sender, Product
+import json
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 # ==============================================================================
 # Вью для "Портфеля заказов" (Header/Detail)
 # ==============================================================================
@@ -105,7 +108,14 @@ class ProductionOrderUpdateView(LoginRequiredMixin, UpdateView):
     model = ProductionOrder
     form_class = ProductionOrderForm
     template_name = 'todo/portfolio_order_form.html'
-    success_url = reverse_lazy('portfolio_list')
+
+    def get_success_url(self):
+        """
+        Возвращает URL для перехода после редактирования.
+        self.object — это текущий ProductionOrder.
+        """
+        # Если вы хотите вернуться в ДЕТАЛИ заказа (как вы просили):
+        return reverse('portfolio_detail', kwargs={'pk': self.object.pk})
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -192,8 +202,8 @@ class ProductionOrderDeleteView(LoginRequiredMixin, DeleteView):
     template_name = 'todo/confirm_delete.html'
     success_url = reverse_lazy('portfolio_list')
 
-# ==============================================================================
-# НОВАЯ ВЬЮ: "Планировать всё"
+# =============================================================================
+# Планировать всё
 # ==============================================================================
 
 class PlanWorkOrdersView(LoginRequiredMixin, FormView):
@@ -256,10 +266,10 @@ class PlanWorkOrdersView(LoginRequiredMixin, FormView):
             messages.info(self.request, 'Все позиции заказа уже были запланированы ранее.')
             
         # Возвращаем пользователя на детальную страницу заказа
-        return redirect('portfolio_detail', pk=order.pk)
+        return redirect('portfolio_list')
 
 # ==============================================================================
-# Вью для "Доски объявлений" (WorkOrder) - БЕЗ ИЗМЕНЕНИЙ
+# Вью для "Доски объявлений" (WorkOrder)
 # ==============================================================================
 
 class WorkOrderListView(LoginRequiredMixin, ListView):
@@ -278,7 +288,6 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
         
         # 2. Базовый QuerySet
         queryset = WorkOrder.objects.select_related(
-            'order_item', # Загружает ProductionOrderItem
             'order_item__production_order' # Загружает ProductionOrder через ProductionOrderItem
         )
 
@@ -336,64 +345,64 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
         return context
 
 
-class ReportProductionView(LoginRequiredMixin, FormView):
+class WorkorderOrderDetailView(LoginRequiredMixin, DetailView):
     """
-    Форма для отчета о фактическом производстве по WorkOrder.
+    Детальная страница Производственного Заказа.
+    Показывает список всех связанных WorkOrder (задач на производство)
+    с возможностью быстрого отчета.
     """
-    template_name = 'todo/report_production_form.html'
-    form_class = ReportProductionForm
-    
-    def setup(self, request, *args, **kwargs):
-        super().setup(request, *args, **kwargs)
-        # Получаем WorkOrder, по которому отчитываемся
-        self.work_order = get_object_or_404(WorkOrder, pk=self.kwargs['pk'])
-
-    def get_form_kwargs(self):
-        """Передаем WorkOrder в форму, чтобы установить max_value и initial"""
-        kwargs = super().get_form_kwargs()
-        kwargs['work_order'] = self.work_order
-        return kwargs
+    model = ProductionOrder
+    template_name = 'todo/production_order_detail.html'
+    context_object_name = 'order'
 
     def get_context_data(self, **kwargs):
-        """Передаем WorkOrder в шаблон для отображения деталей"""
         context = super().get_context_data(**kwargs)
-        context['workorder'] = self.work_order
+        # Получаем все WorkOrders, связанные с этим заказом через items
+        # Используем select_related для оптимизации
+        context['workorders'] = WorkOrder.objects.filter(
+            order_item__production_order=self.object
+        ).select_related('product').order_by('pk')
         return context
 
-    def form_valid(self, form):
-            quantity_done = form.cleaned_data['quantity_done']
-            work_order = self.work_order
+@require_POST
+def workorder_report_ajax(request):
+    """
+    AJAX-обработчик для отчета о производстве.
+    Принимает JSON: {'workorder_id': 123, 'quantity': 5}
+    """
+    try:
+        data = json.loads(request.body)
+        workorder_id = data.get('workorder_id')
+        quantity_input = int(data.get('quantity', 0))
+        
+        work_order = WorkOrder.objects.get(pk=workorder_id)
 
-            if quantity_done <= 0:
-                messages.error(self.request, "Количество должно быть больше нуля.")
-                return self.form_invalid(form)
+        # Валидация
+        if quantity_input <= 0:
+            return JsonResponse({'success': False, 'message': 'Количество должно быть > 0'})
 
-            # if quantity_done > work_order.remaining_to_produce:
-            #     messages.error(self.request, f"Нельзя выпустить больше, чем осталось в плане ({work_order.remaining_to_produce} шт.).")
-            #     return self.form_invalid(form)
+        # Вызываем твой метод логики (он должен быть в модели)
+        success, message = work_order.report_production(quantity_input, request.user)
+        
+        if success:
+            # Возвращаем обновленные данные для перерисовки интерфейса
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'new_produced': work_order.quantity_produced,
+                'total_qty': work_order.quantity_planned,
+                'remaining': work_order.remaining_to_produce,
+                'status_label': work_order.get_status_display(),
+                'status_class': work_order.status_badge_class, # Свойство из модели
+                'is_completed': work_order.status == 'completed'
+            })
+        else:
+            return JsonResponse({'success': False, 'message': message})
 
-            # Вызываем метод модели
-            success, message = work_order.report_production(quantity_done, self.request.user)
-
-            if success:
-                messages.success(self.request, message)
-            else:
-                messages.error(self.request, message)
-
-            # --- ЛОГИКА ВОЗВРАТА С ФИЛЬТРАМИ ---
-            
-            # 1. Получаем базовый URL списка
-            redirect_url = reverse('workorder_list')
-            
-            # 2. Получаем строку параметров из текущего URL (они там есть, т.к. action формы был пустой)
-            # urlencode() соберет строку типа "due_date=2025-11-28&production_order_id=5"
-            query_params = self.request.GET.urlencode()
-            
-            # 3. Если параметры есть, приклеиваем их к URL редиректа
-            if query_params:
-                redirect_url = f"{redirect_url}?{query_params}"
-
-            return redirect(redirect_url)
+    except WorkOrder.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Задание не найдено'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
     
 class CreateShipmentFromOrderView(LoginRequiredMixin, View):
     """

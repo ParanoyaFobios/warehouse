@@ -10,41 +10,71 @@ from warehouse2.models import Shipment, Sender, Product
 
 @pytest.mark.django_db
 def test_report_production_success(client, user, product):
-    """Тест успешного отчета о производстве."""
+    """
+    Тест успешного отчета о производстве через AJAX.
+    """
     client.force_login(user)
     
-    # 1. Создаем задание на смену
+    # 1. Создаем задание
     work_order = WorkOrder.objects.create(
         product=product,
         quantity_planned=10,
         status=WorkOrder.Status.NEW
     )
     
-    url = reverse('workorder_report', kwargs={'pk': work_order.pk})
+    url = reverse('api_workorder_report') 
     
-    # 2. Отправляем отчет: сделали 5 штук
-    response = client.post(url, {'quantity_done': 5})
+    # 2. Готовим JSON данные (как это делает JS)
+    data = {
+        'workorder_id': work_order.pk,
+        'quantity': 5  # Во вьюхе ты ищешь 'quantity', а не 'quantity_done'
+    }
     
-    # 3. Проверки
-    assert response.status_code == 302 # Редирект
+    # 3. Отправляем запрос как JSON
+    response = client.post(
+        url, 
+        data=json.dumps(data), 
+        content_type='application/json'
+    )
     
+    # 4. Проверки
+    assert response.status_code == 200 # Теперь это не редирект, а 200 OK
+    response_data = response.json()
+    
+    assert response_data['success'] is True
+    assert response_data['new_produced'] == 5
+    
+    # Проверка БД
     work_order.refresh_from_db()
     assert work_order.quantity_produced == 5
     assert work_order.status == WorkOrder.Status.IN_PROGRESS
     
     # Проверка склада
     product.refresh_from_db()
-    # Было 100 (из фикстуры) + 5 произведено = 105
-    assert product.total_quantity == 105
+    assert product.total_quantity == 100 + 5 # Было 100 в фикстуре + 5
 
 @pytest.mark.django_db
 def test_report_production_complete(client, user, product):
-    """Тест полного выполнения задания."""
+    """Тест полного выполнения задания через AJAX."""
     client.force_login(user)
     work_order = WorkOrder.objects.create(product=product, quantity_planned=10)
     
-    url = reverse('workorder_report', kwargs={'pk': work_order.pk})
-    client.post(url, {'quantity_done': 10})
+    url = reverse('api_workorder_report')
+    
+    # Сдаем сразу все 10 штук
+    data = {
+        'workorder_id': work_order.pk,
+        'quantity': 10
+    }
+    
+    response = client.post(
+        url, 
+        data=json.dumps(data), 
+        content_type='application/json'
+    )
+    
+    assert response.status_code == 200
+    assert response.json()['is_completed'] is True
     
     work_order.refresh_from_db()
     assert work_order.status == WorkOrder.Status.COMPLETED
@@ -256,9 +286,11 @@ class TestProductionOrderUpdateView:
         
         response = client.post(url, post_data, follow=True)
         
-        # Проверяем редирект
         assert response.status_code == 200
-        assert response.redirect_chain[-1][0] == reverse('portfolio_list')
+        
+        # ИСПРАВЛЕНИЕ: Ждем редирект на portfolio_detail, а не portfolio_list
+        expected_url = reverse('portfolio_detail', kwargs={'pk': production_order.pk})
+        assert response.redirect_chain[-1][0] == expected_url
         
         # Проверяем сообщение об успехе
         messages = list(get_messages(response.wsgi_request))
@@ -365,7 +397,7 @@ class TestPlanWorkOrdersView:
         response = client.post(url, follow=True)
         
         assert response.status_code == 200
-        assert response.redirect_chain[-1][0] == reverse('portfolio_detail', kwargs={'pk': production_order.pk})
+        assert response.redirect_chain[-1][0] == reverse('portfolio_list')
         
         messages = list(get_messages(response.wsgi_request))
         assert any('успешно создано' in str(message).lower() for message in messages)

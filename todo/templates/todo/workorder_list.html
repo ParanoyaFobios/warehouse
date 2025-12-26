@@ -33,20 +33,24 @@
 <div class="row">
     {% for group in grouped_orders %}
         
-        {% if group.grouper %}
+        
             <div class="col-12 mb-4">
                 <div class="card shadow-sm border-primary">
                     <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap">
                         <div>
                             <h5 class="mb-0 text-primary">
+                                <a href="{% url 'workorder_detail' group.grouper.id %}" class="text-decoration-none text-primary">
                                 Заказ №{{ group.grouper.id }} 
+                                </a>
                                 <small class="text-muted ms-2">({{ group.grouper.customer }})</small>
                             </h5>
-                            <small class="text-muted">
+                            <p class="text-muted">
                                 Срок: <strong>{{ group.grouper.due_date|date:"d.m.Y" }}</strong> | 
-                                Статус: {{ group.grouper.get_status_display }}
-                            </small>
+                                Статус:<h2>{{ group.grouper.get_status_display }}</h2>
+                            </p>
+                            <h4 class="text-muted ms-2">{{ group.grouper.comment }}</h4>
                         </div>
+                        
                         
                         <div class="text-end">
                             <span class="badge bg-white text-dark border">
@@ -57,96 +61,16 @@
                             </span>
                         </div>
                     </div>
-
-                    <ul class="list-group list-group-flush">
-                        {% for wo in group.list %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap {% if wo.status == 'completed' %}bg-light{% endif %}">
-                                
-                                <div class="ms-2 me-auto py-2">
-                                    <div class="fw-bold">
-                                        <a href="{% url 'product_detail' wo.product.pk %}" class="text-decoration-none text-dark">
-                                            {{ wo.product.name }}
-                                        </a>
-                                        {% if wo.status == 'completed' %}
-                                            <span class="badge bg-success ms-2">Готов</span>
-                                        {% elif wo.status == 'in_progress' %}
-                                            <span class="badge bg-warning text-dark ms-2">В работе</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary ms-2">Новый</span>
-                                        {% endif %}
-                                    </div>
-                                    <small class="text-muted">{{ wo.product.sku }}</small>
-                                    {% if wo.comment %}<br><small class="text-info">Com: {{ wo.comment }}</small>{% endif %}
-                                </div>
-
-                                <div class="text-end d-flex align-items-center gap-3">
-                                    
-                                    <div style="min-width: 120px; text-align: right;">
-                                        <span class="d-block fw-bold {% if wo.is_completed %}text-success{% endif %}">
-                                            {{ wo.quantity_produced }} / {{ wo.quantity_planned }}
-                                        </span>
-                                        <small class="text-muted">Осталось: {{ wo.remaining_to_produce }}</small>
-                                    </div>
-
-                                    {% if wo.status != 'completed' %}
-                                        <a href="{% url 'workorder_report' wo.pk %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
-                                            Отчитаться
-                                        </a>
-                                    {% else %}
-                                        <button class="btn btn-outline-secondary btn-sm" disabled>✔</button>
-                                    {% endif %}
-                                </div>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-
-        {% else %}
-            {% if group.list %}
-            <div class="col-12 mb-3">
-                <h4 class="text-secondary border-bottom pb-2">⚡ Срочные задачи (Ad-Hoc)</h4>
-            </div>
-            
-            {% for wo in group.list %}
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100 shadow-sm border-start border-4 border-info">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="badge bg-info text-dark">Ad-Hoc</span>
-                                <small class="text-muted">#{{ wo.id }}</small>
-                            </div>
-                            <h5 class="card-title">{{ wo.product.name }}</h5>
-                            <p class="card-text text-muted small">{{ wo.comment|default:"Без комментария" }}</p>
-                            
-                            <div class="progress mb-2" style="height: 15px;">
-                                {% widthratio wo.quantity_produced wo.quantity_planned 100 as percent %}
-                                <div class="progress-bar bg-info" style="width: {{ percent }}%;">
-                                    {{ wo.quantity_produced }}/{{ wo.quantity_planned }}
-                                </div>
-                            </div>
-                            
-                            <div class="d-flex justify-content-between align-items-center mt-3">
-                                <small>Остаток: <b>{{ wo.remaining_to_produce }}</b></small>
-                                {% if wo.status != 'completed' %}
-                                    <a href="{% url 'workorder_report' wo.pk %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">Отчитаться</a>
-                                {% else %}
-                                    <span class="text-success fw-bold">Готово</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="card-footer bg-transparent border-top-0 text-end">
-                             <a href="{% url 'workorder_edit' wo.pk %}" class="text-secondary small">Ред.</a>
-                             <a href="{% url 'workorder_delete' wo.pk %}" class="text-danger small ms-2">Удал.</a>
+                    <div class="progress" style="height: 6px;">
+                        <div id="progress-{{ group.grouper.id }}" class="progress-bar bg-success" role="progressbar" 
+                             style="width: {% widthratio group.grouper.total_produced group.grouper.total_requested 100 %}%">
                         </div>
                     </div>
+                    <small class="text-muted" id="remaining-text-{{ group.grouper.id }}">
+                    
                 </div>
-            {% endfor %}
-            <div class="col-12"><hr class="my-4"></div>
-            {% endif %}
-
-        {% endif %}
-        
+            </div>
+            
     {% endfor %}
     
     {% if not workorders %}

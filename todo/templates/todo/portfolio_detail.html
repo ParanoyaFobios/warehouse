@@ -39,12 +39,12 @@
     <h3>📦 Позиции заказа (Товары)</h3>
     
     <div class="btn-group">
-    {% if order.status != 'shipped' %}
-        {% if order.status != 'completed' %}
+    
+        
         <a href="{% url 'portfolio_plan_workorders' order.pk %}" class="btn btn-warning">
             🚀 В работу
         </a>
-        {% endif %}
+        
 
         {% if order.total_produced > 0 %}
         <form action="{% url 'portfolio_create_shipment' order.pk %}" method="post" style="display:inline;">
@@ -54,7 +54,7 @@
             </button>
         </form>
         {% endif %}
-    {% endif %}
+
     </div>
     
 </div>
@@ -68,7 +68,7 @@
                 <th class="text-center">В плане</th>
                 <th class="text-center">Готово (Факт)</th>
                 <th class="text-center">На складе</th>
-                <th class="text-center">Статус строки</th>
+                <th class="text-center">Статус товара</th>
             </tr>
         </thead>
         <tbody>

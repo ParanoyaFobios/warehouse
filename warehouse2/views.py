@@ -66,11 +66,6 @@ class ProductUpdateView(UpdateView):
     template_name = 'warehouse2/product_form.html'
     success_url = reverse_lazy('product_list')
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['user'] = self.request.user  # Передаем пользователя в форму
-        return kwargs
-
     def form_valid(self, form):
         messages.success(self.request, 'Продукт успешно обновлен')
         return super().form_valid(form)

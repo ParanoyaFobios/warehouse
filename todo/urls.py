@@ -5,7 +5,9 @@ from todo import views
 urlpatterns = [
     # --- "ДОСКА ОБЪЯВЛЕНИЙ" (Задания на смену) ---
     path('workorders/', views.WorkOrderListView.as_view(), name='workorder_list'),
-    path('workorders/<int:pk>/report/', views.ReportProductionView.as_view(), name='workorder_report'),
+    path('workorder/<int:pk>/detail/', views.WorkorderOrderDetailView.as_view(), name='workorder_detail'),
+    # AJAX эндпоинт (скрытый путь для JS)
+    path('api/workorder/report/', views.workorder_report_ajax, name='api_workorder_report'),
 
     # --- "ПЛАНИРОВАНИЕ ЗАКАЗОВ" (Backlog) ---
     path('portfolio/', views.ProductionOrderListView.as_view(), name='portfolio_list'),
