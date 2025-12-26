@@ -6,6 +6,8 @@ pytest --cov=todo --cov-report html
 --cov-report html: Создает красивый HTML-отчет (файл htmlcov/index.html), который покажет тебе каждая строка в твоем коде,
 которая не была затронута тестами (она будет выделена красным).
 
+pytest --cov --cov-report html Готовая команда при наличии настроенного файла .coveragerc в корне проекта
+
 pytest tests/warehouse1/ -v
 # Запуск всех тестов для warehouse1
 

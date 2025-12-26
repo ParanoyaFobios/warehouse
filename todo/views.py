@@ -15,18 +15,18 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 # ==============================================================================
-# Вью для "Портфеля заказов" (Header/Detail)
+# Вью для "Портфеля заказов"
 # ==============================================================================
 
 class ProductionOrderListView(LoginRequiredMixin, ListView):
     model = ProductionOrder
     template_name = 'todo/portfolio_list.html'
     context_object_name = 'orders'
-    paginate_by = 20  # Установим для примера 10 заказов на страницу
+    paginate_by = 20
 
     def get_queryset(self):
         # Базовый кверисет с предзагрузкой строк
-        queryset = ProductionOrder.objects.prefetch_related('items').order_by('due_date')
+        queryset = ProductionOrder.objects.prefetch_related('items').order_by('-due_date')
         
         # Получаем параметры фильтрации
         due_date = self.request.GET.get('due_date')
@@ -233,9 +233,7 @@ class PlanWorkOrdersView(LoginRequiredMixin, FormView):
         lines_to_plan = order.items.filter(quantity_requested__gt=F('quantity_planned'))
         
         created_count = 0
-        
-        # transaction.atomic гарантирует: либо создадутся ВСЕ задания, либо (при ошибке) НИ ОДНОГО.
-        # Это защищает от дублей и рассинхрона данных.
+
         with transaction.atomic():
             for line in lines_to_plan:
                 quantity_to_plan = line.remaining_to_plan

@@ -1,0 +1,34 @@
+[run]
+# Указываем корень проекта для анализа
+source = .
+# Исключаем файлы и директории, которые не содержат тестируемую бизнес-логику
+omit =
+    *manage.py
+    *wsgi.py
+    *asgi.py
+    *apps.py
+    *settings.py
+    */migrations/*
+    */tests/*
+    # Твоё виртуальное окружение (добавь свои варианты, если папка называется иначе)
+    wms_venv/*
+    venv/*
+    env/*
+
+[report]
+# Не считать пустые строки и комментарии
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    def __str__
+    if self.debug:
+    if __name__ == .__main__.:
+    raise AssertionError
+    raise NotImplementedError
+
+# Показывать строки, которые не покрыты тестами в консольном отчете
+show_missing = True
+
+[html]
+# Директория, куда будет сохраняться HTML-отчет
+directory = htmlcov
