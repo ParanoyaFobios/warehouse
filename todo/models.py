@@ -37,16 +37,21 @@ class ProductionOrder(models.Model):
     
     @property
     def total_shipped(self):
-        """Сумма всех фактически отгруженных товаров по связанной накладной"""
+        """Сумма всех фактически отгруженных товаров"""
+        # ОПТИМИЗАЦИЯ: Если мы уже посчитали это в annotate (во view), берем готовое
+        if hasattr(self, 'annotated_shipped_total'):
+            return self.annotated_shipped_total
+            
+        # Fallback (запасной вариант): если вызвали не из вьюхи, считаем по-старому
         if not self.linked_shipment:
             return 0
-        # Используем aggregate для скорости (выполняется на уровне БД)
         from django.db.models import Sum
         return self.linked_shipment.items.aggregate(total=Sum('quantity'))['total'] or 0
-    
+
     @property
     def shipment_gap(self):
-        """Разница между планом и фактом отгрузки"""
+        # Python sum() работает быстро, так как items уже в памяти (prefetch_related)
+        # А total_shipped теперь берется из аннотации
         return self.total_requested - self.total_shipped
 
     @property

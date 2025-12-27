@@ -49,9 +49,11 @@ INSTALLED_APPS = [
     'reports.apps.ReportsConfig',
     'usertouser.apps.UsertouserConfig',
     'todo.apps.TodoConfig',
+    'django_prometheus',
 ]
 
 MIDDLEWARE = [
+    'django_prometheus.middleware.PrometheusBeforeMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -59,6 +61,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_prometheus.middleware.PrometheusAfterMiddleware',
 ]
 
 ROOT_URLCONF = 'warehouse.urls'
@@ -91,6 +94,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'warehousedb',
+        'CONN_MAX_AGE': 60,
         'USER':'warehouse',
         'PASSWORD':'0880',
         'HOST':'localhost',

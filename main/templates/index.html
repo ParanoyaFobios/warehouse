@@ -161,9 +161,9 @@
                                     <tr>
                                         <td>
                                             {% if workorder.order_item %}
-                                                <span class="badge bg-primary">Заказ №{{ workorder.order_item.production_order.id }}</span>
-                                            {% else %}
-                                                <span class="badge bg-light text-dark">Линия #{{ workorder.id }}</span>
+                                                    <a href="{% url 'workorder_detail' workorder.order_item.production_order.id %}">
+                                                    Заказ №{{ workorder.order_item.production_order.id }}
+                                                    </a>
                                             {% endif %}
                                         </td>
                                         <td>{{ workorder.product.name|truncatechars:25 }}</td>

@@ -4,16 +4,16 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import F, Q, Sum
+from django.db.models import F, Q, Sum, Prefetch
 from django import forms
 from .models import ProductionOrder, ProductionOrderItem, WorkOrder
-from .forms import ProductionOrderForm, ReportProductionForm
+from .forms import ProductionOrderForm
 from django.views import View
 from warehouse2.models import Shipment, ShipmentItem, Sender, Product
 import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
+from django.db.models.functions import Coalesce
 # ==============================================================================
 # Вью для "Портфеля заказов"
 # ==============================================================================
@@ -25,10 +25,29 @@ class ProductionOrderListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        # Базовый кверисет с предзагрузкой строк
-        queryset = ProductionOrder.objects.prefetch_related('items').order_by('-due_date')
+        # 1. Оптимизация вложенных структур:
+        # Мы хотим загрузить items (строки заказа) И сразу products (названия товаров),
+        # чтобы не было доп. запросов при выводе имен товаров.
+        items_prefetch = Prefetch(
+            'items',
+            queryset=ProductionOrderItem.objects.select_related('product')
+        )
+
+        # 2. Формируем основной QuerySet
+        queryset = ProductionOrder.objects.select_related(
+            'linked_shipment'  # Сразу тянем данные накладной
+        ).prefetch_related(
+            items_prefetch     # Тянем строки заказа + товары
+        ).annotate(
+            # 3. СЧИТАЕМ СУММУ ОТГРУЗОК НА УРОВНЕ БД
+            # Coalesce превращает NULL в 0, если накладной нет
+            annotated_shipped_total=Coalesce(
+                Sum('linked_shipment__items__quantity'), 
+                0
+            )
+        ).order_by('-due_date')
         
-        # Получаем параметры фильтрации
+        # Фильтры
         due_date = self.request.GET.get('due_date')
         order_id = self.request.GET.get('order_id')
 
@@ -39,13 +58,6 @@ class ProductionOrderListView(LoginRequiredMixin, ListView):
             queryset = queryset.filter(id=order_id)
 
         return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        # Передаем текущие фильтры обратно в контекст, чтобы форма их "помнила"
-        context['filter_due_date'] = self.request.GET.get('due_date', '')
-        context['filter_order_id'] = self.request.GET.get('order_id', '')
-        return context
 
 class ProductionOrderDetailView(LoginRequiredMixin, DetailView):
     model = ProductionOrder

@@ -13,3 +13,6 @@ pytest tests/warehouse1/ -v
 
 pytest tests/warehouse1/test_warehouse1_views.py -v
 # Запуск тестов только для представлений warehouse1
+
+pyton server.py
+# Запуск веб сервера через waitress
