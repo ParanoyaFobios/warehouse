@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.models import User
 from .models import Message
 
-class MessageForm(forms.ModelForm):
+class NewMessageForm(forms.ModelForm):
     recipients = forms.ModelMultipleChoiceField(
         queryset=User.objects.none(), 
         widget=forms.CheckboxSelectMultiple,
@@ -48,3 +48,17 @@ class MessageForm(forms.ModelForm):
             parts.append(f"- {group_names}")
         
         return " ".join(parts)
+    
+
+# --- Сценарий 2: Ответ в открытом чате (новая простая форма) ---
+class ChatForm(forms.ModelForm):
+    class Meta:
+        model = Message
+        fields = ['content']
+        widgets = {
+            'content': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Напишите сообщение...',
+                'autocomplete': 'off'
+            }),
+        }

@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* --- Стили чата --- */
+    .chat-container {
+        display: flex;
+        height: 85vh; /* Высота почти во весь экран */
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        margin-top: 20px;
+    }
+
+    /* Левая колонка (Список диалогов) */
+    .chat-sidebar {
+        width: 320px;
+        flex-shrink: 0;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+        background-color: #f8f9fa;
+    }
+
+    .sidebar-header {
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        background-color: #fff;
+    }
+
+    .dialogs-list {
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+
+    .dialog-item {
+        display: block;
+        padding: 15px;
+        color: #212529;
+        text-decoration: none;
+        border-bottom: 1px solid #f1f1f1;
+        transition: background-color 0.2s;
+    }
+    .dialog-item:hover {
+        background-color: #e9ecef;
+        text-decoration: none;
+        color: #000;
+    }
+    .dialog-item.active {
+        background-color: #cfe2ff; /* Подсветка активного диалога */
+        border-left: 4px solid #0d6efd;
+    }
+
+    /* Правая колонка (Окно сообщений) */
+    .chat-main {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        background-color: #fff;
+        min-width: 0; /* Важно для flexbox */
+    }
+
+    .chat-header {
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        background-color: #fff;
+        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .messages-area {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 20px;
+        background-color: #eef2f5; /* Легкий фон подложки */
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* Пузыри сообщений */
+    .message-bubble {
+        max-width: 70%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        position: relative;
+        font-size: 0.95rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    /* Мои сообщения (справа, зеленые/синие) */
+    .message-bubble.me {
+        align-self: flex-end;
+        background-color: #d1e7dd; 
+        color: #0f5132;
+        border-bottom-right-radius: 2px;
+    }
+
+    /* Чужие сообщения (слева, белые) */
+    .message-bubble.them {
+        align-self: flex-start;
+        background-color: #fff;
+        color: #212529;
+        border-bottom-left-radius: 2px;
+    }
+
+    .msg-meta {
+        display: block;
+        font-size: 0.75em;
+        margin-top: 4px;
+        text-align: right;
+        opacity: 0.7;
+    }
+
+    /* Футер с формой ввода */
+    .chat-footer {
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="chat-container shadow">
+        
+        <div class="chat-sidebar">
+            <div class="sidebar-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Чаты</h5>
+                <a href="{% url 'new_message' %}" class="btn btn-primary btn-sm rounded-pill">
+                    + Новый
+                </a>
+            </div>
+            
+            <div class="dialogs-list">
+                {% for user_obj in dialogs_list %}
+                    <a href="{% url 'chat_detail' user_obj.pk %}" class="dialog-item">
+                        <div class="d-flex justify-content-between w-100">
+                            <strong class="text" style="max-width: 7000px;">
+                                {{ user_obj.get_full_name|default:user_obj.username }}
+                                <span class="badge bg-secondary">
+                                    {{ user_obj.groups.all.0.name }}
+                                </span>
+                                {% if user_obj.unread_count > 0 %}
+                                <span class="badge bg-danger rounded-pill">{{ user_obj.unread_count }}</span>
+                            {% endif %}
+                            </strong>
+                            <small class="text-muted">
+                                {% if user_obj.last_msg_date %}
+                                    {{ user_obj.last_msg_date|date:"d M" }}
+                                {% endif %}
+                            </small>
+                        </div>
+                    </a>
+                {% empty %}
+                    <div class="p-3 text-center text-muted">Нет активных диалогов</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="chat-main justify-content-center align-items-center bg-light">
+            <div class="text-center text-muted">
+                <i class="fas fa-comments fa-3x mb-3"></i>
+                <h4>Ваши сообщения</h4>
+                <p>Выберите чат слева или создайте новый.</p>
+                <a href="{% url 'new_message' %}" class="btn btn-outline-primary mt-2">
+                    Написать сообщение
+                </a>
+            </div>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}

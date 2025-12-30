@@ -1,97 +1,110 @@
 import pytest
 from django.urls import reverse
 from usertouser.models import Message, MessageRecipient
-from django.contrib.auth.models import User
 
 @pytest.mark.django_db
-class TestMessageSystem:
+class TestUsertouserViews:
 
-    # --- ТЕСТЫ ДОСТУПА И ПРИВАТНОСТИ ---
-
-    def test_message_detail_privacy(self, client, user, another_user, direct_message):
-        """Пользователь не может видеть чужое сообщение, где он не отправитель и не получатель"""
-        # Создаем третьего лишнего
-        stranger = User.objects.create_user(username='stranger', password='password')
-        client.force_login(stranger)
+    def test_dialogs_list_exclude_self(self, client, user):
+        """Проверка, что текущий пользователь не видит себя в списке диалогов"""
+        client.login(username='testuser', password='password')
+        url = reverse('dialogs')
         
-        url = reverse('message_detail', kwargs={'pk': direct_message.pk})
+        response = client.get(url)
+        # В списке не должно быть 'testuser', так как мы исключаем self в get_dialogs_list
+        assert user not in response.context['dialogs_list']
+
+    def test_chat_history_visibility(self, client, user, another_user, direct_message):
+        """Проверка отображения истории сообщений в конкретном чате"""
+        client.login(username='testuser', password='password')
+        url = reverse('chat_detail', kwargs={'user_id': another_user.pk})
+
         response = client.get(url)
         
-        # Так как в get_queryset стоит фильтр по Q, вернется 404 для постороннего
-        assert response.status_code == 404
-
-    def test_inbox_displays_only_my_messages(self, client, user, another_user, direct_message):
-        """Входящие показывают только те сообщения, где я — получатель"""
-        client.force_login(another_user) # Логинимся как получатель
-        
-        response = client.get(reverse('inbox'))
         assert response.status_code == 200
-        # Проверяем, что сообщение есть во входящих
-        assert direct_message in [entry.message for entry in response.context['recipient_entries']]
+        # Проверяем, что сообщение из фикстуры direct_message есть в контексте
+        assert direct_message in response.context['chat_history']
+        assert "Привет, это тестовое сообщение!" in response.content.decode('utf-8')
 
-        # Логинимся как отправитель — во входящих должно быть пусто
-        client.force_login(user)
-        response = client.get(reverse('inbox'))
-        assert len(response.context['recipient_entries']) == 0
+    def test_send_message_htmx(self, client, user, another_user):
+        """Тест отправки сообщения через HTMX"""
+        client.login(username='testuser', password='password')
+        url = reverse('chat_detail', kwargs={'user_id': another_user.pk})
 
-    # --- ТЕСТЫ ЛОГИКИ (ПРОЧИТАНО / УДАЛЕНО) ---
+        payload = {'content': 'Новое HTMX сообщение'}
+        # Имитируем HTMX запрос
+        response = client.post(url, payload, HTTP_HX_REQUEST='true')
 
-    def test_marking_as_read(self, client, another_user, direct_message):
-        """Просмотр сообщения получателем меняет статус is_read на True"""
-        client.force_login(another_user)
+        assert response.status_code == 200
+        # Проверяем, что вернулся только фрагмент списка сообщений
+        assert 'message-bubble' in response.content.decode('utf-8')
+        assert Message.objects.filter(content='Новое HTMX сообщение').exists()
+
+    def test_delete_chat_removes_from_sidebar(self, client, user, another_user, direct_message):
+        """Тест удаления чата: диалог должен исчезнуть из сайдбара"""
+        client.login(username='testuser', password='password')
         
-        # Сначала проверяем, что не прочитано
-        recipient_entry = MessageRecipient.objects.get(message=direct_message, user=another_user)
-        assert recipient_entry.is_read is False
+        # Сначала проверяем, что another_user есть в списке диалогов
+        res_before = client.get(reverse('dialogs'))
+        assert another_user in res_before.context['dialogs_list']
+
+        # Выполняем удаление
+        delete_url = reverse('delete_chat', kwargs={'user_id': another_user.pk})
+        response = client.post(delete_url)
+
+        assert response.status_code == 302 # Редирект обратно в список
         
-        # Заходим в детали сообщения
-        url = reverse('message_detail', kwargs={'pk': direct_message.pk})
+        # Проверяем список диалогов снова
+        res_after = client.get(reverse('dialogs'))
+        assert another_user not in res_after.context['dialogs_list']
+
+    def test_soft_delete_logic_database(self, client, user, another_user, direct_message):
+        """Проверка, что при удалении устанавливаются правильные флаги в БД"""
+        client.login(username='testuser', password='password')
+        
+        # Создаем также ВХОДЯЩЕЕ сообщение для полноты теста
+        incoming_msg = Message.objects.create(sender=another_user, content="Входящее")
+        MessageRecipient.objects.create(message=incoming_msg, user=user)
+
+        delete_url = reverse('delete_chat', kwargs={'user_id': another_user.pk})
+        client.post(delete_url)
+
+        # 1. Наше исходящее сообщение должно получить флаг sender_deleted
+        direct_message.refresh_from_db()
+        assert direct_message.sender_deleted is True
+
+        # 2. Входящее сообщение должно получить is_deleted в промежуточной таблице
+        recipient_entry = MessageRecipient.objects.get(message=incoming_msg, user=user)
+        assert recipient_entry.is_deleted is True
+
+    def test_chat_restores_on_new_message(self, client, user, another_user, direct_message):
+        """Тест: удаленный чат должен вернуться в список при получении нового сообщения"""
+        client.login(username='testuser', password='password')
+        
+        # 1. Удаляем чат
+        client.post(reverse('delete_chat', kwargs={'user_id': another_user.pk}))
+        
+        # 2. Имитируем новое сообщение от собеседника (или сами пишем)
+        new_msg = Message.objects.create(sender=another_user, content="Я снова тут!")
+        MessageRecipient.objects.create(message=new_msg, user=user)
+
+        # 3. Проверяем, появился ли another_user в списке
+        response = client.get(reverse('dialogs'))
+        assert another_user in response.context['dialogs_list']
+        assert response.context['dialogs_list'][0].unread_count == 1
+
+    def test_unread_messages_count_clears_on_open(self, client, user, another_user):
+        """Проверка, что сообщения помечаются прочитанными при открытии чата"""
+        client.login(username='testuser', password='password')
+        
+        # Создаем непрочитанное входящее
+        msg = Message.objects.create(sender=another_user, content="Секрет")
+        recipient = MessageRecipient.objects.create(message=msg, user=user, is_read=False)
+
+        # Открываем чат
+        url = reverse('chat_detail', kwargs={'user_id': another_user.pk})
         client.get(url)
-        
-        # Проверяем, что статус обновился
-        recipient_entry.refresh_from_db()
-        assert recipient_entry.is_read is True
 
-    def test_inbox_excludes_deleted_messages(self, client, another_user, direct_message):
-        """Удаленные сообщения не должны отображаться во входящих"""
-        client.force_login(another_user)
-        
-        # "Удаляем" сообщение для получателя
-        MessageRecipient.objects.filter(message=direct_message, user=another_user).update(is_deleted=True)
-        
-        response = client.get(reverse('inbox'))
-        assert len(response.context['recipient_entries']) == 0
-
-    # --- ТЕСТЫ ОТПРАВКИ И ОТВЕТОВ ---
-
-    def test_compose_message_multiple_recipients(self, client, user, another_user):
-        """Проверка успешной отправки сообщения нескольким получателям"""
-        client.force_login(user)
-        user3 = User.objects.create_user(username='user3', password='password')
-        
-        url = reverse('compose')
-        data = {
-            'recipients': [another_user.id, user3.id],
-            'content': 'Всем привет!'
-        }
-        
-        # Отправляем форму
-        response = client.post(url, data)
-        
-        assert response.status_code == 302 # Редирект в Outbox
-        assert Message.objects.filter(content='Всем привет!').count() == 1
-        
-        msg = Message.objects.get(content='Всем привет!')
-        assert msg.recipients.count() == 2
-
-    def test_reply_prefills_recipient(self, client, another_user, direct_message):
-        """При ответе на сообщение поле получателя должно быть предзаполнено отправителем оригинала"""
-        client.force_login(another_user) # Получатель нажимает "Ответить"
-        
-        url = reverse('message_reply', kwargs={'pk': direct_message.pk})
-        response = client.get(url)
-        
-        # Проверяем initial данные формы
-        # В Django CreateView initial попадает в форму, которую можно вытащить из контекста
-        form = response.context['form']
-        assert form.initial['recipients'] == [direct_message.sender]
+        # Проверяем в БД
+        recipient.refresh_from_db()
+        assert recipient.is_read is True

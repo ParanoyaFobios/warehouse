@@ -1,0 +1,16 @@
+{% for msg in chat_history %}
+    <div class="message-bubble {% if msg.sender == request.user %}me{% else %}them{% endif %}">
+        <div>{{ msg.content|linebreaksbr }}</div>
+        <span class="msg-meta">
+            {{ msg.timestamp|date:"H:i" }}
+            {% if msg.sender == request.user %}
+                {% if msg.is_read %}✓✓{% else %}✓{% endif %}
+            {% endif %}
+        </span>
+    </div>
+{% endfor %}
+
+<script>
+    var scroller = document.getElementById('messages-scroller');
+    scroller.scrollTop = scroller.scrollHeight;
+</script>

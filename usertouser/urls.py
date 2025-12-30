@@ -1,10 +1,14 @@
 from django.urls import path
-from usertouser import views
+from .views import ChatView, CreateDialogView, DeleteChatView
 
 urlpatterns = [
-    path('inbox/', views.InboxView.as_view(), name='inbox'),
-    path('outbox/', views.OutboxView.as_view(), name='outbox'),
-    path('compose/', views.ComposeMessageView.as_view(), name='compose'),
-    path('message/<int:pk>/', views.MessageDetailView.as_view(), name='message_detail'),
-    path('message/<int:pk>/reply/', views.ComposeMessageView.as_view(), name='message_reply'),
+    # Просто открыли /messages/ - видим список диалогов (пустой правый блок)
+    path('messages/', ChatView.as_view(), name='dialogs'),
+    
+    # Создать новый диалог (кнопка "Новое сообщение")
+    path('messages/new/', CreateDialogView.as_view(), name='new_message'),
+
+    # Открыли конкретный чат
+    path('messages/<int:user_id>/', ChatView.as_view(), name='chat_detail'),
+    path('messages/delete/<int:user_id>/', DeleteChatView.as_view(), name='delete_chat'),
 ]

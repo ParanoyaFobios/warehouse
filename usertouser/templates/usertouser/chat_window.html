@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* --- Стили чата --- */
+    .chat-container {
+        display: flex;
+        height: 85vh; /* Высота почти во весь экран */
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        margin-top: 20px;
+    }
+
+    /* Левая колонка (Список диалогов) */
+    .chat-sidebar {
+        width: 320px;
+        flex-shrink: 0;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+        background-color: #f8f9fa;
+    }
+
+    .sidebar-header {
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        background-color: #fff;
+    }
+
+    .dialogs-list {
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+
+    .dialog-item {
+        display: block;
+        padding: 15px;
+        color: #212529;
+        text-decoration: none;
+        border-bottom: 1px solid #f1f1f1;
+        transition: background-color 0.2s;
+    }
+    .dialog-item:hover {
+        background-color: #e9ecef;
+        text-decoration: none;
+        color: #000;
+    }
+    .dialog-item.active {
+        background-color: #cfe2ff; /* Подсветка активного диалога */
+        border-left: 4px solid #0d6efd;
+    }
+
+    /* Правая колонка (Окно сообщений) */
+    .chat-main {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        background-color: #fff;
+        min-width: 0; /* Важно для flexbox */
+    }
+
+    .chat-header {
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        background-color: #fff;
+        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .messages-area {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 20px;
+        background-color: #eef2f5; /* Легкий фон подложки */
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* Пузыри сообщений */
+    .message-bubble {
+        max-width: 70%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        position: relative;
+        font-size: 0.95rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    /* Мои сообщения (справа, зеленые/синие) */
+    .message-bubble.me {
+        align-self: flex-end;
+        background-color: #d1e7dd; 
+        color: #0f5132;
+        border-bottom-right-radius: 2px;
+    }
+
+    /* Чужие сообщения (слева, белые) */
+    .message-bubble.them {
+        align-self: flex-start;
+        background-color: #fff;
+        color: #212529;
+        border-bottom-left-radius: 2px;
+    }
+
+    .msg-meta {
+        display: block;
+        font-size: 0.75em;
+        margin-top: 4px;
+        text-align: right;
+        opacity: 0.7;
+    }
+
+    /* Футер с формой ввода */
+    .chat-footer {
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="chat-container shadow">
+        
+        <div class="chat-sidebar">
+            <div class="sidebar-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Чаты</h5>
+                <a href="{% url 'new_message' %}" class="btn btn-primary btn-sm rounded-pill">
+                    + Новый
+                </a>
+            </div>
+            
+            <div class="dialogs-list">
+                {% for user_obj in dialogs_list %}
+                    <a href="{% url 'chat_detail' user_obj.pk %}" 
+                       class="dialog-item {% if user_obj.pk == opponent.pk %}active{% endif %}">
+                        <div class="d-flex justify-content-between w-100">
+                            <strong class="text-truncate" style="max-width: 150px;">
+                                {{ user_obj.get_full_name|default:user_obj.username }}
+                            </strong>
+                            <small class="text-muted">
+                                {% if user_obj.last_msg_date %}
+                                    {{ user_obj.last_msg_date|date:"d M, H:i" }}
+                                {% endif %}
+                            </small>
+                        </div>
+                    </a>
+                {% empty %}
+                    <div class="p-3 text-center text-muted">Нет активных диалогов</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="chat-main">
+            <div class="chat-header">
+                <div>
+                    <i class="fas fa-user-circle fa-lg text-secondary me-2"></i>
+                    {{ opponent.get_full_name|default:opponent.username }}
+                </div>
+                <form action="{% url 'delete_chat' opponent.pk %}" method="post" 
+                    onsubmit="return confirm('Вы уверены, что хотите удалить всю переписку? Это действие нельзя отменить.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-trash-alt"></i> Удалить чат
+                    </button>
+                </form>
+            </div>
+
+            <div class="messages-area" id="messages-scroller" 
+            hx-get="{% url 'chat_detail' opponent.pk %}" 
+            hx-trigger="every 5s" 
+            hx-swap="innerHTML">
+           {% include 'usertouser/includes/message_list.html' %}
+            </div>
+            <div class="chat-footer">
+                <form hx-post="{% url 'chat_detail' opponent.pk %}" 
+                      hx-target="#messages-scroller" 
+                      hx-swap="innerHTML"
+                      hx-on::after-request="this.reset()" 
+                      class="d-flex gap-2">
+                    {% csrf_token %}
+                    <div class="flex-grow-1">
+                        {{ form.content }}
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        Отправить
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const scroller = document.getElementById('messages-scroller');
+        if (scroller) {
+            scroller.scrollTop = scroller.scrollHeight;
+        }
+    });
+</script>
+
+{% endblock %}
