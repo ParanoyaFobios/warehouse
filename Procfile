@@ -6,3 +6,5 @@ web: waitress-serve \
     --clear-untrusted-proxy-headers \
     --threads ${WEB_CONCURRENCY:-4} \
     myapp:wsgifunc
+
+worker: celery -A warehouse -l info

@@ -29,5 +29,4 @@ urlpatterns = [
     path('reports/', include('reports.urls')),
     path('sms/', include('usertouser.urls')),
     path('production/', include('todo.urls')),
-    path('', include('django_prometheus.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -126,8 +126,8 @@ class TestMaterialModel:
             name="Хлопковая ткань",
             article="COTTON-001",
             category=material_category,
-            quantity=150.50,  # float, но Django преобразует в Decimal
-            min_quantity=20.00,
+            quantity=150,
+            min_quantity=20,
             color=material_color,
             unit=unit_of_measure,
             description="Высококачественная хлопковая ткань"
@@ -137,12 +137,12 @@ class TestMaterialModel:
         assert material.name == "Хлопковая ткань"
         assert material.article == "COTTON-001"
         assert material.category == material_category
-        assert material.quantity == Decimal('150.50')
-        assert material.min_quantity == Decimal('20.00')
+        assert material.quantity == 150
+        assert material.min_quantity == 20.00
         assert material.color == material_color
         assert material.unit == unit_of_measure
         assert material.description == "Высококачественная хлопковая ткань"
-        assert len(material.barcode) == 12
+        assert len(material.barcode) == 15
     
     def test_material_unique_article(self, material_category, unit_of_measure):
         """Тест уникальности артикула материала"""
@@ -170,7 +170,7 @@ class TestMaterialModel:
     def test_material_add_quantity(self, material):
             """Тест метода add_quantity (увеличение количества)"""
             initial_quantity = material.quantity
-            add_amount = Decimal('25.50')
+            add_amount = 25
             
             material.add_quantity(add_amount)          #передаем Decimal (или Decimal('25.50'))
             
@@ -181,7 +181,7 @@ class TestMaterialModel:
     def test_material_subtract_quantity_success(self, material):
             """Тест успешного вычитания количества"""
             initial_quantity = material.quantity
-            subtract_amount = Decimal('30.00')
+            subtract_amount = 30.00
             
             material.subtract_quantity(subtract_amount)
             
@@ -191,10 +191,10 @@ class TestMaterialModel:
     def test_material_subtract_quantity_insufficient(self, material):
         """Тест попытки вычитания большего количества, чем есть"""
         initial_quantity = material.quantity
-        subtract_amount = initial_quantity + Decimal('10.00')
+        subtract_amount = initial_quantity + 10
         
         with pytest.raises(ValueError, match="Недостаточно материала на складе"):
-            material.subtract_quantity(float(subtract_amount))
+            material.subtract_quantity(int(subtract_amount))
         
         material.refresh_from_db()
         assert material.quantity == initial_quantity
@@ -241,8 +241,8 @@ class TestMaterialModel:
         assert material1.barcode is not None
         assert material2.barcode is not None
         assert material1.barcode != material2.barcode
-        assert len(material1.barcode) == 12
-        assert len(material2.barcode) == 12
+        assert len(material1.barcode) == 15
+        assert len(material2.barcode) == 15
     
     def test_material_verbose_names_and_permissions(self):
         """Тест verbose names и permissions"""
@@ -278,7 +278,7 @@ class TestMaterialOperationModel:
         operation = MaterialOperation.objects.create(
             material=material,
             operation_type='incoming',
-            quantity=50.00,
+            quantity=50,
             user=user,
             comment="Приход от поставщика"
         )
@@ -286,7 +286,7 @@ class TestMaterialOperationModel:
         assert operation.pk is not None
         assert operation.material == material
         assert operation.operation_type == 'incoming'
-        assert operation.quantity == Decimal('50.00')
+        assert operation.quantity == 50
         assert operation.user == user
         assert operation.comment == "Приход от поставщика"
         assert operation.date is not None
@@ -301,7 +301,7 @@ class TestMaterialOperationModel:
             material=material,
             operation_type='outgoing',
             outgoing_category=operation_outgoing_category,
-            quantity=25.50,
+            quantity=25,
             user=user,
             comment="Расход на производство"
         )
@@ -309,7 +309,7 @@ class TestMaterialOperationModel:
         assert operation.pk is not None
         assert operation.operation_type == 'outgoing'
         assert operation.outgoing_category == operation_outgoing_category
-        assert operation.quantity == Decimal('25.50')
+        assert operation.quantity == 25
         
         assert "Расход" in str(operation)
     
@@ -334,13 +334,13 @@ class TestMaterialOperationModel:
         operation = MaterialOperation.objects.create(
             material=material,
             operation_type='adjustment',
-            quantity=15.00,
+            quantity=15,
             user=user,
-            comment="Корректировка: +15.00 (исправление ошибки)"
+            comment="Корректировка: +15 (исправление ошибки)"
         )
         
         operation_str = str(operation)
-        assert "+15.00" in operation_str or "15.00" in operation_str
+        assert "+15" in operation_str or "15" in operation_str
     
     def test_operation_verbose_names(self):
         """Тест verbose names"""
@@ -387,7 +387,7 @@ class TestBarcodeGenerationFunctions:
         barcode = generate_material_barcode()
         
         assert barcode is not None
-        assert len(barcode) == 12
+        assert len(barcode) == 15
         assert barcode.isupper()
     
     def test_barcode_uniqueness(self, material_category, unit_of_measure):
@@ -408,7 +408,7 @@ class TestBarcodeGenerationFunctions:
         assert len(barcodes) == len(set(barcodes))
         
         for barcode in barcodes:
-            assert len(barcode) == 12
+            assert len(barcode) == 15
             assert barcode.isalnum() # Проверяем, что это цифры и/или буквы
             # Проверяем, что строка является корректным шестнадцатеричным числом (необязательно, но надежно)
             assert all(c in '0123456789ABCDEF' for c in barcode) 
@@ -427,7 +427,7 @@ class TestBarcodeGenerationFunctions:
         )
         
         assert material.barcode is not None
-        assert len(material.barcode) == 12
+        assert len(material.barcode) == 15
         assert material.barcode.isupper()
 
 
@@ -497,9 +497,9 @@ class TestMaterialModelMethodsEdgeCases:
     def test_add_quantity_negative_value(self, material):
         """Тест добавления отрицательного количества (должно уменьшить количество)"""
         initial_quantity = material.quantity
-        negative_amount = Decimal('-10.00')
+        negative_amount = -10
         
-        material.add_quantity(float(negative_amount))
+        material.add_quantity(int(negative_amount))
         
         material.refresh_from_db()
         assert material.quantity == initial_quantity + negative_amount
@@ -508,7 +508,7 @@ class TestMaterialModelMethodsEdgeCases:
         """Тест добавления нулевого количества"""
         initial_quantity = material.quantity
         
-        material.add_quantity(0.0)
+        material.add_quantity(0)
         
         material.refresh_from_db()
         assert material.quantity == initial_quantity
@@ -517,7 +517,7 @@ class TestMaterialModelMethodsEdgeCases:
         """Тест вычитания нулевого количества"""
         initial_quantity = material.quantity
         
-        material.subtract_quantity(0.0)
+        material.subtract_quantity(0)
         
         material.refresh_from_db()
         assert material.quantity == initial_quantity
@@ -525,31 +525,30 @@ class TestMaterialModelMethodsEdgeCases:
     def test_subtract_quantity_decimal_precision(self, material):
             """Тест точности вычислений с Decimal"""
             
-            # 1. Устанавливаем точное количество. В БД сохранится 100.12
-            material.quantity = Decimal('100.12') 
+            # 1. Устанавливаем точное количество. В БД сохранится 100
+            material.quantity = 100
             material.save()
             material.refresh_from_db()
             
-            # Проверка, что в базе 100.12
-            assert material.quantity == Decimal('100.12')
+            # Проверка, что в базе 100
+            assert material.quantity == 100
             
-            # 2. Вычитаем количество. Передаем Decimal
-            subtract_amount = Decimal('50.12') 
-            material.subtract_quantity(subtract_amount) # Передаем Decimal
+            subtract_amount = 50
+            material.subtract_quantity(subtract_amount)
             material.refresh_from_db()
             
-            # 3. Проверяем результат: 100.12 - 50.12 = 50.00
-            assert material.quantity == Decimal('50.00')
+            
+            assert material.quantity == 50
     
     def test_material_min_quantity_alert_logic(self, material):
         """Тест логики проверки минимального количества"""
-        material.min_quantity = Decimal('20.00')
-        material.quantity = Decimal('15.00')
+        material.min_quantity = 20
+        material.quantity = 15.00
         material.save()
         
         assert material.quantity < material.min_quantity
         
-        material.add_quantity(10.00)
+        material.add_quantity(10)
         material.refresh_from_db()
         
         assert material.quantity > material.min_quantity
@@ -559,22 +558,22 @@ class TestMaterialModelMethodsEdgeCases:
         initial_quantity = material.quantity
         
         # Метод должен обрабатывать строки, так как Decimal(str(quantity)) используется в модели
-        material.add_quantity('25.50')
+        material.add_quantity(25)
         
         material.refresh_from_db()
-        assert material.quantity == initial_quantity + Decimal('25.50')
+        assert material.quantity == initial_quantity + 25
     
     def test_subtract_quantity_with_string(self, material):
         """Тест вычитания количества в виде строки"""
-        material.add_quantity(50.00)  # Сначала добавляем
+        material.add_quantity(50)  # Сначала добавляем
         material.refresh_from_db()
         
         initial_quantity = material.quantity
         
-        material.subtract_quantity('25.50')
+        material.subtract_quantity(25)
         
         material.refresh_from_db()
-        assert material.quantity == initial_quantity - Decimal('25.50')
+        assert material.quantity == initial_quantity - 25
 
 
 @pytest.mark.django_db
@@ -584,10 +583,10 @@ class TestMaterialModelBusinessLogic:
     def test_material_quantity_never_negative(self, material):
         """Тест что количество материала никогда не становится отрицательным"""
         with pytest.raises(ValueError, match="Недостаточно материала на складе"):
-            material.subtract_quantity(float(material.quantity + Decimal('10.00')))
+            material.subtract_quantity(int(material.quantity + 10))
         
         material.refresh_from_db()
-        assert material.quantity >= Decimal('0.00')
+        assert material.quantity >= 0
     
     def test_material_operations_affect_quantity(self, user, material):
         """Тест что операции влияют на количество материала"""
@@ -595,30 +594,30 @@ class TestMaterialModelBusinessLogic:
         initial_quantity = material.quantity
         
         # Симуляция прихода
-        material.add_quantity(50.00)
+        material.add_quantity(50)
         MaterialOperation.objects.create(
             material=material,
             operation_type='incoming',
-            quantity=50.00,
+            quantity=50,
             user=user,
             comment="Приход"
         )
         
         material.refresh_from_db()
-        assert material.quantity == initial_quantity + Decimal('50.00')
+        assert material.quantity == initial_quantity + 50
         
         # Симуляция расхода
-        material.subtract_quantity(30.00)
+        material.subtract_quantity(30)
         MaterialOperation.objects.create(
             material=material,
             operation_type='outgoing',
-            quantity=30.00,
+            quantity=30,
             user=user,
             comment="Расход"
         )
         
         material.refresh_from_db()
-        assert material.quantity == initial_quantity + Decimal('20.00')
+        assert material.quantity == initial_quantity + 20
     
     def test_material_reorder_point_logic(self, material_category, unit_of_measure):
         """Тест логики точки повторного заказа"""
@@ -627,12 +626,12 @@ class TestMaterialModelBusinessLogic:
             name="Материал для теста запасов",
             article="REORDER-TEST",
             category=material_category,
-            quantity=5.00,  # Ниже минимального
-            min_quantity=10.00,  # Минимальный запас
+            quantity=5,  # Ниже минимального
+            min_quantity=10,  # Минимальный запас
             unit=unit_of_measure
         )
         
         # Проверяем что нужно докупить
         assert material.quantity < material.min_quantity
         reorder_amount = material.min_quantity - material.quantity
-        assert reorder_amount == Decimal('5.00')
+        assert reorder_amount == 5

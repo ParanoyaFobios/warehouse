@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta, date
@@ -558,53 +559,58 @@ class TestLowStockEdgeCases:
 
 @pytest.mark.django_db
 class TestStockAgeingLogic:
-    def test_stock_ageing_combined_sorting(self, client, user, product, material):
-            """Проверка ручной сортировки (Товары + Материалы)"""
-            client.force_login(user)
-            from django.utils import timezone
-            from datetime import timedelta
-            from django.contrib.contenttypes.models import ContentType
+    
+    # Мокаем путь к задаче. 
+    # ВАЖНО: Указываем путь к тому месту, где задача ВЫЗЫВАЕТСЯ (в сигналах)
+    @patch('warehouse2.signals.update_stock_in_keycrm.delay')
+    def test_stock_ageing_combined_sorting(self, mock_task, client, user, product, material):
+        """Проверка ручной сортировки (Товары + Материалы)"""
+        client.force_login(user)
+        from django.utils import timezone
+        from datetime import timedelta
+        from django.contrib.contenttypes.models import ContentType
 
-            # 1. Полная очистка
-            ProductOperation.objects.all().delete()
-            MaterialOperation.objects.all().delete()
+        # 1. Полная очистка
+        ProductOperation.objects.all().delete()
+        MaterialOperation.objects.all().delete()
 
-            # 2. Фиксируем даты
-            now = timezone.now().replace(microsecond=0)
-            old_date = now - timedelta(days=10)
-            new_date = now - timedelta(days=1)
+        # 2. Фиксируем даты
+        now = timezone.now().replace(microsecond=0)
+        old_date = now - timedelta(days=10)
+        new_date = now - timedelta(days=1)
 
-            # 3. Создаем операцию для ТОВАРА и ПРИНУДИТЕЛЬНО ставим дату через .update()
-            product_ct = ContentType.objects.get_for_model(Product)
-            op_p = ProductOperation.objects.create(
-                product=product,
-                operation_type=ProductOperation.OperationType.INCOMING,
-                quantity=1,
-                user=user,
-                content_type=product_ct,
-                object_id=product.id
-            )
-            # .update() обходит auto_now_add=True
-            ProductOperation.objects.filter(id=op_p.id).update(timestamp=old_date)
+        # 3. Создаем операцию для ТОВАРА
+        product_ct = ContentType.objects.get_for_model(product.__class__)
+        op_p = ProductOperation.objects.create(
+            product=product,
+            operation_type="incoming", # Проверьте, что в модели это строка или Enum
+            quantity=1,
+            user=user,
+            content_type=product_ct,
+            object_id=product.id
+        )
+        # Обновляем дату
+        ProductOperation.objects.filter(id=op_p.id).update(timestamp=old_date)
 
-            # 4. Создаем операцию для МАТЕРИАЛА и ПРИНУДИТЕЛЬНО ставим дату
-            op_m = MaterialOperation.objects.create(
-                material=material,
-                operation_type='incoming',
-                quantity=1,
-                user=user
-            )
-            # Для материала поле называется 'date' судя по твоему View
-            MaterialOperation.objects.filter(id=op_m.id).update(date=new_date)
+        # 4. Создаем операцию для МАТЕРИАЛА
+        op_m = MaterialOperation.objects.create(
+            material=material,
+            operation_type='incoming',
+            quantity=1,
+            user=user
+        )
+        MaterialOperation.objects.filter(id=op_m.id).update(date=new_date)
 
-            # 5. Выполняем запрос
-            res_asc = client.get(reverse('stock_ageing_report'), {'sort': 'asc'})
-            items_asc = res_asc.context['items']
+        # 5. Выполняем запрос
+        res_asc = client.get(reverse('stock_ageing_report'), {'sort': 'asc'})
+        items_asc = res_asc.context['items']
 
-            # Теперь в last_movement ДОЛЖНЫ быть наши даты
-            # Проверяем возраст первого элемента (должен быть товар, 10 дней)
-            assert items_asc[0]['name'] == product.name
-            assert items_asc[0]['age_days'] >= 10
+        # Проверки
+        assert items_asc[0]['name'] == product.name
+        assert items_asc[0]['age_days'] >= 10
+        
+        # Проверка, что мок сработал (задача вызывалась, но не выполнялась)
+        assert mock_task.called
 
 @pytest.mark.django_db
 class TestMovementReportRobustness:

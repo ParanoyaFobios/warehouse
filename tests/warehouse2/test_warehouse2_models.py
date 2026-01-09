@@ -174,7 +174,7 @@ class TestProductModel:
         )
         
         assert product.barcode is not None
-        assert len(product.barcode) == 12
+        assert len(product.barcode) == 15
 
 
 @pytest.mark.django_db
@@ -194,7 +194,7 @@ class TestPackageModel:
         assert package.product == product
         assert package.quantity == 10
         assert package.barcode is not None
-        assert len(package.barcode) == 12
+        assert len(package.barcode) == 15
     
     def test_package_price_property(self, product):
         """Тест свойства price упаковки"""
@@ -318,7 +318,7 @@ class TestPackageModel:
         )
         
         assert package.barcode is not None
-        assert len(package.barcode) == 12
+        assert len(package.barcode) == 15
         assert package.barcode != product.barcode  # Штрихкоды должны быть разные
 
 
@@ -947,7 +947,7 @@ class TestBarcodeGenerationFunctions:
         barcode = generate_unique_barcode(Product)
         
         assert barcode is not None
-        assert len(barcode) == 12
+        assert len(barcode) == 15
         assert barcode.isupper()
     
     def test_generate_product_barcode(self):
@@ -955,14 +955,14 @@ class TestBarcodeGenerationFunctions:
         barcode = generate_product_barcode()
         
         assert barcode is not None
-        assert len(barcode) == 12
+        assert len(barcode) == 15
     
     def test_generate_package_barcode(self):
         """Тест функции генерации штрихкода для упаковки"""
         barcode = generate_package_barcode()
         
         assert barcode is not None
-        assert len(barcode) == 12
+        assert len(barcode) == 15
     
     def test_barcode_uniqueness(self, product_category):
         """Тест уникальности сгенерированных штрихкодов"""
@@ -986,7 +986,7 @@ class TestBarcodeGenerationFunctions:
         
         # Проверяем что все штрихкоды имеют правильную длину
         for barcode in barcodes:
-            assert len(barcode) == 12
+            assert len(barcode) == 15
 
 
 @pytest.mark.django_db

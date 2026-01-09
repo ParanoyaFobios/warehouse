@@ -17,7 +17,7 @@ from django.db import transaction
 def generate_unique_barcode(model_class):
     """Универсальная функция для генерации уникального штрихкода."""
     while True:
-        barcode = uuid.uuid4().hex[:12].upper()
+        barcode = uuid.uuid4().hex[:15].upper()
         if not model_class.objects.filter(barcode=barcode).exists():
             return barcode
 
@@ -35,6 +35,7 @@ def generate_package_barcode():
 
 class ProductCategory(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Название категории")
+    keycrm_id = models.IntegerField(null=True, blank=True, unique=True, verbose_name="KeyCRM ID категории")
     def __str__(self): return self.name
     class Meta:
         verbose_name = "Категория продукции"
@@ -49,12 +50,13 @@ class Product(ContentTypeAware, models.Model):
     """Модель ПОШТУЧНОЙ готовой продукции."""
     name = models.CharField(max_length=200, db_index=True, verbose_name="Название продукции")
     sku = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
-    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод (штучный)", default=generate_product_barcode, editable=True)
+    barcode = models.CharField(max_length=15, unique=True, verbose_name="Штрихкод (штучный)", default=generate_product_barcode, editable=True)
     is_archived = models.BooleanField(default=False, verbose_name="В архиве")
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория", blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за единицу", default=0)
     color = models.CharField(max_length=50, unique=True, verbose_name="Цвет", blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Изображение")
+    keycrm_id = models.IntegerField(null=True, blank=True, unique=True, verbose_name="KeyCRM ID товара")
     # === Складской учет ===
     total_quantity = models.IntegerField(default=0, verbose_name="На балансе")
     reserved_quantity = models.IntegerField(default=0, verbose_name="Зарезервировано")
@@ -81,7 +83,7 @@ class Package(ContentTypeAware, models.Model):
     name = models.CharField(max_length=255, verbose_name="Название упаковки")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='packages', verbose_name="Базовый продукт")
     quantity = models.PositiveIntegerField(verbose_name="Количество товара в упаковке")
-    barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод упаковки", default=generate_package_barcode, editable=False)
+    barcode = models.CharField(max_length=15, unique=True, verbose_name="Штрихкод упаковки", default=generate_package_barcode, editable=False)
 
     @property
     def price(self):

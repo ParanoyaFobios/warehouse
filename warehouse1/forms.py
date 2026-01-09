@@ -50,11 +50,8 @@ class MaterialOperationForm(forms.Form):
             required=False
         )
 
-    quantity = forms.DecimalField(
+    quantity = forms.IntegerField(
         label='Количество',
-        max_digits=10,
-        decimal_places=2,
-        min_value=0.01
     )
     comment = forms.CharField(
         label='Комментарий',

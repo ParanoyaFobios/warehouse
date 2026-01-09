@@ -1,6 +1,5 @@
 import pytest
 from django.contrib.auth.models import User, Permission
-from decimal import Decimal
 from warehouse2.models import Product, Sender
 from todo.models import ProductionOrder, ProductionOrderItem, WorkOrder
 from warehouse1.models import MaterialCategory, UnitOfMeasure, MaterialColor, Material, OperationOutgoingCategory, MaterialOperation
@@ -21,7 +20,7 @@ def product():
     return Product.objects.create(
         name="Тестовая Подушка",
         sku="TEST-SKU-001",
-        barcode="123456789",
+        barcode="123456789111315",
         total_quantity=100
     )
 
@@ -84,7 +83,7 @@ def unit_of_measure():
     """Фикстура для единицы измерения"""
     return UnitOfMeasure.objects.create(
         name="Килограмм",
-        short_name="кг"
+        short_name="кг."
     )
 
 @pytest.fixture
@@ -108,8 +107,8 @@ def material(material_category, unit_of_measure, material_color):
         name="Тестовый материал",
         article="TEST-MAT-001",
         category=material_category,
-        quantity=Decimal('100.00'),
-        min_quantity=Decimal('10.00'),
+        quantity=100.00,
+        min_quantity=10.00,
         color=material_color,
         unit=unit_of_measure,
         description="Тестовое описание материала"
@@ -121,7 +120,7 @@ def material_operation_incoming(user, material):
     return MaterialOperation.objects.create(
         material=material,
         operation_type='incoming',
-        quantity=50.00,
+        quantity=50,
         user=user,
         comment="Тестовый приход"
     )
@@ -133,7 +132,7 @@ def material_operation_outgoing(user, material, operation_outgoing_category):
         material=material,
         operation_type='outgoing',
         outgoing_category=operation_outgoing_category,
-        quantity=20.00,
+        quantity=20,
         user=user,
         comment="Тестовый расход"
     )
@@ -153,7 +152,7 @@ def product(product_category):
     return Product.objects.create(
         name="Тестовая Подушка",
         sku="TEST-SKU-001",
-        barcode="123456789012",
+        barcode="123456789011131",
         category=product_category,
         price=1000.00,
         color="Красный",
@@ -167,7 +166,7 @@ def product_without_category():
     return Product.objects.create(
         name="Продукт без категории",
         sku="NO-CAT-001",
-        barcode="987654321098",
+        barcode="9876543210981315",
         price=500.00,
         total_quantity=50,
         reserved_quantity=5
