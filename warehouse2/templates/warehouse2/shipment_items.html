@@ -44,9 +44,24 @@
                             </button>
                         </div>
                         
-                        <div class="mb-3">
-                            <label for="{{ form.quantity.id_for_label }}" class="form-label">{{ form.quantity.label }}</label>
-                            {{ form.quantity }}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.quantity.id_for_label }}" class="form-label">{{ form.quantity.label }}</label>
+                                {{ form.quantity }}
+                                {% if form.quantity.errors %}
+                                    <div class="text-danger small">{{ form.quantity.errors }}</div>
+                                {% endif %}
+                            </div>
+                    
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.price_override.id_for_label }}" class="form-label">
+                                    Цена за ед. <small class="text-muted">(если отличается)</small>
+                                </label>
+                                {{ form.price_override }}
+                                {% if form.price_override.errors %}
+                                    <div class="text-danger small">{{ form.price_override.errors }}</div>
+                                {% endif %}
+                            </div>
                         </div>
                         
                         <button type="submit" class="btn btn-success">Добавить</button>

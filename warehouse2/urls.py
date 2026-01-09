@@ -10,7 +10,7 @@ urlpatterns = [
     path('products/search-json/', views.product_search_json, name='product_search_json'),
     path('products/<int:pk>/', views.ProductDetailView.as_view(), name='product_detail'),
     path('products/<int:pk>/edit/', views.ProductUpdateView.as_view(), name='product_edit'),
-    path('products/<int:pk>/delete/', views.ProductDeleteView.as_view(), name='product_delete'),
+    path('products/<int:pk>/archive/', views.ProductArchiveView.as_view(), name='product_archive'),
     path('product-search/', views.product_search, name='product_search'),
 
     path('package/<int:pk>/edit/', views.PackageUpdateView.as_view(), name='package_edit'),

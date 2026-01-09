@@ -96,3 +96,12 @@ class ShipmentItemForm(forms.Form):
         widget=forms.NumberInput(attrs={'class': 'form-control', 'value': 1}),
         label="Количество"
     )
+    price_override = forms.DecimalField(
+        min_value=0,
+        required=False,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control', 
+            'placeholder': 'Авто' # Подсказка, что если пусто - будет авто
+        }),
+        label="Цена (опционально)"
+    )

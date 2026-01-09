@@ -3,8 +3,12 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Каталог продукции</h2>
-    <a href="{% url 'product_create' %}" class="btn btn-primary">Добавить продукт</a>
-    <a href="{% url 'product_incoming' %}" class="btn btn-success">Принять товар</a>
+    <div class="btn-group">
+        <a href="{% url 'product_create' %}" class="btn btn-primary">Добавить продукт</a>
+        <a href="{% url 'product_incoming' %}" class="btn btn-success">Принять товар</a>
+        <a href="{% url 'product_list' %}" class="btn btn-outline-primary {% if not is_archived_view %}active{% endif %}">Активные</a>
+        <a href="{% url 'product_list' %}?archived=1" class="btn btn-outline-secondary {% if is_archived_view %}active{% endif %}">Архив</a>
+    </div>
 </div>
 <form method="get" class="mb-4" id="filter-form">
     <div class="row">

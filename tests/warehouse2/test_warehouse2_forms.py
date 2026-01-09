@@ -738,7 +738,7 @@ class TestShipmentItemForm:
         form = ShipmentItemForm()
         
         # Проверяем, что только нужные поля присутствуют
-        expected_fields = ['item_identifier', 'quantity']
+        expected_fields = ['item_identifier', 'quantity', 'price_override']
         assert list(form.fields.keys()) == expected_fields
 
 

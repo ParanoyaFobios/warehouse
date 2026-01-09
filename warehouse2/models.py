@@ -47,9 +47,10 @@ class ProductCategory(models.Model):
 
 class Product(ContentTypeAware, models.Model):
     """Модель ПОШТУЧНОЙ готовой продукции."""
-    name = models.CharField(max_length=200, verbose_name="Название продукции")
+    name = models.CharField(max_length=200, db_index=True, verbose_name="Название продукции")
     sku = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
     barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод (штучный)", default=generate_product_barcode, editable=True)
+    is_archived = models.BooleanField(default=False, verbose_name="В архиве")
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория", blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за единицу", default=0)
     color = models.CharField(max_length=50, unique=True, verbose_name="Цвет", blank=True, null=True)
@@ -365,7 +366,9 @@ class ShipmentItem(models.Model):
         
         if is_new:
             # Фиксируем цену при первом сохранении
-            self.price = self.product.price if self.product else self.package.price
+            if self.price is None:
+                self.price = self.product.price if self.product else self.package.price
+            
             old_units = 0
         else:
             # Получаем старую версию для расчета разницы

@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.urls import reverse_lazy
 from .models import Product, Shipment, ShipmentItem, Package, ProductCategory, ProductOperation
 from .forms import ProductForm, ShipmentForm, ShipmentItemForm, PackageForm, ProductIncomingForm
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.http import JsonResponse
 from django.db import models
 from django.views.generic.edit import FormView, FormMixin
@@ -25,8 +25,9 @@ class ProductListView(ListView):
 
     def get_queryset(self):
             queryset = super().get_queryset().order_by('name') # Хорошая практика: всегда сортировать при пагинации
-            
+            show_archived = self.request.GET.get('archived') == '1'
             category = self.request.GET.get('category')
+            search = self.request.GET.get('search')
             if category:
                 queryset = queryset.filter(category_id=category)
                 
@@ -39,6 +40,9 @@ class ProductListView(ListView):
                     models.Q(packages__barcode__exact=search)
                 )
                 queryset = queryset.filter(product_query).distinct()
+            else:
+        # Если поиска НЕТ — разделяем активные и архивные по флагу
+                queryset = queryset.filter(is_archived=show_archived)
             
             return queryset
 
@@ -105,14 +109,18 @@ class ProductDetailView(FormMixin, DetailView):
         messages.success(self.request, f'Упаковка на {package.quantity} шт. успешно создана!')
         return super().form_valid(form)
     
-class ProductDeleteView(LoginRequiredMixin, DeleteView):
-    model = Product
-    template_name = 'warehouse2/product_confirm_delete.html'
-    success_url = reverse_lazy('product_list')
-    
-    def form_valid(self, form):
-        messages.success(self.request, 'Продукт успешно удален')
-        return super().form_valid(form)
+class ProductArchiveView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        product.is_archived = not product.is_archived  # Переключает туда-обратно
+        product.save()
+        
+        if product.is_archived:
+            messages.success(request, f'Товар "{product.name}" архивирован.')
+        else:
+            messages.success(request, f'Товар "{product.name}" восстановлен из архива.')
+            
+        return redirect('product_list')
 
 class ProductIncomingView(LoginRequiredMixin, FormView):
     template_name = 'warehouse2/product_incoming_form.html'
@@ -358,69 +366,89 @@ class ShipmentItemsView(FormView):
         return context
     
     def form_valid(self, form):
-        shipment = get_object_or_404(Shipment, pk=self.kwargs['pk'])
-        
-        if not shipment.can_be_edited():
-            messages.error(self.request, 'Нельзя добавлять товары в отгруженную накладную')
-            return self.form_invalid(form)
-        
-        identifier = form.cleaned_data['item_identifier']
-        quantity = form.cleaned_data['quantity']
-        
-        try:
-            item_type, item_id = identifier.split('-')
-            item_id = int(item_id)
+            shipment = get_object_or_404(Shipment, pk=self.kwargs['pk'])
             
-            # Ищем существующую позицию с таким же товаром/упаковкой
-            existing_item = None
-            if item_type == 'product':
-                existing_item = ShipmentItem.objects.filter(
-                    shipment=shipment,
-                    product_id=item_id,
-                    package__isnull=True  # Убедимся, что это именно товар, а не упаковка
-                ).first()
-            elif item_type == 'package':
-                existing_item = ShipmentItem.objects.filter(
-                    shipment=shipment,
-                    package_id=item_id,
-                    product__isnull=True  # Убедимся, что это именно упаковка, а не товар
-                ).first()
+            if not shipment.can_be_edited():
+                messages.error(self.request, 'Нельзя добавлять товары в отгруженную накладную')
+                return self.form_invalid(form)
             
-            if existing_item:
-                # Обновляем существующую позицию
-                old_quantity = existing_item.quantity
-                existing_item.quantity += quantity
+            identifier = form.cleaned_data['item_identifier']
+            quantity = form.cleaned_data['quantity']
+            # Получаем цену из формы (может быть None)
+            custom_price = form.cleaned_data.get('price_override')
+            
+            try:
+                item_type, item_id = identifier.split('-')
+                item_id = int(item_id)
                 
-                # Сохраняем - метод save() в модели сам обработает резервирование
-                existing_item.save()
+                # 1. СНАЧАЛА находим сам объект товара/упаковки, а также определяем цену
+                product_obj = None
+                package_obj = None
+                target_price = None
+
+                if item_type == 'product':
+                    product_obj = get_object_or_404(Product, pk=item_id)
+                    # Если ввели вручную - берем её, если нет - берем из товара
+                    target_price = custom_price if custom_price is not None else product_obj.price
                 
-                messages.success(
-                    self.request, 
-                    f'Количество позиции увеличено: {old_quantity} → {existing_item.quantity}'
-                )
-            else:
-                # Создаем новую позицию
-                new_item = ShipmentItem(shipment=shipment, quantity=quantity)
+                elif item_type == 'package':
+                    package_obj = get_object_or_404(Package, pk=item_id)
+                    target_price = custom_price if custom_price is not None else package_obj.price
+                
+                else:
+                    raise ValidationError('Неверный тип идентификатора.')
+
+                # 2. ИЩЕМ существующую позицию, совпадающую ПО ТОВАРУ И ПО ЦЕНЕ
+                existing_item = None
                 
                 if item_type == 'product':
-                    product = get_object_or_404(Product, pk=item_id)
-                    new_item.product = product
-                    new_item.price = product.price
+                    existing_item = ShipmentItem.objects.filter(
+                        shipment=shipment, 
+                        product=product_obj, 
+                        package__isnull=True,
+                        price=target_price  # <--- ГЛАВНОЕ ИЗМЕНЕНИЕ: ищем по конкретной цене
+                    ).first()
                 elif item_type == 'package':
-                    package = get_object_or_404(Package, pk=item_id)
-                    new_item.package = package
-                    new_item.price = package.price
-                else:
-                    raise ValidationError('Неверный тип товара.')
-                
-                new_item.save()
-                messages.success(self.request, f'Новая позиция добавлена в отгрузку')
+                    existing_item = ShipmentItem.objects.filter(
+                        shipment=shipment, 
+                        package=package_obj, 
+                        product__isnull=True,
+                        price=target_price  # <--- ГЛАВНОЕ ИЗМЕНЕНИЕ
+                    ).first()
 
-        except (ValueError, ValidationError) as e:
-            messages.error(self.request, f'Ошибка: {str(e)}')
-            return self.form_invalid(form)
-        
-        return super().form_valid(form)
+                if existing_item:
+                    # === СЦЕНАРИЙ 1: Товар с такой же ценой уже есть ===
+                    # Просто увеличиваем количество
+                    old_quantity = existing_item.quantity
+                    existing_item.quantity += quantity
+                    existing_item.save()
+                    
+                    messages.success(
+                        self.request, 
+                        f'Добавлено к существующей позиции ({target_price} грн). Было: {old_quantity}, Стало: {existing_item.quantity}'
+                    )
+                else:
+                    # === СЦЕНАРИЙ 2: Товара нет ИЛИ цена отличается ===
+                    # Создаем новую строчку
+                    new_item = ShipmentItem(
+                        shipment=shipment, 
+                        quantity=quantity,
+                        price=target_price # Явно записываем вычисленную цену
+                    )
+                    
+                    if item_type == 'product':
+                        new_item.product = product_obj
+                    elif item_type == 'package':
+                        new_item.package = package_obj
+                    
+                    new_item.save()
+                    messages.success(self.request, f'Создана новая позиция: {quantity} шт. по цене {target_price} грн.')
+
+            except (ValueError, ValidationError) as e:
+                messages.error(self.request, f'Ошибка: {str(e)}')
+                return self.form_invalid(form)
+            
+            return super().form_valid(form)
     
 class ShipmentUpdateView(LoginRequiredMixin, UpdateView):
     """
@@ -540,7 +568,7 @@ def stock_search(request):
         results.append({
             'id': f"product-{p.id}",
             'name': f"{p.name} (Штучный товар)",
-            'info': f"Арт: {p.sku} | Доступно: {int(p.available_quantity)} шт.",
+            'info': f"Арт: {p.sku} | Доступно: {int(p.available_quantity)} шт. | Цена: {p.price} грн",
         })
 
     # 2. Ищем упаковки

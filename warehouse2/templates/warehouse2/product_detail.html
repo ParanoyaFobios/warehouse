@@ -23,7 +23,20 @@
                 </tbody>
             </table>
             <a href="{% url 'product_edit' product.pk %}" class="btn btn-warning btn-sm">Редактировать товар</a>
-            <a href="{% url 'product_delete' product.pk %}" class="btn btn-danger">Удалить</a>
+            {% if product.pk %}
+            <form action="{% url 'product_archive' product.pk %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                {% if product.is_archived %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-arrow-up-circle"></i> Восстановить из архива
+                    </button>
+                {% else %}
+                    <button type="submit" class="btn btn-warning" onclick="return confirm('Архивировать этот товар?')">
+                        <i class="bi bi-archive"></i> В архив
+                    </button>
+                {% endif %}
+            </form>
+            {% endif %}
             <a href="{% url 'product_list' %}" class="btn btn-secondary btn-sm">К списку товаров</a>
         </div>
         <div class="col-md-6">

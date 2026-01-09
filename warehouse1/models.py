@@ -49,7 +49,7 @@ class MaterialColor(models.Model):
         verbose_name_plural = "Цвета материала"
 
 class Material(ContentTypeAware, models.Model):
-    name = models.CharField(max_length=200, verbose_name="Название материала")
+    name = models.CharField(max_length=200, db_index=True, verbose_name="Название материала")
     article = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
     category = models.ForeignKey(MaterialCategory, on_delete=models.PROTECT, verbose_name="Категория")
     barcode = models.CharField(max_length=12, unique=True, verbose_name="Штрихкод", default=generate_material_barcode, editable=False)
