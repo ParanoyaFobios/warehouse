@@ -4,34 +4,27 @@ from .models import Product, ProductOperation
 from .tasks import update_stock_in_keycrm, sync_product_to_keycrm
 
 @receiver(post_save, sender=Product)
-def trigger_product_sync(sender, instance, created, update_fields, **kwargs):
-    """
-    Синхронизация ПРИ ИЗМЕНЕНИИ КАРТОЧКИ ТОВАРА.
-    """
-    if update_fields and 'keycrm_id' in update_fields:
-        return
+def trigger_product_sync(sender, instance, created, **kwargs):
+    update_fields = kwargs.get('update_fields')
 
-    # Если мы изменили ТОЛЬКО остатки (через складскую операцию), 
-    # полная синхронизация не нужна, ее сделает другой сигнал ниже.
-    if update_fields and list(update_fields) == ['total_quantity']:
-        return
+    # Игнорируем обновление ID
+    if update_fields:
+        # Поля, которые относятся только к складу
+        stock_fields = {'total_quantity', 'reserved_quantity', 'keycrm_id'}
+        
+        # Если обновляемые поля — это подмножество складских полей, ничего не делаем
+        if set(update_fields).issubset(stock_fields):
+            return
 
-    sync_product_to_keycrm.delay(instance.id)
+    # Если мы здесь (created=True или изменили цену/имя), шлем полную карточку
+    sync_product_to_keycrm.apply_async(args=[instance.id], countdown=2)
 
 
 @receiver(post_save, sender=ProductOperation)
 def trigger_stock_update_on_operation(sender, instance, created, **kwargs):
     """
-    Синхронизация ОСТАТКОВ при движении товара (быстрый PATCH).
+    Синхронизация остатков при создании операции (приход/расход).
     """
-    if created:
-        # Используем именно быстрый метод обновления остатка
-        update_stock_in_keycrm.delay(instance.product.id)
-
-
-@receiver(post_save, sender=Product)
-def trigger_product_sync(sender, instance, created, **kwargs):
-    # Если это не техническое сохранение самого ID, отправляем на синхронизацию
-    # Мы передаем задачу в Celery, которая сделает PUT запрос в KeyCRM
-    from .tasks import sync_product_to_keycrm
-    sync_product_to_keycrm.delay(instance.id)
+    if created and instance.product:
+        # Запускаем специальную задачу для остатков (PUT /offers/stocks)
+        update_stock_in_keycrm.apply_async(args=[instance.product.id], countdown=2)

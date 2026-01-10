@@ -54,7 +54,7 @@ class Product(ContentTypeAware, models.Model):
     is_archived = models.BooleanField(default=False, verbose_name="В архиве")
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория", blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за единицу", default=0)
-    color = models.CharField(max_length=50, unique=True, verbose_name="Цвет", blank=True, null=True)
+    color = models.CharField(max_length=50, verbose_name="Цвет", blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Изображение")
     keycrm_id = models.IntegerField(null=True, blank=True, unique=True, verbose_name="KeyCRM ID товара")
     # === Складской учет ===
@@ -286,7 +286,7 @@ class Shipment(models.Model):
                 # Списание с баланса и ОДНОВРЕМЕННОЕ снятие с резерва
                 base_product.total_quantity -= units_to_ship
                 base_product.reserved_quantity -= units_to_ship
-                base_product.save()
+                base_product.save(update_fields=['total_quantity', 'reserved_quantity'])
 
                 # Создание записи в журнале (остается без изменений)
                 ProductOperation.objects.create(

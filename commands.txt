@@ -1,4 +1,5 @@
 python manage.py import_products - синхронизация БД с данными црм системы
+python manage.py barcode_update - сброс всех существующих штрихкодов продктов
 
 pytest --cov=todo --cov-report html
 --cov=todo: Указывает, что нужно считать покрытие только для приложения todo.
@@ -16,3 +17,10 @@ pytest tests/warehouse1/test_warehouse1_views.py -v
 
 python server.py
 # Запуск веб сервера через waitress
+
+celery -A warehouse worker -l info -P solo
+# Запуск celery в однопоточном режиме на виндовс
+celery -A warehouse worker -l info
+# Заупск celery с отображением логов в командной строке
+celery -A warehouse purge
+# Очистить очередь задач

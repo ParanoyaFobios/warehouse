@@ -5,63 +5,117 @@ from .models import Product
 
 @shared_task(bind=True, default_retry_delay=300, max_retries=10)
 def update_stock_in_keycrm(self, product_id):
-    """
-    Фоновая задача для обновления остатка товара в KeyCRM.
-    """
     try:
         product = Product.objects.get(pk=product_id)
-        # Если у товара нет ID из KeyCRM или остаток 0, ничего не делаем
+        product.refresh_from_db() # Подтягиваем свежие цифры из БД
+        current_stock = product.available_quantity
         if not product.keycrm_id:
-            return f"Пропущен товар '{product.name}': отсутствует KeyCRM ID."
+            return f"Пропущено: нет KeyCRM ID."
 
-        API_KEY = getattr(settings, 'KEYCRM_API_KEY')
-        API_URL = "https://openapi.keycrm.app/v1"
-        headers = { "Authorization": f"Bearer {API_KEY}" }
-        
-        # Данные для обновления. KeyCRM ожидает 'quantity'.
-        payload = {
-            "quantity": product.available_quantity
+        API_KEY = settings.KEYCRM_API_KEY
+        url = "https://openapi.keycrm.app/v1/offers/stocks"
+        headers = { 
+            "Authorization": f"Bearer {API_KEY}", 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         }
         
-        # Отправляем PATCH-запрос для обновления только одного поля
-        response = requests.patch(f"{API_URL}/products/{product.keycrm_id}", json=payload, headers=headers)
-        response.raise_for_status() # Вызовет ошибку, если запрос неуспешный
+        payload = {
+            "warehouse_id": 2, # ваш проверенный ID
+            "stocks": [
+                {
+                    "sku": product.sku,  # Используем SKU как главный идентификатор
+                    "quantity": int(current_stock)
+                }
+            ]
+        }
         
-        return f"Остаток для '{product.name}' (KeyCRM ID: {product.keycrm_id}) успешно обновлен на {payload['quantity']}."
+        # ВАЖЛИВО: Використовуємо PUT, як вказано в доці
+        response = requests.put(url, json=payload, headers=headers)
+        
+        if response.status_code == 422:
+            print(f"!!! Ошибка валидации остатков: {response.json()}")
+            return f"Ошибка валидации: {response.json()}"
 
-    except Product.DoesNotExist:
-        return f"Ошибка: Товар с ID {product_id} не найден."
-    except requests.exceptions.RequestException as e:
-        # В реальном проекте здесь можно настроить повторные попытки
-        return f"Ошибка API KeyCRM для товара ID {product_id}: {e}"
-    
+        response.raise_for_status() 
+        
+        return f"Остатки для '{product.name}' успешно обовлены до {product.available_quantity} шт."
+
+    except Exception as e:
+        print(f"!!! Ошибка обновления склада: {e}")
+        return f"Ошибка API KeyCRM: {e}"
 
 
-@shared_task(bind=True, default_retry_delay=300, max_retries=5)
+@shared_task(bind=True, default_retry_delay=10, max_retries=3)
 def sync_product_to_keycrm(self, product_id):
     try:
         product = Product.objects.get(pk=product_id)
-        if not product.keycrm_id:
-            return "Синхронизация невозможна: нет KeyCRM ID"
-
-        url = f"https://openapi.keycrm.app/v1/products/{product.keycrm_id}"
-        headers = {"Authorization": f"Bearer {settings.KEYCRM_API_KEY}"}
+        print(f">>> Начало синхронизации: {product.name} (ID: {product.keycrm_id})")
         
-        # Формируем данные для CRM
-        payload = {
-            "name": product.name,
-            "sku": product.sku,
-            "price": float(product.price),
-            "is_archived": product.is_archived,
-            "quantity": product.total_quantity
+        API_KEY = settings.KEYCRM_API_KEY
+        API_URL = "https://openapi.keycrm.app/v1/products"
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         }
         
-        if product.category and product.category.keycrm_id:
-            payload["category_id"] = product.category.keycrm_id
+        payload = {
+            "name": str(product.name),
+            "sku": str(product.sku),
+            "price": float(product.price),
+            "quantity": int(product.total_quantity or 0),
+            "unit_type": "шт",
+            "currency_code": "UAH",
+        }
 
-        response = requests.put(url, json=payload, headers=headers)
+        if product.category and product.category.keycrm_id:
+            payload["category_id"] = int(product.category.keycrm_id)
+
+        if product.image:
+            # Генерируем временную ссылку, которая будет жить, например, 24 часа
+            # Чтобы робот KeyCRM точно успел её скачать.
+            try:
+                # В Django-storages метод .url() генерирует ссылку с подписью,
+                # если AWS_QUERYSTRING_AUTH = True.
+                # Если вы хотите задать время жизни принудительно:
+                image_url = product.image.storage.url(product.image.name, expire=600)
+                
+                payload["pictures"] = [image_url]
+                print(f"--- Сгенерирована временная ссылка (5 мин): {image_url}")
+            except Exception as e:
+                print(f"!!! Ошибка генерации ссылки: {e}")
+
+        if product.keycrm_id:
+            url = f"{API_URL}/{product.keycrm_id}"
+            print(f"--- Отправка PUT запроса на {url}")
+            response = requests.put(url, json=payload, headers=headers, timeout=10)
+        else:
+            print(f"--- Отправка POST запроса (создание)")
+            response = requests.post(API_URL, json=payload, headers=headers, timeout=10)
+
+        print(f"--- Статус ответа: {response.status_code}")
+
+        if response.status_code in [422, 400]:
+            err_msg = response.json()
+            print(f"!!! Ошибка валидации CRM: {err_msg}")
+            return f"Ошибка данных: {err_msg}"
+
         response.raise_for_status()
-        
-        return f"Товар {product.sku} синхронизирован. Статус архива: {product.is_archived}"
+        data = response.json()
+
+        if not product.keycrm_id and 'id' in data:
+            new_id = data['id']
+            print(f"--- Получен новый ID: {new_id}. Сохраняем...")
+            # Чтобы избежать рекурсии сигналов, обновляем через QuerySet
+            Product.objects.filter(pk=product.pk).update(keycrm_id=new_id)
+
+        print(f">>> УСПЕШНО для {product.name}")
+        return f"Успех: {product.name}"
+
+    except requests.exceptions.Timeout:
+        print("!!! Ошибка: Сервер KeyCRM не ответил вовремя (Timeout)")
+        raise self.retry(exc=Exception("KeyCRM Timeout"))
     except Exception as exc:
+        print(f"!!! КРИТИЧЕСКАЯ ОШИБКА: {exc}")
         raise self.retry(exc=exc)

@@ -213,7 +213,7 @@ class WorkOrder(models.Model):
                 
                 # Обновление Склада: добавляем факт
                 self.product.total_quantity = F('total_quantity') + quantity_done
-                self.product.save()
+                self.product.save(update_fields=['total_quantity'])#Добавляем update_fields, чтобы сигнал trigger_product_sync
 
                 # Создание записи об операции
                 ProductOperation.objects.create(

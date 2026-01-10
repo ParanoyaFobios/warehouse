@@ -135,22 +135,30 @@ class ProductIncomingView(LoginRequiredMixin, FormView):
 
         try:
             with transaction.atomic():
-                # Увеличиваем остаток товара
-                product.total_quantity += quantity
-                product.save()
+                # Нам нужно получить ContentType для модели Product, 
+                # так как source требует хоть какую-то привязку
+                from django.contrib.contenttypes.models import ContentType
+                product_ct = ContentType.objects.get_for_model(product)
 
-                # Создаем запись в журнале операций
                 ProductOperation.objects.create(
-                    product=product,
+                    product=product,  # К какому товару относится (ForeignKey)
                     operation_type=ProductOperation.OperationType.INCOMING,
                     quantity=quantity,
-                    source=self.request.user,
+                    # Заполняем GenericForeignKey (source), чтобы не было ошибки NOT NULL
+                    content_type=product_ct,
+                    object_id=product.id, 
                     user=self.request.user,
                     comment=comment
                 )
-            messages.success(self.request, f"Товар '{product.name}' ({quantity} шт.) успешно оприходован.")
+
+                # Обновляем остаток
+                product.total_quantity += quantity
+                product.save(update_fields=['total_quantity'])
+                
+            messages.success(self.request, f"Товар '{product.name}' успешно оприходован.")
         except Exception as e:
-            messages.error(self.request, f"Произошла ошибка: {e}")
+            print(f"DEBUG ERROR: {e}")
+            messages.error(self.request, f"Ошибка: {e}")
 
         return redirect(self.get_success_url())
     
