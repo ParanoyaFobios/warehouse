@@ -72,19 +72,36 @@ def sync_product_to_keycrm(self, product_id):
         if product.category and product.category.keycrm_id:
             payload["category_id"] = int(product.category.keycrm_id)
 
+# Собираем список картинок
+        pictures = []
         if product.image:
-            # Генерируем временную ссылку, которая будет жить, например, 24 часа
-            # Чтобы робот KeyCRM точно успел её скачать.
-            try:
-                # В Django-storages метод .url() генерирует ссылку с подписью,
-                # если AWS_QUERYSTRING_AUTH = True.
-                # Если вы хотите задать время жизни принудительно:
-                image_url = product.image.storage.url(product.image.name, expire=600)
-                
-                payload["pictures"] = [image_url]
-                print(f"--- Сгенерирована временная ссылка (5 мин): {image_url}")
-            except Exception as e:
-                print(f"!!! Ошибка генерации ссылки: {e}")
+            # Генерируем ссылку, но отключаем лишние заголовки
+            storage = product.image.storage
+            params = {
+                'Bucket': storage.bucket_name,
+                'Key': product.image.name,
+            }
+            
+            # Создаем "чистую" подписанную ссылку через клиент boto3 напрямую
+            img_url = storage.connection.meta.client.generate_presigned_url(
+                'get_object',
+                Params=params,
+                ExpiresIn=86400 # 24 часа, чтобы KeyCRM точно успел
+            )
+            pictures.append(img_url)
+
+        payload = {
+            "name": product.name,
+            "sku": product.sku,
+            "price": float(product.price),
+            "pictures": pictures,  # ПЕРЕДАЕМ КАК МАССИВ [url1, url2]
+            # ... остальные поля
+        }
+
+        # Если картинки нет, KeyCRM может затереть старую, если отправить пустой массив [].
+        # Если хотим сохранить старую картинку в CRM при отсутствии новой в Django:
+        if not pictures:
+            payload.pop("pictures")
 
         if product.keycrm_id:
             url = f"{API_URL}/{product.keycrm_id}"

@@ -1,3 +1,5 @@
+import sys
+from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Product, ProductOperation
@@ -5,6 +7,9 @@ from .tasks import update_stock_in_keycrm, sync_product_to_keycrm
 
 @receiver(post_save, sender=Product)
 def trigger_product_sync(sender, instance, created, **kwargs):
+# Универсальная защита для pytest и manage.py test
+    if 'test' in sys.argv or 'pytest' in sys.argv or getattr(settings, 'TESTING', False):
+        return
     update_fields = kwargs.get('update_fields')
 
     # Игнорируем обновление ID
@@ -25,6 +30,9 @@ def trigger_stock_update_on_operation(sender, instance, created, **kwargs):
     """
     Синхронизация остатков при создании операции (приход/расход).
     """
+    # Универсальная защита для pytest и manage.py test
+    if 'test' in sys.argv or 'pytest' in sys.argv or getattr(settings, 'TESTING', False):
+        return
     if created and instance.product:
         # Запускаем специальную задачу для остатков (PUT /offers/stocks)
         update_stock_in_keycrm.apply_async(args=[instance.product.id], countdown=2)

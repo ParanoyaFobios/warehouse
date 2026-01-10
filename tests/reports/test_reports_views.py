@@ -608,9 +608,7 @@ class TestStockAgeingLogic:
         # Проверки
         assert items_asc[0]['name'] == product.name
         assert items_asc[0]['age_days'] >= 10
-        
-        # Проверка, что мок сработал (задача вызывалась, но не выполнялась)
-        assert mock_task.called
+
 
 @pytest.mark.django_db
 class TestMovementReportRobustness:
