@@ -367,43 +367,54 @@ class ShipmentItem(models.Model):
         is_new = self.pk is None
         
         if is_new:
-            # Фиксируем цену при первом сохранении
             if self.price is None:
                 self.price = self.product.price if self.product else self.package.price
-            
             old_units = 0
         else:
-            # Получаем старую версию для расчета разницы
             old_item = ShipmentItem.objects.get(pk=self.pk)
             old_units = old_item.base_product_units
         
         new_units = self.base_product_units
         difference = new_units - old_units
         
-        # Обновляем резерв у БАЗОВОГО продукта (не у упаковки!)
         base_product = self.stock_product
-        if difference > 0:
-            if base_product.available_quantity < difference:
-                raise ValidationError(f"Недостаточно товара '{base_product.name}'. Доступно: {base_product.available_quantity}")
-            base_product.reserved_quantity += difference
-        elif difference < 0:
-            base_product.reserved_quantity -= abs(difference)
+        
+        # Обновляем резерв
+        if difference != 0:
+            if difference > 0:
+                if base_product.available_quantity < difference:
+                    raise ValidationError(f"Недостаточно товара '{base_product.name}'. Доступно: {base_product.available_quantity}")
+                base_product.reserved_quantity += difference
+            elif difference < 0:
+                base_product.reserved_quantity -= abs(difference)
             
-        base_product.save()
+            # 1. ЗАЩИТА ОТ ТЯЖЕЛОЙ СИНХРОНИЗАЦИИ:
+            # Используем update_fields, чтобы сигнал trigger_product_sync проигнорировал это сохранение
+            base_product.save(update_fields=['reserved_quantity'])
+
+            # 2. ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ ОСТАТКОВ В CRM:
+            # Так как мы заткнули сигнал, нам нужно вручную запустить легкую задачу
+            # Импортируем внутри метода, чтобы избежать Circular Import
+            from .tasks import update_stock_in_keycrm
+            # Запускаем задачу (KeyCRM получит Total - Reserved)
+            update_stock_in_keycrm.delay(base_product.id)
+
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        # Снимаем с резерва, только если отгрузка находится в статусе,
-        # где резервирование имеет смысл ('pending' или 'packaged').
         if self.shipment.status in ['pending', 'packaged']:
             units_to_release = self.base_product_units
             base_product = self.stock_product
             
-            # Уменьшаем резерв, но не даем ему уйти в минус
             base_product.reserved_quantity = max(0, base_product.reserved_quantity - units_to_release)
-            base_product.save()
             
-        # Вызываем стандартный метод удаления для самой строки
+            # 1. Сохраняем только поле резерва (без тяжелой синхронизации)
+            base_product.save(update_fields=['reserved_quantity'])
+            
+            # 2. Принудительно обновляем цифры в KeyCRM
+            from .tasks import update_stock_in_keycrm
+            update_stock_in_keycrm.delay(base_product.id)
+            
         super().delete(*args, **kwargs)
 
     class Meta:

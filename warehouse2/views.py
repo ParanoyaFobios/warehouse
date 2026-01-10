@@ -500,26 +500,26 @@ class ReturnShipmentView(LoginRequiredMixin, DetailView):
 
         try:
             with transaction.atomic():
-                # Проходим по всем позициям в отгрузке
                 for item in shipment.items.all():
                     product_to_return = item.stock_product
                     quantity_to_return = item.base_product_units
 
                     # Возвращаем количество на склад
                     product_to_return.total_quantity += quantity_to_return
-                    product_to_return.save()
+                    
+                    # 1. ИСПРАВЛЕНИЕ: Используем update_fields
+                    product_to_return.save(update_fields=['total_quantity'])
 
-                    # Создаем запись в журнале операций
+                    # 2. Создаем операцию
                     ProductOperation.objects.create(
                         product=product_to_return,
                         operation_type=ProductOperation.OperationType.RETURN,
                         quantity=quantity_to_return,
-                        source=shipment, # Ссылка на отгрузку-основание
+                        source=shipment,
                         user=request.user,
                         comment=f"Возврат по отгрузке №{shipment.id}"
                     )
                 
-                # Меняем статус отгрузки
                 shipment.status = 'returned'
                 shipment.save()
                 messages.success(request, f"Товары по отгрузке №{shipment.id} успешно возвращены на склад.")

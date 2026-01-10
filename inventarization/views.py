@@ -145,55 +145,47 @@ class ReconcileInventoryView(LoginRequiredMixin, PermissionRequiredMixin,View):
         return redirect('count_reconcile', pk=pk)
 
     def _adjust_quantity(self, user, inventory_count, item):
-        """
-        Главная функция: корректирует остаток и создает запись в журнале.
-        """
-        # Если расхождений нет или уже обработано, ничего не делаем
         if item.variance == 0 or item.reconciliation_status == 'reconciled':
             return
 
         with transaction.atomic():
-            content_object = item.content_object
+            # Получаем свежий объект из БД, а не через GenericForeignKey
+            model_class = item.content_type.model_class()
+            content_object = model_class.objects.select_for_update().get(pk=item.object_id)
+            
             variance = item.variance
             comment = f"Корректировка по переучету №{inventory_count.id}"
 
-            # --- Логика для Готовой Продукции (Склад 2) ---
             if isinstance(content_object, Product):
-                # Обновляем количество продукта
                 content_object.total_quantity = item.actual_quantity
-                content_object.save()
+                # Явно сохраняем
+                content_object.save(update_fields=['total_quantity'])
                 
-                # Создаем запись в журнале операций
                 ProductOperation.objects.create(
                     product=content_object,
                     operation_type=ProductOperation.OperationType.ADJUSTMENT,
                     quantity=variance,
-                    content_type=ContentType.objects.get_for_model(InventoryCount),
+                    content_type=item.content_type, # используем уже имеющийся тип
                     object_id=inventory_count.id,
                     user=user,
                     comment=comment
                 )
 
-            # --- Логика для Материалов (Склад 1) ---
             elif isinstance(content_object, Material):
-                # Обновляем количество материала
                 content_object.quantity = item.actual_quantity
-                content_object.save()
+                content_object.save(update_fields=['quantity'])
                 
-                # Создаем запись в журнале операций с реальным variance (со знаком)
                 MaterialOperation.objects.create(
                     material=content_object,
                     operation_type='adjustment',
-                    quantity=variance,  # Для Decimal оставляем abs, но меняем комментарий
+                    quantity=variance,
                     user=user,
                     comment=f"{comment}. Корректировка: {variance}"
-                    # Если у MaterialOperation есть связь с переучетом, добавьте ее здесь
-                    # inventory_count=inventory_count
                 )
             
-            # Отмечаем позицию как обработанную
-            item.reconciliation_status = 'reconciled'
-            item.save()
+            # Обновляем статус самого элемента переучета
+            item.reconciliation_status = InventoryCountItem.ReconciliationStatus.RECONCILED
+            item.save(update_fields=['reconciliation_status'])
 
 
 class FinalizeInventoryView(LoginRequiredMixin, PermissionRequiredMixin, View):

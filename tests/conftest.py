@@ -8,6 +8,45 @@ from warehouse2.models import (Product, Sender, ProductCategory, Package, Produc
 from django.contrib.contenttypes.models import ContentType
 from inventarization.models import InventoryCount
 from usertouser.models import Message, MessageRecipient
+from django.db.models.signals import post_save
+from warehouse2.signals import trigger_product_sync, trigger_stock_update_on_operation
+
+@pytest.fixture(autouse=True)
+def disable_signals():
+    """
+    Отключаем сигналы синхронизации для всех тестов.
+    Это гарантирует, что Celery задачи даже не будут поставлены в очередь.
+    """
+    post_save.disconnect(receiver=trigger_product_sync, sender=Product)
+    post_save.disconnect(receiver=trigger_stock_update_on_operation, sender=ProductOperation)
+    
+    yield
+    
+    # Возвращаем сигналы назад, чтобы они работали в других местах (если нужно)
+    post_save.connect(receiver=trigger_product_sync, sender=Product)
+    post_save.connect(receiver=trigger_stock_update_on_operation, sender=ProductOperation)
+
+@pytest.fixture(autouse=True)
+def mock_external_requests(mocker):
+    """
+    Глобальный мок для всех HTTP запросов через requests.
+    Если вдруг сигнал прорвется, запрос физически не уйдет в интернет.
+    """
+    # Патчим 'requests.Session.request' или просто 'requests.put/post'
+    mock_put = mocker.patch("requests.put")
+    mock_post = mocker.patch("requests.post")
+    
+    # Можно настроить дефолтный пустой ответ
+    mock_put.return_value.status_code = 200
+    mock_post.return_value.status_code = 200
+    
+    return mock_put, mock_post
+
+@pytest.fixture(autouse=True)
+def celery_settings(settings):
+    """Настройки Celery для тестов"""
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    settings.CELERY_TASK_EAGER_PROPAGATES = True
 
 # Фикстура для создания юзера
 @pytest.fixture
