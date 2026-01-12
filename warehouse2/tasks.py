@@ -3,7 +3,7 @@ from celery import shared_task
 from django.conf import settings
 from .models import Product
 
-@shared_task(bind=True, default_retry_delay=300, max_retries=10)
+@shared_task(bind=True, default_retry_delay=300, max_retries=3)
 def update_stock_in_keycrm(self, product_id):
     try:
         product = Product.objects.get(pk=product_id)
@@ -30,7 +30,6 @@ def update_stock_in_keycrm(self, product_id):
             ]
         }
         
-        # ВАЖЛИВО: Використовуємо PUT, як вказано в доці
         response = requests.put(url, json=payload, headers=headers)
         
         if response.status_code == 422:
@@ -59,49 +58,27 @@ def sync_product_to_keycrm(self, product_id):
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
-        
+        # Секция кода для прокси URL для изображений, раскоментить если нужно использовать
+        # base_url = "https://5cda685854be.ngrok-free.app" # Замените на ваш реальный базовый URL после деплоя
+        # pictures = []
+        # if product.image:
+        #     # Короткая и чистая ссылка для KeyCRM
+        #     proxy_url = f"{base_url}/img-proxy/{product.id}/"
+        #     pictures.append(proxy_url)
         payload = {
             "name": str(product.name),
             "sku": str(product.sku),
             "price": float(product.price),
             "quantity": int(product.total_quantity or 0),
             "unit_type": "шт",
-            "currency_code": "UAH",
-        }
+            "currency_code": "UAH",}
+            # "pictures": pictures,}
+
+        # if not pictures:
+        #     payload.pop("pictures")
 
         if product.category and product.category.keycrm_id:
             payload["category_id"] = int(product.category.keycrm_id)
-
-# Собираем список картинок
-        pictures = []
-        if product.image:
-            # Генерируем ссылку, но отключаем лишние заголовки
-            storage = product.image.storage
-            params = {
-                'Bucket': storage.bucket_name,
-                'Key': product.image.name,
-            }
-            
-            # Создаем "чистую" подписанную ссылку через клиент boto3 напрямую
-            img_url = storage.connection.meta.client.generate_presigned_url(
-                'get_object',
-                Params=params,
-                ExpiresIn=86400 # 24 часа, чтобы KeyCRM точно успел
-            )
-            pictures.append(img_url)
-
-        payload = {
-            "name": product.name,
-            "sku": product.sku,
-            "price": float(product.price),
-            "pictures": pictures,  # ПЕРЕДАЕМ КАК МАССИВ [url1, url2]
-            # ... остальные поля
-        }
-
-        # Если картинки нет, KeyCRM может затереть старую, если отправить пустой массив [].
-        # Если хотим сохранить старую картинку в CRM при отсутствии новой в Django:
-        if not pictures:
-            payload.pop("pictures")
 
         if product.keycrm_id:
             url = f"{API_URL}/{product.keycrm_id}"

@@ -56,11 +56,21 @@ class Product(ContentTypeAware, models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за единицу", default=0)
     color = models.CharField(max_length=50, verbose_name="Цвет", blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Изображение")
+    external_image_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="Внешний URL изображения")
     keycrm_id = models.IntegerField(null=True, blank=True, unique=True, verbose_name="KeyCRM ID товара")
     # === Складской учет ===
     total_quantity = models.IntegerField(default=0, verbose_name="На балансе")
     reserved_quantity = models.IntegerField(default=0, verbose_name="Зарезервировано")
 
+    @property
+    def get_image_url(self):
+        """Логика выбора: приоритет локальному файлу, затем внешней ссылке."""
+        if self.image:
+            return self.image.url
+        if self.external_image_url:
+            return self.external_image_url
+        return "/static/images/no-image.png"  # Путь к заглушке
+    
     @property
     def available_quantity(self):
         return self.total_quantity - self.reserved_quantity

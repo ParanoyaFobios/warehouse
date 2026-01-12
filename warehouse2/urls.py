@@ -1,5 +1,6 @@
 from django.urls import path
-from . import views, api_views
+from . import views
+from .drf_api_views import KeyCRMWebhookView
 
 
 urlpatterns = [
@@ -29,5 +30,5 @@ urlpatterns = [
     path('shipment/<int:pk>/return/', views.ReturnShipmentView.as_view(), name='shipment_return'),
     path('shipment/<int:pk>/mark_packaged/', views.mark_shipment_as_packaged, name='shipment_mark_packaged'),
     # API endpoint for KeyCRM webhooks
-    path('api/webhooks/order-updated/', api_views.KeyCRMOrderWebhookView.as_view(), name='keycrm_order_webhook'),
+    path('api/webhooks/keycrm/', KeyCRMWebhookView.as_view(), name='keycrm_webhook'),
 ]

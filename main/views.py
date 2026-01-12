@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from .forms import LoginForm
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.http import HttpResponse, Http404
 from django.contrib.contenttypes.models import ContentType
 import barcode
@@ -21,9 +21,11 @@ from django.contrib.auth.models import User
 from django.urls import reverse_lazy
 from .forms import UserCreationWithGroupForm
 from django.views.generic.edit import FormView
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from PIL import Image, ImageDraw, ImageFont
+import requests
+
 
 
 # ==============================================================================
@@ -247,7 +249,10 @@ def global_search_view(request):
 
     # 2. ВЫПОЛНЯЕМ ПОИСК ОДИН РАЗ
     materials_found = Material.objects.filter(material_query)
-    products_found = Product.objects.filter(product_query).distinct()
+    products_found = Product.objects.filter(
+        product_query, 
+        is_archived=False  # Продукт не должен быть в архиве
+    ).distinct()
 
     # 3. ПРОВЕРЯЕМ РЕЗУЛЬТАТЫ И ПРИНИМАЕМ РЕШЕНИЕ
     materials_exist = materials_found.exists()
@@ -284,3 +289,41 @@ def global_search_view(request):
         messages.error(request, f'По запросу "{query}" ничего не найдено.')
         return redirect(request.META.get('HTTP_REFERER', '/'))
 
+#===============================
+# Проксирование изображений продуктов из Wasabi S3
+#===============================
+def product_image_proxy(request, product_id):
+    """
+    Проксирует изображения из Wasabi или перенаправляет на внешний URL.
+    """
+    product = get_object_or_404(Product, pk=product_id)
+    
+    # 1. Приоритет - файл в Wasabi S3
+    if product.image:
+        try:
+            s3_url = product.image.url
+            response = requests.get(s3_url, stream=True, timeout=10)
+            response.raise_for_status()
+
+            proxy_response = StreamingHttpResponse(
+                response.iter_content(chunk_size=8192),
+                content_type=response.headers.get('Content-Type', 'image/png')
+            )
+            proxy_response['Content-Disposition'] = f'inline; filename="{product.image.name.split("/")[-1]}"'
+            
+            # Заголовок для ngrok (убрать после перехода на реальный домен)
+            proxy_response['ngrok-skip-browser-warning'] = '1'
+            return proxy_response
+
+        except Exception as e:
+            print(f"Ошибка проксирования из Wasabi: {e}")
+            # Если Wasabi недоступен, но есть внешняя ссылка, попробуем её
+            if not product.external_image_url:
+                raise Http404("Изображение недоступно")
+
+    # 2. Если файла в S3 нет, но есть внешняя ссылка (KeyCRM/Rozetka)
+    if product.external_image_url:
+        return redirect(product.external_image_url)
+
+    # 3. Если нет вообще ничего
+    raise Http404("У этого товара нет изображений")
