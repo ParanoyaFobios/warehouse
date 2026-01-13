@@ -69,7 +69,7 @@ class Product(ContentTypeAware, models.Model):
             return self.image.url
         if self.external_image_url:
             return self.external_image_url
-        return "/static/images/no-image.png"  # Путь к заглушке
+        return "/static/images/no-image.jpg"  # Путь к заглушке
     
     @property
     def available_quantity(self):
