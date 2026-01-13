@@ -1,7 +1,6 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from .forms import LoginForm
-from django.shortcuts import get_object_or_404, redirect
 from django.http import HttpResponse, Http404
 from django.contrib.contenttypes.models import ContentType
 import barcode
@@ -14,7 +13,7 @@ from todo.models import WorkOrder
 from django.contrib import messages
 from django.db.models import F, Q
 from warehouse1.models import Material
-from warehouse2.models import Product
+from warehouse2.models import Product, ProductCategory
 from django.urls import reverse
 from urllib.parse import urlencode
 from django.contrib.auth.models import User
@@ -25,6 +24,10 @@ from django.http import HttpResponse, Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from PIL import Image, ImageDraw, ImageFont
 import requests
+import time
+from django.conf import settings
+from django.db import transaction
+from django.core.files.base import ContentFile
 
 
 
@@ -327,3 +330,93 @@ def product_image_proxy(request, product_id):
 
     # 3. Если нет вообще ничего
     raise Http404("У этого товара нет изображений")
+
+#=================================================
+# функция которая скачивает новые товары из KeyCRM, останавливаясь при нахождении 5 существующих
+#=================================================
+
+def sync_new_products_view(request):
+    """
+    Легкая синхронизация: только новые товары, фото по внешним ссылкам.
+    """
+    API_KEY = settings.KEYCRM_API_KEY
+    API_URL = "https://openapi.keycrm.app/v1"
+    
+    session = requests.Session()
+    session.headers.update({
+        "Authorization": f"Bearer {API_KEY}",
+        "Accept": "application/json"
+    })
+
+    created_count = 0
+    existing_streak = 0
+    STOP_THRESHOLD = 5 
+
+    try:
+        # 1. Обновляем категории
+        cat_res = session.get(f"{API_URL}/products/categories")
+        if cat_res.status_code == 200:
+            for cat in cat_res.json().get('data', []):
+                ProductCategory.objects.update_or_create(
+                    keycrm_id=cat['id'],
+                    defaults={'name': cat['name']}
+                )
+
+        # Кэшируем категории и существующие SKU для минимизации запросов к БД
+        categories_map = {c.keycrm_id: c for c in ProductCategory.objects.all()}
+        default_cat = categories_map.get(None) or ProductCategory.objects.get_or_create(name="Без категории")[0]
+        
+        # Берем список всех SKU, которые уже есть, чтобы не делать .filter().exists() в цикле
+        existing_skus = set(Product.objects.values_list('sku', flat=True))
+
+        # 2. Инкрементальный обход
+        next_page_url = f"{API_URL}/products?limit=50"
+        
+        while next_page_url:
+            response = session.get(next_page_url, timeout=10)
+            if response.status_code != 200:
+                break
+            
+            data = response.json()
+            products_list = data.get('data', [])
+            
+            for p_data in products_list:
+                sku = str(p_data.get('sku', ''))
+                if not sku:
+                    continue
+
+                if sku in existing_skus:
+                    existing_streak += 1
+                    if existing_streak >= STOP_THRESHOLD:
+                        next_page_url = None 
+                        break
+                    continue
+                
+                # Если SKU новый
+                existing_streak = 0
+                cat_id = p_data.get('category_id')
+                
+                Product.objects.create(
+                    sku=sku,
+                    keycrm_id=p_data.get('id'),
+                    name=p_data.get('name', 'Без названия'),
+                    price=p_data.get('min_price', 0.00),
+                    total_quantity=p_data.get('quantity', 0),
+                    category=categories_map.get(cat_id, default_cat),
+                    is_archived=p_data.get('is_archived', False),
+                    external_image_url=p_data.get('thumbnail_url')
+                )
+                existing_skus.add(sku) # Чтобы не создать дубль, если он есть на той же странице
+                created_count += 1
+
+            if next_page_url:
+                next_page_url = data.get('next_page_url')
+                # Без загрузки фото паузу можно сократить до минимума
+                time.sleep(0.2) 
+
+        messages.success(request, f"Готово! Добавлено товаров: {created_count}")
+
+    except Exception as e:
+        messages.error(request, f"Ошибка API: {e}")
+
+    return redirect(request.META.get('HTTP_REFERER', '/'))

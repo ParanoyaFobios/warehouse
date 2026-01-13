@@ -6,6 +6,9 @@
     <div class="btn-group">
         <a href="{% url 'product_create' %}" class="btn btn-primary">Добавить продукт</a>
         <a href="{% url 'product_incoming' %}" class="btn btn-success">Принять товар</a>
+        <a href="{% url 'sync_products' %}" class="btn btn-primary">
+            <i class="fas fa-sync"></i> Добавить новые из KeyCRM
+        </a>
         <a href="{% url 'product_list' %}" class="btn btn-outline-primary {% if not is_archived_view %}active{% endif %}">Активные</a>
         <a href="{% url 'product_list' %}?archived=1" class="btn btn-outline-secondary {% if is_archived_view %}active{% endif %}">Архив</a>
     </div>

@@ -15,4 +15,6 @@ urlpatterns = [
     path('barcode/<int:content_type_id>/<int:object_id>/image/', views.generate_barcode_view, name='generate_barcode_image'),
     # адрес для прокси изображений продуктов, чтобы передавать в KeyCRM
     path('img-proxy/<int:product_id>/', views.product_image_proxy, name='product_image_proxy'),
+    # адрес для синхронизации новых продуктов из KeyCRM
+    path('sync-products/', views.sync_new_products_view, name='sync_products'),
 ]
