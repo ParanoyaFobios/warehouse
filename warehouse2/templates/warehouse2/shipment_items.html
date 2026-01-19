@@ -247,7 +247,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Глобальная переменная для управления ридером
     let codeReader = null;
     let overlay = null; // Для затемнения фона
-
+    // Создаем объект аудио. Используем Django static для формирования пути.
+    const beepSound = new Audio("{% static 'sounds/bip.mp3' %}")
     // --- 2. Логика для РУЧНОГО ПОИСКА ---
 
     // Функция выполняет AJAX-запрос и отображает результаты
@@ -330,7 +331,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return alert("Ошибка: библиотека сканера (ZXing) не загружена.");
         }
         
-        // Создаем и показываем оверлей
+        // ВАЖНО: Современные браузеры разрешают звук только после действия пользователя.
+        // Так как функция вызвана кликом по кнопке, мы "прогреваем" аудио файл.
+        beepSound.load(); 
+
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.className = 'scanner-overlay';
@@ -344,12 +348,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
         codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
             if (result) {
-                // Если успешно, обрабатываем штрихкод
+                // 1. Сразу воспроизводим звук "Бип"
+                beepSound.play().catch(e => console.warn("Звук не смог проиграться:", e));
+
+                // 2. Обрабатываем штрихкод
                 processScannedBarcode(result.text);
+                
+                // Чтобы не было повторных срабатываний звука, пока идет поиск
+                codeReader.reset(); 
             }
             if (error && !(error instanceof ZXing.NotFoundException)) {
                 console.error("Ошибка сканирования:", error);
-                scannerStatus.textContent = 'Ошибка: не удалось прочитать штрихкод.';
             }
         });
     }

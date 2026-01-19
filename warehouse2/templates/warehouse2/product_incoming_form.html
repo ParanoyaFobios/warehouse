@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% load static %}
 <div class="container mt-4">
     <div class="col-md-8 offset-md-2">
         <h2>Поступление готовой продукции</h2>
@@ -11,8 +12,21 @@
 
                     <div class="mb-3 position-relative">
                         <label for="product-search-input" class="form-label">Найдите продукт</label>
-                        <input type="text" id="product-search-input" class="form-control" placeholder="Поиск по названию, артикулу, штрихкоду...">
+                        <div class="input-group">
+                            <input type="text" id="product-search-input" class="form-control" placeholder="Поиск по названию, артикулу, штрихкоду...">
+                            <button class="btn btn-outline-secondary" type="button" id="local-scan-btn" title="Сканировать штрихкод">
+                                📸
+                            </button>
+                        </div>
                         <div id="search-results" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+                    </div>
+                    
+                    <div id="local-scanner-container" class="mb-3" style="display: none;">
+                        <video id="local-video-stream" style="width: 100%; max-width: 400px; border-radius: 8px; border: 2px solid #198754;"></video>
+                        <div id="local-scanner-status" class="small text-muted text-center mt-2"></div>
+                        <button type="button" class="btn btn-danger btn-sm w-100 mt-2" onclick="stopLocalScanner()">
+                            ⏹ Остановить сканирование
+                        </button>
                     </div>
 
                     <div id="selected-product-info" class="alert alert-info" style="display: none;">
@@ -38,70 +52,200 @@
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('product-search-input');
-    const searchResults = document.getElementById('search-results');
-    const hiddenProductInput = document.getElementById('id_product');
-    const submitButton = document.querySelector('button[type="submit"]');
-
-    // Элементы для инфо-блока
-    const infoBlock = document.getElementById('selected-product-info');
-    const infoName = document.getElementById('selected-product-name');
-    const infoSku = document.getElementById('selected-product-sku');
-    const infoAvailable = document.getElementById('selected-product-available');
-
-    function selectProduct(product) {
-        // Заполняем скрытое поле формы
-        hiddenProductInput.value = product.id;
-        
-        // Показываем информацию о выбранном продукте
-        infoName.textContent = product.name;
-        infoSku.textContent = product.sku;
-        infoAvailable.textContent = product.available_quantity;
-        infoBlock.style.display = 'block';
-
-        // Очищаем поиск и активируем кнопку
-        searchInput.value = '';
-        searchResults.style.display = 'none';
-        submitButton.disabled = false;
+<style>
+    #search-results {
+        display: none;
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
     }
-
-    searchInput.addEventListener('input', function() {
-        const query = this.value.trim();
-        if (query.length < 2) {
-            searchResults.innerHTML = '';
+    
+    #search-results:not(:empty) {
+        display: block;
+    }
+    
+    .list-group-item {
+        cursor: pointer;
+        border: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .list-group-item:last-child {
+        border-bottom: none;
+    }
+    
+    .list-group-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    /* Стили для изоляции локального сканера */
+    #local-scanner-container {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        z-index: 9999;
+        max-width: 90vw;
+    }
+    
+    #local-video-stream {
+        max-height: 60vh;
+    }
+    
+    /* Затемнение фона */
+    .scanner-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 9998;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. Элементы формы
+        const searchInput = document.getElementById('product-search-input');
+        const searchResults = document.getElementById('search-results');
+        const hiddenProductInput = document.getElementById('id_product');
+        const quantityInput = document.getElementById('id_quantity'); // Поле количества
+        const submitButton = document.querySelector('button[type="submit"]');
+    
+        // 2. Элементы инфо-блока
+        const infoBlock = document.getElementById('selected-product-info');
+        const infoName = document.getElementById('selected-product-name');
+        const infoSku = document.getElementById('selected-product-sku');
+        const infoAvailable = document.getElementById('selected-product-available');
+    
+        // 3. Элементы сканера
+        const scanButton = document.getElementById('local-scan-btn');
+        const scannerContainer = document.getElementById('local-scanner-container');
+        const videoElement = document.getElementById('local-video-stream');
+        const scannerStatus = document.getElementById('local-scanner-status');
+        
+        let codeReader = null;
+        const beepSound = new Audio("{% static 'sounds/bip.mp3' %}");
+    
+        // Функция выбора товара (общая для поиска и сканера)
+        function selectProduct(product) {
+            hiddenProductInput.value = product.id;
+            infoName.textContent = product.name;
+            infoSku.textContent = product.sku;
+            
+            if (infoAvailable) {
+                infoAvailable.textContent = product.available_quantity;
+            }
+            
+            infoBlock.style.display = 'block';
+            searchInput.value = '';
             searchResults.style.display = 'none';
-            return;
+            submitButton.disabled = false;
+    
+            // ФОКУС НА КОЛИЧЕСТВО: чтобы менеджер сразу ввел число
+            setTimeout(() => quantityInput.focus(), 100);
         }
-
-        fetch(`{% url 'product_search_json' %}?q=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(data => {
-                searchResults.innerHTML = '';
-                if (data.results.length > 0) {
-                    data.results.forEach(product => {
-                        const item = document.createElement('button');
-                        item.type = 'button';
-                        item.className = 'list-group-item list-group-item-action';
-                        item.innerHTML = `<strong>${product.name}</strong> <small class="text-muted">(${product.sku})</small>`;
-                        item.onclick = () => selectProduct(product);
-                        searchResults.appendChild(item);
-                    });
-                } else {
-                    searchResults.innerHTML = '<div class="list-group-item text-muted">Не найдено</div>';
+    
+        // --- ЛОГИКА СКАНИРОВАНИЯ ---
+    
+        function processScannedBarcode(barcode) {
+            scannerStatus.textContent = `Поиск кода: ${barcode}...`;
+            
+            fetch(`{% url 'product_search_json' %}?q=${encodeURIComponent(barcode)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results && data.results.length > 0) {
+                        const product = data.results[0]; // Берем первый точный результат
+                        
+                        beepSound.play().catch(e => console.warn("Звук не сработал:", e));
+                        
+                        selectProduct(product);
+                        stopLocalScanner(); 
+                    } else {
+                        scannerStatus.textContent = '❌ Товар не найден в базе';
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    scannerStatus.textContent = ' Ошибка связи с базой';
+                });
+        }
+    
+        function startLocalScanner() {
+            if (typeof ZXing === 'undefined') {
+                return alert("Ошибка: библиотека ZXing не загружена.");
+            }
+            
+            beepSound.load(); // Прогрев аудио
+            codeReader = new ZXing.BrowserMultiFormatReader();
+            scannerContainer.style.display = 'block';
+            scannerStatus.textContent = 'Наведите на штрихкод товара...';
+    
+            codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
+                if (result) {
+                    processScannedBarcode(result.text);
                 }
-                searchResults.style.display = 'block';
             });
-    });
-
-    // Скрываем результаты при клике вне поля
-    document.addEventListener('click', function(e) {
-        if (!searchResults.contains(e.target) && e.target !== searchInput) {
-            searchResults.style.display = 'none';
         }
-    });
+    
+        window.stopLocalScanner = function() {
+            if (codeReader) {
+                codeReader.reset();
+                codeReader = null;
+            }
+            scannerContainer.style.display = 'none';
+        }
+    
+        scanButton.addEventListener('click', function() {
+            if (scannerContainer.style.display === 'none') {
+                startLocalScanner();
+            } else {
+                stopLocalScanner();
+            }
+        });
+    
+        // --- РУЧНОЙ ПОИСК (оставляем вашу логику) ---
+    
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+    
+            fetch(`{% url 'product_search_json' %}?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    searchResults.innerHTML = '';
+                    if (data.results.length > 0) {
+                        data.results.forEach(product => {
+                            const item = document.createElement('button');
+                            item.type = 'button';
+                            item.className = 'list-group-item list-group-item-action';
+                            item.innerHTML = `<strong>${product.name}</strong> <small class="text-muted">(${product.sku})</small>`;
+                            item.onclick = () => selectProduct(product);
+                            searchResults.appendChild(item);
+                        });
+                    } else {
+                        searchResults.innerHTML = '<div class="list-group-item text-muted">Не найдено</div>';
+                    }
+                    searchResults.style.display = 'block';
+                });
+        });
+    
+        document.addEventListener('click', function(e) {
+            if (!searchResults.contains(e.target) && e.target !== searchInput) {
+                searchResults.style.display = 'none';
+            }
+        });
 });
 </script>
 {% endblock %}
