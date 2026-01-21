@@ -1,6 +1,6 @@
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, FormView
 from django.urls import reverse_lazy, reverse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
@@ -209,6 +209,7 @@ class ProductionOrderUpdateView(LoginRequiredMixin, UpdateView):
         messages.success(self.request, 'Заказ успешно обновлен.')
         return redirect(self.get_success_url())
 
+
 class ProductionOrderDeleteView(LoginRequiredMixin, DeleteView):
     model = ProductionOrder
     template_name = 'todo/confirm_delete.html'
@@ -277,6 +278,78 @@ class PlanWorkOrdersView(LoginRequiredMixin, FormView):
             
         # Возвращаем пользователя на детальную страницу заказа
         return redirect('portfolio_list')
+
+
+class CreateShipmentFromOrderView(LoginRequiredMixin, View):
+    """
+    Создает черновик отгрузки (Shipment) на основе выполненного заказа (ProductionOrder).
+    """
+    
+    def post(self, request, pk):
+        production_order = get_object_or_404(ProductionOrder, pk=pk)
+        
+        # Проверка: создаем отгрузку, только если есть что отгружать
+        # (например, есть произведенные товары)
+        if production_order.total_produced == 0:
+            messages.error(request, "Нельзя создать отгрузку: по заказу еще ничего не произведено.")
+            return redirect('portfolio_detail', pk=pk)
+
+        try:
+            with transaction.atomic():
+                # 1. Получаем или создаем Отправителя по умолчанию (ID=1)
+                # Если Sender с ID=1 нет, берем первого попавшегося или создаем заглушку
+                sender = Sender.objects.filter(pk=1).first()
+                if not sender:
+                    sender = Sender.objects.first()
+                    if not sender:
+                        # Если совсем нет отправителей, создаем технического
+                        sender = Sender.objects.create(name="Основной склад")
+
+                # 2. Создаем "Шапку" Отгрузки
+                shipment = Shipment.objects.create(
+                    created_by=request.user,
+                    sender=sender,
+                    # Копируем заказчика в поле 'Адрес отгрузки' (или recipient)
+                    destination=production_order.customer or "Не указан", 
+                    status='pending' # Статус "В процессе сборки"
+                )
+
+                production_order.linked_shipment = shipment
+                # Статус обновится автоматически внутри метода update_status
+                production_order.update_status() 
+                # --------------------------
+
+                # 3. Создаем строки Отгрузки
+                items_created_count = 0
+                for item in production_order.items.all():
+                    # Берем то, что реально произведено (факт)
+                    qty_to_ship = item.quantity_produced 
+                   
+                    if qty_to_ship > 0:
+                        # Важно: ShipmentItem при сохранении может уменьшить доступное кол-во на складе
+                        ShipmentItem.objects.create(
+                            shipment=shipment,
+                            product=item.product,
+                            quantity=qty_to_ship,
+                        )
+                        items_created_count += 1
+                        
+                        # Обновляем статус строки
+                        item.status = ProductionOrderItem.Status.SHIPPED
+                        item.save()
+
+                if items_created_count == 0:
+                    raise ValueError("Нет товаров с зарегистрированным выпуском для отгрузки.")
+
+                messages.success(request, f"Накладная №{shipment.id} создана и связана с заказом!")
+                return redirect('shipment_items', pk=shipment.pk)
+
+        except ValueError as e:
+            messages.error(request, str(e))
+            return redirect('portfolio_detail', pk=pk)
+        except Exception as e:
+            messages.error(request, f"Ошибка при создании отгрузки: {e}")
+            return redirect('portfolio_detail', pk=pk)
 
 # ==============================================================================
 # Вью для "Доски объявлений" (WorkOrder)
@@ -414,73 +487,37 @@ def workorder_report_ajax(request):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
     
-class CreateShipmentFromOrderView(LoginRequiredMixin, View):
-    """
-    Создает черновик отгрузки (Shipment) на основе выполненного заказа (ProductionOrder).
-    """
-    
-    def post(self, request, pk):
-        production_order = get_object_or_404(ProductionOrder, pk=pk)
+
+class AggregateOrdersView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        # Получаем список ID выбранных заказов из POST-запроса
+        order_ids = request.POST.getlist('selected_orders')
         
-        # Проверка: создаем отгрузку, только если есть что отгружать
-        # (например, есть произведенные товары)
-        if production_order.total_produced == 0:
-            messages.error(request, "Нельзя создать отгрузку: по заказу еще ничего не произведено.")
-            return redirect('portfolio_detail', pk=pk)
+        if not order_ids:
+            messages.warning(request, "Вы не выбрали ни одного заказа для агрегации.")
+            return redirect('workorder_list')
 
-        try:
-            with transaction.atomic():
-                # 1. Получаем или создаем Отправителя по умолчанию (ID=1)
-                # Если Sender с ID=1 нет, берем первого попавшегося или создаем заглушку
-                sender = Sender.objects.filter(pk=1).first()
-                if not sender:
-                    sender = Sender.objects.first()
-                    if not sender:
-                        # Если совсем нет отправителей, создаем технического
-                        sender = Sender.objects.create(name="Основной склад")
+        # Агрегируем данные:
+        # 1. Фильтруем строки заказов, которые принадлежат выбранным ProductionOrder
+        # 2. Группируем по продукту (и по названию для вывода)
+        # 3. Суммируем количество
+        aggregated_items = (
+            ProductionOrderItem.objects
+            .filter(production_order_id__in=order_ids)
+            .values('product__name')
+            .annotate(
+                total_requested=Sum('quantity_requested'),
+                total_planned=Sum('quantity_planned'),
+                total_produced=Sum('quantity_produced'),
+                # Считаем отрицательное число для простого вычитания в шаблоне
+                total_produced_negative=Sum(F('quantity_produced') * -1) 
+            )
+            .order_by('product__name')
+        )
 
-                # 2. Создаем "Шапку" Отгрузки
-                shipment = Shipment.objects.create(
-                    created_by=request.user,
-                    sender=sender,
-                    # Копируем заказчика в поле 'Адрес отгрузки' (или recipient)
-                    destination=production_order.customer or "Не указан", 
-                    status='pending' # Статус "В процессе сборки"
-                )
-
-                production_order.linked_shipment = shipment
-                # Статус обновится автоматически внутри метода update_status
-                production_order.update_status() 
-                # --------------------------
-
-                # 3. Создаем строки Отгрузки
-                items_created_count = 0
-                for item in production_order.items.all():
-                    # Берем то, что реально произведено (факт)
-                    qty_to_ship = item.quantity_produced 
-                   
-                    if qty_to_ship > 0:
-                        # Важно: ShipmentItem при сохранении может уменьшить доступное кол-во на складе
-                        ShipmentItem.objects.create(
-                            shipment=shipment,
-                            product=item.product,
-                            quantity=qty_to_ship,
-                        )
-                        items_created_count += 1
-                        
-                        # Обновляем статус строки
-                        item.status = ProductionOrderItem.Status.SHIPPED
-                        item.save()
-
-                if items_created_count == 0:
-                    raise ValueError("Нет товаров с зарегистрированным выпуском для отгрузки.")
-
-                messages.success(request, f"Накладная №{shipment.id} создана и связана с заказом!")
-                return redirect('shipment_items', pk=shipment.pk)
-
-        except ValueError as e:
-            messages.error(request, str(e))
-            return redirect('portfolio_detail', pk=pk)
-        except Exception as e:
-            messages.error(request, f"Ошибка при создании отгрузки: {e}")
-            return redirect('portfolio_detail', pk=pk)
+        context = {
+            'items': aggregated_items,
+            'order_ids': order_ids,
+            'orders_count': len(order_ids)
+        }
+        return render(request, 'todo/aggregated_production.html', context)

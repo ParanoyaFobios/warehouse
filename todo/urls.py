@@ -6,6 +6,7 @@ urlpatterns = [
     # --- "ДОСКА ОБЪЯВЛЕНИЙ" (Задания на смену) ---
     path('workorders/', views.WorkOrderListView.as_view(), name='workorder_list'),
     path('workorder/<int:pk>/detail/', views.WorkorderOrderDetailView.as_view(), name='workorder_detail'),
+    path('orders/aggregate/', views.AggregateOrdersView.as_view(), name='aggregate_orders'),
     # AJAX эндпоинт (скрытый путь для JS)
     path('api/workorder/report/', views.workorder_report_ajax, name='api_workorder_report'),
 
