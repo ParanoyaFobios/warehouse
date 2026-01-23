@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="{% url 'add_penalty_bonus' %}" class="btn btn-primary">Штрафы/Премии</a>
+    </div>
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white d-flex justify-content-between">
+            <h4 class="mb-0">Проверка выработки</h4>
+            <span>Ожидают проверки: {{ entries.count }}</span>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th><input type="checkbox" id="selectAll" class="form-check-input"></th>
+                            <th>Дата</th>
+                            <th>Работник</th>
+                            <th>Операция / Товар</th>
+                            <th>Кол-во</th>
+                            <th>Сумма (предв.)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr>
+                            <td><input type="checkbox" name="selected_entries" value="{{ entry.id }}" class="form-check-input entry-checkbox"></td>
+                            <td>{{ entry.date_performed|date:"d.m.Y" }}</td>
+                            <td><strong>{{ entry.worker.get_full_name|default:entry.worker.username }}</strong></td>
+                            <td>
+                                {{ entry.operation.name }}<br>
+                                <small class="text-muted">{{ entry.product.name|default:"" }}</small>
+                            </td>
+                            <td>{{ entry.quantity }}</td>
+                            <td>{{ entry.total_sum }} р.</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Новых записей нет</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if entries %}
+            <div class="card-footer">
+                <button type="submit" class="btn btn-success">Подтвердить выбранные</button>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('selectAll').onclick = function() {
+    let checkboxes = document.querySelectorAll('.entry-checkbox');
+    for (let checkbox of checkboxes) checkbox.checked = this.checked;
+}
+</script>
+{% endblock %}

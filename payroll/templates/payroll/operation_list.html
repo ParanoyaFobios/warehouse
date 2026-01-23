@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Справочник операций</h2>
+        <a href="{% url 'accountant_dashboard' %}" class="btn btn-primary">Кабинет бухгалтера</a>
+        <a href="{% url 'verify_work_list' %}" class="btn btn-primary">Кабинет менеджера</a>
+        <a href="{% url 'worker_cabinet' %}" class="btn btn-primary">Кабинет рабтника</a>
+        <a href="{% url 'tech_card_list' %}" class="btn btn-primary">Тех карты</a>
+        <a href="{% url 'operation_create' %}" class="btn btn-primary">+ Создать операцию</a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Название</th>
+                        <th>Тип оплаты</th>
+                        <th>Ставка по умолчанию</th>
+                        <th class="text-end">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for op in operations %}
+                    <tr>
+                        <td><strong>{{ op.name }}</strong></td>
+                        <td>
+                            <span class="badge {% if op.payment_type == 'piece' %}bg-info{% else %}bg-warning text-dark{% endif %}">
+                                {{ op.get_payment_type_display }}
+                            </span>
+                        </td>
+                        <td>{{ op.default_rate }} руб.</td>
+                        <td class="text-end">
+                            <a href="{% url 'operation_update' op.pk %}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                            <a href="{% url 'operation_delete' op.pk %}" class="btn btn-sm btn-outline-danger">Удалить</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">Операций пока нет.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

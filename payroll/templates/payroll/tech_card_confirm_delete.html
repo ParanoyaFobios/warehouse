@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="col-md-6 offset-md-3">
+        <div class="card border-danger shadow">
+            <div class="card-body text-center">
+                <h3 class="text-danger mb-4">Удаление техкарты</h3>
+                <p>Вы действительно хотите удалить техкарту <strong>"{{ object.name }}"</strong>?</p>
+                <div class="alert alert-warning small">
+                    Внимание: Продукты, привязанные к этой карте, останутся без техкарты.
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger">Подтверждаю удаление</button>
+                        <a href="{% url 'tech_card_list' %}" class="btn btn-light">Вернуться назад</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

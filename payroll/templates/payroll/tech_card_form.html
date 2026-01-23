@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="col-md-8 offset-md-2">
+        <form method="post">
+            {% csrf_token %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">{% if object %}Редактирование{% else %}Новая{% endif %} техкарта</h4>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">Название техкарты</label>
+                        {{ form.name }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">Описание</label>
+                        {{ form.description }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Операции и расценки</h5>
+                </div>
+                <div class="card-body p-0">
+                    {{ formset.management_form }}
+                    <table class="table table-flush mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th style="width: 60%">Операция</th>
+                                <th>Цена (руб)</th>
+                                <th class="text-center">Удалить</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op_form in formset %}
+                            <tr>
+                                <td>
+                                    {{ op_form.id }}
+                                    {{ op_form.operation }}
+                                    {% if op_form.operation.errors %}
+                                        <div class="text-danger small">{{ op_form.operation.errors }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ op_form.price }}
+                                    {% if op_form.price.errors %}
+                                        <div class="text-danger small">{{ op_form.price.errors }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">{{ op_form.DELETE }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer d-flex justify-content-between">
+                    <a href="{% url 'tech_card_list' %}" class="btn btn-outline-secondary">Отмена</a>
+                    <button type="submit" class="btn btn-success px-5">Сохранить всё</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

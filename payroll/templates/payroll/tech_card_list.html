@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Технологические карты (Шаблоны)</h2>
+        <a href="{% url 'tech_card_create' %}" class="btn btn-primary">+ Создать техкарту</a>
+        <a href="{% url 'bulk_assign_tech_card' %}" class="btn btn-primary">Назначить техкарту продукту</a>
+    </div>
+
+    <div class="row">
+        {% for card in tech_cards %}
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">{{ card.name }}</h5>
+                    <p class="card-text text-muted small">{{ card.description|truncatechars:100 }}</p>
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for op in card.operations.all|slice:":3" %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-1 small">
+                            {{ op.operation.name }}
+                            <span>{{ op.price }} р.</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="card-footer bg-transparent border-top-0 d-flex justify-content-between">
+                    <a href="{% url 'tech_card_update' card.pk %}" class="btn btn-sm btn-outline-secondary">Настроить</a>
+                    <a href="{% url 'tech_card_delete' card.pk %}" class="btn btn-sm btn-outline-danger">Удалить</a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5 text-muted">Техкарт еще нет. Создайте первый шаблон для производства.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>Баланс выплат сотрудникам</h3>
+        <span class="text-muted small">Дата: {% now "d.m.Y" %}</span>
+    </div>
+    
+    <div class="card shadow-sm">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Сотрудник</th>
+                    <th>Заработано</th>
+                    <th>Премии / Штрафы</th>
+                    <th>Выплачено</th>
+                    <th>Остаток (Долг)</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for worker in workers %}
+                <tr>
+                    <td><strong>{{ worker.get_full_name|default:worker.username }}</strong></td>
+                    <td class="text-success">{{ worker.earned }} р.</td>
+                    <td>
+                        <span class="text-success">+{{ worker.bonuses }}</span> / 
+                        <span class="text-danger">-{{ worker.penalties }}</span>
+                    </td>
+                    <td class="text-primary">{{ worker.paid }} р.</td>
+                    <td class="fw-bold">
+                        {% with total_debt=worker.earned|add:worker.bonuses|add:worker.paid|add:worker.penalties %}
+                            {# В Django шаблонах сложно делать вычитание через фильтры, лучше передать это во вьюху #}
+                            {# Но для простоты выведем разницу между тем что должен и тем что отдал #}
+                            {{ worker.earned|add:worker.bonuses|add:"-paid"|add:"-penalties" }} р.
+                        {% endwith %}
+                    </td>
+                    <td>
+                        <a href="{% url 'worker_payroll_detail' worker.id %}" class="btn btn-sm btn-outline-primary">Детали и выплаты</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center">Нет данных для отображения</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

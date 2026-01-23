@@ -51,6 +51,7 @@ class Product(ContentTypeAware, models.Model):
     name = models.CharField(max_length=200, db_index=True, verbose_name="Название продукции")
     sku = models.CharField(max_length=50, unique=True, verbose_name="Артикул")
     barcode = models.CharField(max_length=15, unique=True, verbose_name="Штрихкод (штучный)", default=generate_product_barcode, editable=True)
+    tech_card = models.ForeignKey('payroll.TechCardGroup', on_delete=models.SET_NULL, null=True, blank=True)
     is_archived = models.BooleanField(default=False, verbose_name="В архиве")
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, verbose_name="Категория", blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена за единицу", default=0)
@@ -75,8 +76,15 @@ class Product(ContentTypeAware, models.Model):
     def available_quantity(self):
         return self.total_quantity - self.reserved_quantity
 
+    @property
+    def has_tech_card(self):
+        # Теперь мы просто проверяем наличие связи с группой техкарт
+        return self.tech_card is not None
+
     def __str__(self):
-        return f"{self.name}"
+        status = "[TC]" if self.has_tech_card else "[НЕТ TC]"
+        return f"{status} {self.name} ({self.sku})"
+
 
     class Meta:
         verbose_name = "Штучный товар"

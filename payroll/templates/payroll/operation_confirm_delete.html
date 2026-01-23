@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="col-md-6 offset-md-3 text-center">
+        <div class="card border-danger">
+            <div class="card-body">
+                <h3 class="text-danger">Удалить операцию?</h3>
+                <p>Вы уверены, что хотите удалить <strong>"{{ object.name }}"</strong>?</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Да, удалить</button>
+                    <a href="{% url 'operation_list' %}" class="btn btn-secondary">Отмена</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

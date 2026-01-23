@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'reports.apps.ReportsConfig',
     'usertouser.apps.UsertouserConfig',
     'todo.apps.TodoConfig',
+    'payroll.apps.PayrollConfig',
 ]
 
 MIDDLEWARE = [

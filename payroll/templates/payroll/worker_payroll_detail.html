@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5>{{ worker.get_full_name }}</h5>
+                    <hr>
+                    <p>Заработано: <span class="float-end text-success">{{ total_earned }} р.</span></p>
+                    <p>Выплачено: <span class="float-end text-primary">{{ total_paid }} р.</span></p>
+                    <h4 class="mt-3">К выплате: <span class="float-end text-danger">{{ balance }} р.</span></h4>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">Внести выплату</div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label>Сумма выплаты</label>
+                            <input type="number" name="amount" class="form-control" required step="0.01">
+                        </div>
+                        <div class="mb-3">
+                            <label>Комментарий</label>
+                            <input type="text" name="comment" class="form-control" placeholder="Напр: ЗП за декабрь">
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Зафиксировать выдачу</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#work">Работа</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#payouts">История выплат</button></li>
+            </ul>
+            <div class="tab-content border border-top-0 p-3 bg-white shadow-sm">
+                <div class="tab-pane fade show active" id="work">
+                    <table class="table table-sm">
+                        <thead><tr><th>Дата</th><th>Операция</th><th>Сумма</th></tr></thead>
+                        <tbody>
+                            {% for e in entries %}
+                            <tr><td>{{ e.date_performed }}</td><td>{{ e.operation.name }}</td><td>{{ e.total_sum }} р.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade" id="payouts">
+                    <table class="table table-sm">
+                        <thead><tr><th>Дата</th><th>Сумма</th><th>Инфо</th></tr></thead>
+                        <tbody>
+                            {% for p in payouts %}
+                            <tr><td>{{ p.date_paid }}</td><td>{{ p.amount }} р.</td><td>{{ p.comment }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

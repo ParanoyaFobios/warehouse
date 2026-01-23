@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0">{{ title }}</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Сотрудник</label>
+                            {{ form.worker }}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Тип операции</label>
+                                {{ form.type }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Сумма (руб.)</label>
+                                {{ form.amount }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Причина / Комментарий</label>
+                            {{ form.reason }}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Сохранить в базу</button>
+                            <a href="{% url 'accountant_dashboard' %}" class="btn btn-outline-secondary">Отмена</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="alert alert-info mt-3 small">
+                <strong>Важно:</strong> Штрафы будут автоматически вычтены из итоговой суммы к выдаче, а премии — добавлены.
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Быстрый фикс, чтобы поля Django выглядели как Bootstrap */
+    input, select, textarea {
+        display: block;
+        width: 100%;
+        padding: .375rem .75rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #212529;
+        background-color: #fff;
+        border: 1px solid #ced4da;
+        border-radius: .25rem;
+    }
+</style>
+{% endblock %}
