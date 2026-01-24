@@ -137,7 +137,7 @@ class TestProductModel:
     
     def test_product_string_representation(self, product):
         """Тест строкового представления продукта"""
-        assert str(product) == "Тестовая Подушка"
+        assert str(product) == "[НЕТ TC] Тестовая Подушка (TEST-SKU-001)"
     
     def test_product_default_values(self, product_category):
         """Тест значений по умолчанию"""
