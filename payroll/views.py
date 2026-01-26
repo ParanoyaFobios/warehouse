@@ -4,7 +4,7 @@ from .models import Operation, TechCardGroup, TechCardOperation, WorkEntry, Payo
 from .forms import OperationForm, TechCardGroupForm, HourlyWorkForm, PieceWorkForm, TechCardOperationFormSet
 from django.db import transaction
 from django.contrib import messages
-from warehouse2.models import Product
+from warehouse2.models import Product, ProductCategory
 from django.http import JsonResponse
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, get_object_or_404
@@ -13,7 +13,7 @@ from django.contrib.auth.models import User
 from django.db.models.functions import Coalesce
 
 #===============================================
-# Операции CRUD для Operation и TechCardGroup
+# Операции CRUD для Operation
 #===============================================
 class OperationListView(ListView):
     model = Operation
@@ -89,15 +89,46 @@ class BulkAssignTechCardView(ListView):
     model = Product
     template_name = 'payroll/bulk_assign.html'
     context_object_name = 'products'
-    paginate_by = 50  # По 50 товаров на страницу
+    paginate_by = 50 
 
     def get_queryset(self):
-        # Показываем сначала товары без техкарт, чтобы менеджер видел пробелы
-        return Product.objects.all().order_by('tech_card', 'name')
+        # Оптимизация N+1: подтягиваем категорию и техкарту одним запросом
+        queryset = Product.objects.select_related('category', 'tech_card').filter(is_archived=False)
+        
+        # 1. Поиск (Название, Артикул, Штрихкод)
+        search_query = self.request.GET.get('q')
+        if search_query:
+            queryset = queryset.filter(
+                Q(name__icontains=search_query) |
+                Q(sku__icontains=search_query) |
+                Q(barcode__icontains=search_query)
+            )
+
+        # 2. Фильтр по категории
+        category_id = self.request.GET.get('category')
+        if category_id:
+            queryset = queryset.filter(category_id=category_id)
+
+        # 3. Фильтр по наличию техкарты
+        tc_status = self.request.GET.get('tc_status')
+        if tc_status == 'missing':
+            queryset = queryset.filter(tech_card__isnull=True)
+        elif tc_status == 'exists':
+            queryset = queryset.filter(tech_card__isnull=False)
+
+        return queryset.order_by('tech_card', 'name')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['tech_cards'] = TechCardGroup.objects.all()
+        # Данные для фильтров
+        context['categories'] = ProductCategory.objects.all().order_by('name')
+        context['tech_cards'] = TechCardGroup.objects.all().order_by('name')
+        
+        # Сохраняем текущие параметры фильтрации для ссылок пагинации
+        params = self.request.GET.copy()
+        if 'page' in params:
+            del params['page']
+        context['current_params'] = params.urlencode()
         return context
 
     def post(self, request, *args, **kwargs):
@@ -105,20 +136,19 @@ class BulkAssignTechCardView(ListView):
         tech_card_id = request.POST.get('tech_card')
 
         if not product_ids:
-            messages.warning(request, "Вы не выбрали ни одного товара.")
-            return redirect('bulk_assign_tech_card')
+            messages.warning(request, "Вы не выбрали товары.")
+            return redirect(request.get_full_path())
 
         if not tech_card_id:
-            messages.warning(request, "Выберите техкарту для назначения.")
-            return redirect('bulk_assign_tech_card')
+            messages.warning(request, "Выберите техкарту.")
+            return redirect(request.get_full_path())
 
-        # Массовое обновление в базе (один SQL запрос)
-        tech_card = TechCardGroup.objects.get(id=tech_card_id)
-        Product.objects.filter(id__in=product_ids).update(tech_card=tech_card)
-
-        messages.success(request, f"Техкарта '{tech_card.name}' успешно назначена для {len(product_ids)} товаров.")
-        return redirect('bulk_assign_tech_card')
-    
+        # Массовое обновление
+        count = Product.objects.filter(id__in=product_ids).update(tech_card_id=tech_card_id)
+        messages.success(request, f"Техкарта назначена для {count} товаров.")
+        
+        # Возвращаемся на ту же страницу с теми же фильтрами
+        return redirect(request.get_full_path())
 
 
 #===============================================

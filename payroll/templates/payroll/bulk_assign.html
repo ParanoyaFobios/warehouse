@@ -1,68 +1,82 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
-    <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">Массовое назначение техкарт</h4>
-            <span class="badge bg-secondary">Всего товаров: {{ products.count }}</span>
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">Фильтры поиска продукции</h5>
         </div>
-        
-        <form method="post" id="bulk-form">
-            {% csrf_token %}
-            
-            <div class="card-body bg-light border-bottom sticky-top" style="top: 0; z-index: 1000;">
-                <div class="row align-items-center">
-                    <div class="col-md-6">
-                        <div class="input-group">
-                            <label class="input-group-text" for="techCardSelect">Назначить техкарту:</label>
-                            <select name="tech_card" class="form-select" id="techCardSelect">
-                                <option value="">--- Выберите карту ---</option>
-                                {% for card in tech_cards %}
-                                    <option value="{{ card.id }}">{{ card.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <button class="btn btn-primary" type="submit">Применить к выбранным</button>
-                        </div>
-                    </div>
-                    <div class="col-md-6 text-end text-muted small">
-                        Выбрано товаров: <span id="selected-count">0</span>
-                    </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" name="q" class="form-control" placeholder="Поиск: имя, артикул, штрихкод..." value="{{ request.GET.q }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="category" class="form-select">
+                        <option value="">-- Все категории --</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:"i" %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="tc_status" class="form-select">
+                        <option value="">-- Статус техкарты --</option>
+                        <option value="missing" {% if request.GET.tc_status == 'missing' %}selected{% endif %}>Без техкарты</option>
+                        <option value="exists" {% if request.GET.tc_status == 'exists' %}selected{% endif %}>С техкартой</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button type="submit" class="btn btn-primary">Найти</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="card shadow-sm">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>Выбрано: <span id="selected-count">0</span></strong>
+                </div>
+                <div class="input-group style="width: 400px;">
+                    <select name="tech_card" class="form-select form-select-sm" required>
+                        <option value="">-- Выбрать техкарту для назначения --</option>
+                        {% for tc in tech_cards %}
+                        <option value="{{ tc.id }}">{{ tc.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-success btn-sm" type="submit">Назначить выбранным</button>
                 </div>
             </div>
 
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                    <thead class="table-secondary">
                         <tr>
-                            <th style="width: 40px;">
-                                <input class="form-check-input" type="checkbox" id="selectAll">
-                            </th>
-                            <th>Название товара</th>
-                            <th>Артикул (SKU)</th>
+                            <th style="width: 40px;"><input type="checkbox" id="selectAll" class="form-check-input"></th>
+                            <th>Товар</th>
+                            <th>Артикул / Категория</th>
                             <th>Текущая техкарта</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for product in products %}
                         <tr>
+                            <td><input type="checkbox" name="selected_products" value="{{ product.id }}" class="form-check-input product-cb"></td>
                             <td>
-                                <input class="form-check-input product-checkbox" type="checkbox" 
-                                       name="selected_products" value="{{ product.id }}">
+                                <strong>{{ product.name }}</strong><br>
+                                <small class="text-muted">{{ product.barcode }}</small>
                             </td>
                             <td>
-                                <strong>{{ product.name }}</strong>
-                                {% if not product.tech_card %}
-                                    <span class="badge bg-danger ms-2">Без карты</span>
-                                {% endif %}
+                                <span class="badge bg-light text-dark border">{{ product.sku }}</span><br>
+                                <small>{{ product.category.name|default:"Без категории" }}</small>
                             </td>
-                            <td><code>{{ product.sku }}</code></td>
                             <td>
                                 {% if product.tech_card %}
-                                    <span class="text-success">
-                                        <i class="bi bi-check-circle-fill"></i> {{ product.tech_card.name }}
-                                    </span>
+                                    <span class="text-primary"><i class="bi bi-file-earmark-check"></i> {{ product.tech_card.name }}</span>
                                 {% else %}
-                                    <span class="text-muted small">— не назначена —</span>
+                                    <span class="text-danger small"><i class="bi bi-exclamation-triangle"></i> Не назначена</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -70,26 +84,66 @@
                     </tbody>
                 </table>
             </div>
-        </form>
-    </div>
+            
+            {% if is_paginated %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1&category={{ current_category }}&search={{ current_search }}">Первая</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&category={{ current_category }}&search={{ current_search }}">Назад</a>
+                        </li>
+                    {% endif %}
+            
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}&category={{ current_category }}&search={{ current_search }}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+            
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&category={{ current_category }}&search={{ current_search }}">Далее</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&category={{ current_category }}&search={{ current_search }}">Последняя</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </form>
 </div>
 
 <script>
-document.getElementById('selectAll').onclick = function() {
-    let checkboxes = document.querySelectorAll('.product-checkbox');
-    for (let checkbox of checkboxes) {
-        checkbox.checked = this.checked;
+// Тот же скрипт для выбора чекбоксов, что мы писали ранее
+const selectAll = document.getElementById('selectAll');
+const checkboxes = document.getElementsByClassName('product-cb');
+const countLabel = document.getElementById('selected-count');
+
+selectAll.addEventListener('change', function() {
+    for (let cb of checkboxes) {
+        cb.checked = selectAll.checked;
     }
     updateCount();
-};
+});
 
 function updateCount() {
-    let count = document.querySelectorAll('.product-checkbox:checked').length;
-    document.getElementById('selected-count').innerText = count;
+    let count = document.querySelectorAll('.product-cb:checked').length;
+    countLabel.innerText = count;
 }
 
-document.querySelectorAll('.product-checkbox').forEach(cb => {
-    cb.addEventListener('change', updateCount);
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('product-cb')) updateCount();
 });
 </script>
 {% endblock %}

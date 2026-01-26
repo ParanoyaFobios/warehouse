@@ -22,17 +22,17 @@
                 {% for worker in workers %}
                 <tr>
                     <td><strong>{{ worker.get_full_name|default:worker.username }}</strong></td>
-                    <td class="text-success">{{ worker.earned }} р.</td>
+                    <td class="text-success">{{ worker.earned }} грн.</td>
                     <td>
                         <span class="text-success">+{{ worker.bonuses }}</span> / 
                         <span class="text-danger">-{{ worker.penalties }}</span>
                     </td>
-                    <td class="text-primary">{{ worker.paid }} р.</td>
+                    <td class="text-primary">{{ worker.paid }} грн.</td>
                     <td class="fw-bold">
                         {% with total_debt=worker.earned|add:worker.bonuses|add:worker.paid|add:worker.penalties %}
                             {# В Django шаблонах сложно делать вычитание через фильтры, лучше передать это во вьюху #}
                             {# Но для простоты выведем разницу между тем что должен и тем что отдал #}
-                            {{ worker.earned|add:worker.bonuses|add:"-paid"|add:"-penalties" }} р.
+                            {{ worker.earned|add:worker.bonuses|add:"-paid"|add:"-penalties" }} грн.
                         {% endwith %}
                     </td>
                     <td>

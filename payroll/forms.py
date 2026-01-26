@@ -31,15 +31,26 @@ class TechCardGroupForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
+
+class TechCardOperationForm(forms.ModelForm):
+    class Meta:
+        model = TechCardOperation
+        fields = ['operation', 'price']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ограничиваем список только сдельными операциями
+        self.fields['operation'].queryset = Operation.objects.filter(payment_type='piece')
+        self.fields['operation'].widget.attrs.update({'class': 'form-select'})
+        self.fields['price'].widget.attrs.update({'class': 'form-control'})
+
+
 TechCardOperationFormSet = inlineformset_factory(
-    TechCardGroup, TechCardOperation,
-    fields=['operation', 'price'],
-    extra=1, # Сколько пустых строк выводить
-    can_delete=True,
-    widgets={
-        'operation': forms.Select(attrs={'class': 'form-select'}),
-        'price': forms.NumberInput(attrs={'class': 'form-control'}),
-    }
+    TechCardGroup, 
+    TechCardOperation,
+    form=TechCardOperationForm, # Используем нашу настроенную форму
+    extra=0,                    # Теперь ставим 0, так как будем добавлять кнопкой
+    can_delete=True
 )
 
 #===============================================

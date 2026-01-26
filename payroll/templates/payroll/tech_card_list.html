@@ -18,7 +18,7 @@
                         {% for op in card.operations.all|slice:":3" %}
                         <li class="list-group-item d-flex justify-content-between align-items-center py-1 small">
                             {{ op.operation.name }}
-                            <span>{{ op.price }} р.</span>
+                            <span>{{ op.price }} грн.</span>
                         </li>
                         {% endfor %}
                     </ul>

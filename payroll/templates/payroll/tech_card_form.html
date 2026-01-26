@@ -1,67 +1,112 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container mt-4">
-    <div class="col-md-8 offset-md-2">
-        <form method="post">
+    <div class="col-md-9 offset-md-1">
+        <form method="post" id="tech-card-form">
             {% csrf_token %}
+            
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">{% if object %}Редактирование{% else %}Новая{% endif %} техкарта</h4>
+                    <h4 class="mb-0">Настройка техкарты</h4>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label font-weight-bold">Название техкарты</label>
-                        {{ form.name }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label font-weight-bold">Описание</label>
-                        {{ form.description }}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Название шаблона</label>
+                            {{ form.name }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Описание</label>
+                            {{ form.description }}
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="card shadow-sm">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">Операции и расценки</h5>
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Операции и расценки (Сдельные)</h5>
+                    <button type="button" class="btn btn-sm btn-success" id="add-operation-btn">+ Добавить строку</button>
                 </div>
                 <div class="card-body p-0">
                     {{ formset.management_form }}
-                    <table class="table table-flush mb-0">
-                        <thead class="thead-light">
+                    <table class="table table-hover mb-0" id="operations-table">
+                        <thead class="table-light">
                             <tr>
                                 <th style="width: 60%">Операция</th>
-                                <th>Цена (руб)</th>
+                                <th>Цена (грн)</th>
                                 <th class="text-center">Удалить</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="formset-container">
                             {% for op_form in formset %}
-                            <tr>
-                                <td>
-                                    {{ op_form.id }}
-                                    {{ op_form.operation }}
-                                    {% if op_form.operation.errors %}
-                                        <div class="text-danger small">{{ op_form.operation.errors }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ op_form.price }}
-                                    {% if op_form.price.errors %}
-                                        <div class="text-danger small">{{ op_form.price.errors }}</div>
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">{{ op_form.DELETE }}</td>
-                            </tr>
+                            <div class="formset-row"> <tr>
+                                    <td>
+                                        {{ op_form.id }}
+                                        {{ op_form.operation }}
+                                    </td>
+                                    <td>{{ op_form.price }}</td>
+                                    <td class="text-center">
+                                        {% if op_form.instance.pk %}
+                                            {{ op_form.DELETE }}
+                                        {% else %}
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-form-btn">×</button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </div>
                             {% endfor %}
                         </tbody>
                     </table>
+                    
+                    <div id="empty-form-template" style="display: none;">
+                        <table>
+                            <tr>
+                                <td>{{ formset.empty_form.operation }}</td>
+                                <td>{{ formset.empty_form.price }}</td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm remove-form-btn">×</button>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
                 <div class="card-footer d-flex justify-content-between">
-                    <a href="{% url 'tech_card_list' %}" class="btn btn-outline-secondary">Отмена</a>
-                    <button type="submit" class="btn btn-success px-5">Сохранить всё</button>
+                    <a href="{% url 'tech_card_list' %}" class="btn btn-outline-secondary">К списку</a>
+                    <button type="submit" class="btn btn-primary px-5">Сохранить техкарту</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addBtn = document.getElementById('add-operation-btn');
+    const container = document.getElementById('formset-container');
+    const totalForms = document.getElementById('id_operations-TOTAL_FORMS');
+    const emptyFormHtml = document.querySelector('#empty-form-template tr').outerHTML;
+
+    addBtn.addEventListener('click', function() {
+        const currentCount = parseInt(totalForms.value);
+        // Заменяем __prefix__ в шаблоне на текущий порядковый номер
+        const newRowHtml = emptyFormHtml.replace(/__prefix__/g, currentCount);
+        
+        container.insertAdjacentHTML('beforeend', newRowHtml);
+        
+        // Увеличиваем счетчик форм для Django
+        totalForms.value = currentCount + 1;
+    });
+
+    // Удаление новых (еще не сохраненных) строк
+    container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-form-btn')) {
+            e.target.closest('tr').remove();
+            // Важно: мы не уменьшаем TOTAL_FORMS здесь, чтобы не сбить индексы, 
+            // Django просто проигнорирует пропущенные номера. 
+            // Или можно оставить как есть, если это пустая строка.
+        }
+    });
+});
+</script>
 {% endblock %}

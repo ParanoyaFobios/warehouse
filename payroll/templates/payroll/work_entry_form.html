@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 <div class="container mt-4">
     <div class="col-md-6 offset-md-3">
@@ -9,15 +10,50 @@
             <div class="card-body">
                 <form method="post" id="work-form">
                     {% csrf_token %}
+
                     {% for field in form %}
-                        <div class="mb-3">
-                            <label class="form-label font-weight-bold">{{ field.label }}</label>
-                            {{ field }}
-                            {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
-                        </div>
+                        {% if field.name == 'product' %}
+                            <div class="d-none">{{ field }}</div>
+                            
+                            <div class="mb-3 position-relative">
+                                <label class="form-label font-weight-bold">Найдите изделие</label>
+                                <div class="input-group">
+                                    <input type="text" id="product-search-input" class="form-control form-control-lg" placeholder="Название, артикул или код...">
+                                    <button class="btn btn-outline-secondary" type="button" id="local-scan-btn">
+                                        📸
+                                    </button>
+                                </div>
+                                <div id="search-results" class="list-group position-absolute w-100" style="z-index: 1000; display: none;"></div>
+                            </div>
+
+                            <div id="local-scanner-container" class="mb-3" style="display: none;">
+                                <video id="local-video-stream" style="width: 100%; border-radius: 8px; border: 2px solid #0d6efd;"></video>
+                                <button type="button" class="btn btn-danger btn-sm w-100 mt-2" onclick="stopLocalScanner()">⏹ Стоп</button>
+                            </div>
+
+                            <div id="selected-product-info" class="alert alert-info py-2 mb-3" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 id="selected-product-name" class="mb-0"></h6>
+                                        <small id="selected-product-sku" class="text-muted"></small>
+                                    </div>
+                                    <button type="button" class="btn-close" id="clear-product" aria-label="Close"></button>
+                                </div>
+                            </div>
+
+                        {% else %}
+                            <div class="mb-3">
+                                <label class="form-label font-weight-bold">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                            </div>
+                        {% endif %}
                     {% endfor %}
+
                     <div class="d-grid gap-2 mt-4">
-                        <button type="submit" class="btn btn-success btn-lg">Отправить на проверку</button>
+                        <button type="submit" id="submit-btn" class="btn btn-success btn-lg" {% if work_type == 'piece' %}disabled{% endif %}>
+                            Отправить на проверку
+                        </button>
                         <a href="{% url 'worker_cabinet' %}" class="btn btn-link text-secondary">Назад</a>
                     </div>
                 </form>
@@ -26,25 +62,129 @@
     </div>
 </div>
 
-{% if work_type == 'piece' %}
 <script>
-// Динамическое обновление списка операций
-document.querySelector('select[name="product"]').addEventListener('change', function() {
-    let productId = this.value;
-    let operationSelect = document.querySelector('select[name="operation"]');
-    
-    if (!productId) return;
+document.addEventListener('DOMContentLoaded', function() {
+    const workType = "{{ work_type }}";
+    if (workType !== 'piece') return;
 
-    fetch(`/payroll/api/get-operations/?product_id=${productId}`)
-        .then(response => response.json())
-        .then(data => {
-            operationSelect.innerHTML = '<option value="">--- Выберите операцию ---</option>';
-            data.forEach(item => {
-                let option = new Option(item.name, item.id);
-                operationSelect.add(option);
+    // Элементы
+    const searchInput = document.getElementById('product-search-input');
+    const searchResults = document.getElementById('search-results');
+    const hiddenProductInput = document.querySelector('select[name="product"]'); // Django селект
+    const operationSelect = document.querySelector('select[name="operation"]');
+    const infoBlock = document.getElementById('selected-product-info');
+    const infoName = document.getElementById('selected-product-name');
+    const infoSku = document.getElementById('selected-product-sku');
+    const submitBtn = document.getElementById('submit-btn');
+    const clearBtn = document.getElementById('clear-product');
+
+    // Сканер
+    const scanButton = document.getElementById('local-scan-btn');
+    const scannerContainer = document.getElementById('local-scanner-container');
+    const videoElement = document.getElementById('local-video-stream');
+    let codeReader = null;
+    const beepSound = new Audio("{% static 'sounds/bip.mp3' %}");
+
+    // 1. Функция выбора товара
+    function selectProduct(product) {
+        // Устанавливаем значение в скрытый Django-селект
+        hiddenProductInput.value = product.id;
+        
+        // Показываем инфо-блок
+        infoName.textContent = product.name;
+        infoSku.textContent = `Артикул: ${product.sku}`;
+        infoBlock.style.display = 'block';
+        
+        // Скрываем поиск
+        searchInput.value = '';
+        searchResults.style.display = 'none';
+        
+        // Загружаем операции для этого товара
+        loadOperations(product.id);
+        
+        submitBtn.disabled = false;
+        stopLocalScanner();
+    }
+
+    // 2. Загрузка операций по техкарте
+    function loadOperations(productId) {
+        operationSelect.innerHTML = '<option>Загрузка...</option>';
+        fetch(`/payroll/api/get-operations/?product_id=${productId}`)
+            .then(r => r.json())
+            .then(data => {
+                operationSelect.innerHTML = '<option value="">--- Выберите операцию ---</option>';
+                data.forEach(op => {
+                    let opt = new Option(op.name, op.id);
+                    operationSelect.add(opt);
+                });
+                operationSelect.focus(); // Переводим фокус на выбор операции
             });
+    }
+
+    // 3. Ручной поиск AJAX
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        fetch(`{% url 'product_search_json' %}?q=${encodeURIComponent(query)}`)
+            .then(r => r.json())
+            .then(data => {
+                searchResults.innerHTML = '';
+                if (data.results.length > 0) {
+                    data.results.forEach(p => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'list-group-item list-group-item-action';
+                        btn.innerHTML = `<strong>${p.name}</strong> <small class="text-muted d-block">Арт: ${p.sku}</small>`;
+                        btn.onclick = () => selectProduct(p);
+                        searchResults.appendChild(btn);
+                    });
+                    searchResults.style.display = 'block';
+                } else {
+                    searchResults.innerHTML = '<div class="list-group-item text-muted">Не найдено</div>';
+                    searchResults.style.display = 'block';
+                }
+            });
+    });
+
+    // 4. Логика сканера
+    function startLocalScanner() {
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        scannerContainer.style.display = 'block';
+        codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
+            if (result) {
+                beepSound.play().catch(() => {});
+                // Ищем товар по коду
+                fetch(`{% url 'product_search_json' %}?q=${encodeURIComponent(result.text)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.results.length > 0) selectProduct(data.results[0]);
+                    });
+            }
         });
+    }
+
+    window.stopLocalScanner = function() {
+        if (codeReader) {
+            codeReader.reset();
+            codeReader = null;
+        }
+        scannerContainer.style.display = 'none';
+    }
+
+    scanButton.addEventListener('click', () => {
+        scannerContainer.style.display === 'none' ? startLocalScanner() : stopLocalScanner();
+    });
+
+    clearBtn.addEventListener('click', () => {
+        infoBlock.style.display = 'none';
+        hiddenProductInput.value = '';
+        operationSelect.innerHTML = '<option value="">Сначала выберите товар</option>';
+        submitBtn.disabled = true;
+    });
 });
 </script>
-{% endif %}
 {% endblock %}
