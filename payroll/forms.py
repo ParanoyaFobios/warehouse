@@ -102,15 +102,12 @@ class PieceWorkForm(forms.ModelForm):
         # Исправленная логика фильтрации операций
         if 'product' in self.data:
             try:
-                product_id = int(self.data.get('product'))
-                product = Product.objects.get(id=product_id)
-                if product.tech_card:
-                    # Теперь мы берем операции через TechCardOperation, 
-                    # связанные с группой (tech_card), привязанной к продукту
-                    op_ids = TechCardOperation.objects.filter(
-                        group=product.tech_card
-                    ).values_list('operation_id', flat=True)
-                    
-                    self.fields['operation'].queryset = Operation.objects.filter(id__in=op_ids)
-            except (ValueError, TypeError, Product.DoesNotExist):
+                p_id = self.data.get('product')
+                # Получаем ID операций сразу через продукт, не выгружая сам продукт
+                op_ids = TechCardOperation.objects.filter(
+                    group__product__id=p_id # Идем через группу к продукту
+                ).values_list('operation_id', flat=True)
+                
+                self.fields['operation'].queryset = Operation.objects.filter(id__in=op_ids)
+            except (ValueError, TypeError):
                 pass

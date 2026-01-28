@@ -187,7 +187,7 @@ class WorkOrder(models.Model):
 
     @property
     def status_badge_class(self):
-        """Возвращает цвет для Bootstrap badge"""
+        """Возвращает цвет для css badge"""
         choices = {
             'new': 'info',
             'in_progress': 'primary',

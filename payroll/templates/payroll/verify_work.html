@@ -9,7 +9,7 @@
             <h4 class="mb-0">Проверка выработки</h4>
             <span>Ожидают проверки: {{ entries.count }}</span>
         </div>
-        <form method="post">
+        <form method="post" action="{% url 'verify_work_list' %}">
             {% csrf_token %}
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
@@ -25,19 +25,41 @@
                     </thead>
                     <tbody>
                         {% for entry in entries %}
-                        <tr>
+                        <tr class="{% if entry.is_suspicious %}table-warning{% endif %}">
                             <td><input type="checkbox" name="selected_entries" value="{{ entry.id }}" class="form-check-input entry-checkbox"></td>
                             <td>{{ entry.date_performed|date:"d.m.Y" }}</td>
                             <td><strong>{{ entry.worker.get_full_name|default:entry.worker.username }}</strong></td>
                             <td>
                                 {{ entry.operation.name }}<br>
-                                <small class="text-muted">{{ entry.product.name|default:"" }}</small>
+                                <small class="text-muted">{{ entry.product.name|default:"Без товара" }}</small>
+                                
+                                {% if entry.product %}
+                                    <div class="mt-1">
+                                        {% if entry.is_suspicious %}
+                                        <span class="badge bg-danger">
+                                            ⚠️ Перебор! На складе: {{ entry.warehouse_limit }}. 
+                                            Всего заявок (включая эту): {{ entry.total_submitted }}
+                                        </span>
+                                    {% endif %}
+                                    </div>
+                                {% endif %}
                             </td>
-                            <td>{{ entry.quantity }}</td>
+                            <td>
+                                <span class="fw-bold">{{ entry.quantity }}</span>
+                                {% if entry.already_paid > 0 %}
+                                    <div class="small text-muted">Было: {{ entry.already_paid }}</div>
+                                {% endif %}
+                            </td>
                             <td>{{ entry.total_sum }} грн.</td>
+                            <td>
+                                <a href="{% url 'reject_work_entry' entry.pk %}" 
+                                   class="btn btn-outline-danger btn-sm" 
+                                   onclick="return confirm('Вы уверены, что хотите ОТКЛОНИТЬ эту работу? Она будет удалена безвозвратно.')"
+                                   title="Отклонить">
+                                   ✕
+                                </a>
+                            </td>
                         </tr>
-                        {% empty %}
-                        <tr><td colspan="6" class="text-center py-4 text-muted">Новых записей нет</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

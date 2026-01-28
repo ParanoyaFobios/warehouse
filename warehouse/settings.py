@@ -76,7 +76,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'main.context_processors.global_search_form',  # Добавляем наш процессор для сквозного поиска
+                'main.context_processors.global_search_form',  # Добавляем процессор для сквозного поиска
+                'main.context_processors.user_avatar_processor',  # Добавляем процессор для иконки аватара
                 'usertouser.context_processors.unread_messages_count',  # Добавляем процессор для количества непрочитанных сообщений
             ],
         },

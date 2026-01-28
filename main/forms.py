@@ -63,10 +63,12 @@ class UserCreationWithGroupForm(forms.Form):
 
 class GlobalSearchForm(forms.Form):
     q = forms.CharField(
-        label='',
+        label='Поиск',
         widget=forms.TextInput(attrs={
-            'class': 'form-control me-2',
-            'placeholder': 'Поиск по названию, артикулу, штрихкоду...',
-            'aria-label': 'Search'
+            'class': 'search-bar__elem search-bar__field-control', # Ваши CSS классы
+            'placeholder': 'Поиск',
+            'aria-label': 'Search',
+            'required': 'required',
+            'id': 'id_q', # Django и так ставит id_q по умолчанию, но можно прописать явно
         })
     )

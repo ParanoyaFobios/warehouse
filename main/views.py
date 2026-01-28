@@ -92,7 +92,7 @@ class CreateUserWithGroupView(PermissionRequiredMixin, FormView):
         password = form.cleaned_data['password']
         group = form.cleaned_data['group']
         first_name = form.cleaned_data.get('first_name', '')
-        phone = form.cleaned_data.get('phone') # Если у вас есть поле phone в модели User
+        phone = form.cleaned_data.get('phone')
 
         user = User.objects.create_user(username=username, password=password, first_name=first_name)
         user.groups.add(group)

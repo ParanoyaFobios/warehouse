@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Моя выработка</h2>
+
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">⏳ Ожидают проверки</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Дата</th>
+                        <th>Что сделано</th>
+                        <th>Кол-во</th>
+                        <th>Сумма (план)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in pending_entries %}
+                    <tr>
+                        <td>{{ entry.date_performed|date:"d.m.Y" }}</td>
+                        <td>
+                            <strong>{{ entry.operation.name }}</strong><br>
+                            <small class="text-muted">{{ entry.product.name|default:"" }}</small>
+                        </td>
+                        <td>{{ entry.quantity }}</td>
+                        <td>{{ entry.total_sum }} грн.</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center py-4">Нет записей на проверке</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">✅ Недавно подтверждено</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <tbody>
+                    {% for entry in verified_entries %}
+                    <tr class="table-light">
+                        <td style="width: 25%;">{{ entry.date_performed|date:"d.m" }}</td>
+                        <td>{{ entry.operation.name }} ({{ entry.quantity }} шт.)</td>
+                        <td class="text-end text-success fw-bold">+{{ entry.total_sum }} грн.</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center py-3">У вас пока нет подтвержденных работ</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

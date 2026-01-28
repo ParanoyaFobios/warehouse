@@ -175,8 +175,10 @@ def product_search_json(request):
         for product in products:
             results.append({
                 'id': product.id,
-                'name': product.name,
+                'name': str(product),
                 'sku': product.sku,
+                'barcode': product.barcode,
+                'category': str(product.category),
                 'available_quantity': product.available_quantity
             })
     return JsonResponse({'results': results})
@@ -210,32 +212,6 @@ class PackageDeleteView(DeleteView):
     def form_valid(self, form):
         messages.success(self.request, f'Упаковка "{self.object}" была удалена.')
         return super().form_valid(form)
-
-
-
-
-# Функция для поиска продуктов (будет использоваться в AJAX)
-@login_required
-def product_search(request):
-    query = request.GET.get('q', '')
-    products = Product.objects.filter(
-        models.Q(name__icontains=query) |
-        models.Q(sku__icontains=query) |
-        models.Q(barcode__icontains=query)
-    )[:10]
-    
-    results = []
-    for product in products:
-        results.append({
-            'id': product.id,
-            'name': product.name,
-            'sku': product.sku,
-            'barcode': product.barcode,
-            'category': str(product.category),
-            'available_quantity': float(product.available_quantity)
-        })
-    
-    return JsonResponse({'results': results})
 
 # ==============================================================================
 # Отгрузки

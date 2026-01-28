@@ -15,10 +15,12 @@ urlpatterns = [
     # Work Entry URLs
     path('my-work/', views.WorkSelectionView.as_view(), name='worker_cabinet'),
     path('my-work/add/<str:type>/', views.WorkEntryCreateView.as_view(), name='add_work'),
+    path('my-work-enteries/', views.MyWorkEntriesListView.as_view(), name='my_work_entries'),
     # API для JS
     path('api/get-operations/', views.get_operations_for_product, name='api_get_operations'),
     # Кабинет менеджера
     path('verify/', views.WorkVerificationListView.as_view(), name='verify_work_list'),
+    path('verify/reject/<int:pk>/', views.reject_work_entry, name='reject_work_entry'),
     path('accounting/penalty-bonus/add/', views.PenaltyBonusCreateView.as_view(), name='add_penalty_bonus'),
     # бухгалтерия
     path('accounting/', views.AccountantDashboardView.as_view(), name='accountant_dashboard'),

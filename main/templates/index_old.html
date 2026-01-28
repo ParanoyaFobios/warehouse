@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        {% if user.is_authenticated %}
+        <a href="{% url 'logout' %}" class="btn btn-danger">Выйти</a>
+        <a href="{% url 'user_list' %}" class="btn btn-primary">Список пользователей</a>
+        <a href="{% url 'create_user' %}" class="btn btn-primary">Создать пользователя</a>
+        {% else %}
+        <a href="{% url 'login' %}" class="btn btn-primary">Войти</a>
+        {% endif %}
+        
+    </div>
+
+
+    <div class="container mt-4">
+        <h1>Главная панель управления</h1>
+        <p class="text-muted">Добро пожаловать, {{ user.username }}! Сегодня: {% now "d.m.Y" %}</p>
+    
+        <!-- Быстрые действия -->
+        <div class="row mb-4">
+{% if perms.warehouse2.view_shipment %}
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Отгрузки</h5>
+                        <p class="card-text display-6">{{ pending_shipments_count }}</p>
+                        <p class="text-muted">ожидают обработки</p>
+                        <a href="{% url 'shipment_list' %}" class="btn btn-primary">Управление</a>
+                        <a href="{% url 'shipment_create' %}" class="btn btn-outline-primary mt-2">Создать</a>
+                    </div>
+                </div>
+            </div>
+{% endif %}
+{% if perms.warehouse2.view_workorder %}
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Производство</h5>
+                        <p class="card-text display-6">{{ pending_workorders_count }}</p>
+                        <p class="text-muted">не выполненных заказов</p>
+                        <a href="{% url 'portfolio_list' %}" class="btn btn-warning">Управление</a>
+                        <a href="{% url 'portfolio_create' %}" class="btn btn-outline-warning mt-2">Создать</a>
+                    </div>
+                </div>
+            </div>
+{% endif %}
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Каталоги</h5>
+                        <p class="card-text display-6"></p>
+                        <a href="{% url 'product_list' %}" class="btn btn-info">Каталог материалов</a>
+                        <br><br>
+                        <a href="{% url 'product_list' %}" class="btn btn-info">Каталог продукции</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Отчеты</h5>
+                        <a href="{% url 'low_stock_report' %}" class="card-text display-6">
+                        {{ low_stock_materials_count }} </a>
+                        <p class="text-muted">материалов требуют закупки</p>
+                        
+                        <a href="{% url 'reports_home' %}" class="btn btn-secondary">Просмотр</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Не выполненные отгрузки -->
+        <div class="row">
+{% if perms.warehouse2.view_shipment %}
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Не выполненные отгрузки</h4>
+                        <span class="badge bg-primary">{{ pending_shipments_count }}</span>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if pending_shipments %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>№</th>
+                                        <th>Назначение</th>
+                                        <th>Статус</th>
+                                        <th>Товаров</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for shipment in pending_shipments %}
+                                    <tr>
+                                        <td><strong>#{{ shipment.id }}</strong></td>
+                                        <td>
+                                            {{ shipment.destination|truncatechars:20 }}
+                                            {% if not shipment.destination %}
+                                            <span class="text-muted">Не указано</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ shipment.status_badge_class }}">
+                                                {{ shipment.status_display_short }}
+                                            </span>
+                                        </td>
+                                        <td>{{ shipment.total_items_count }} шт.</td>
+                                        <td>
+                                            <a href="{% url 'shipment_detail' shipment.pk %}" 
+                                               class="btn btn-sm btn-outline-primary">Просмотр</a>
+                                            {% if shipment.can_be_edited %}
+                                            <a href="{% url 'shipment_items' shipment.pk %}" 
+                                               class="btn btn-sm btn-outline-warning">Товары</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center p-4">
+                            <p class="text-muted">Все отгрузки выполнены 🎉</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="card-footer">
+                        <a href="{% url 'shipment_list' %}" class="btn btn-sm btn-outline-secondary">
+                            Все отгрузки →
+                        </a>
+                    </div>
+                </div>
+            </div>
+{% endif %}
+{% if perms.warehouse2.view_workorder %}
+            <!-- Не выполненные производственные заказы -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Не выполненные заказы</h4>
+                        <span class="badge bg-warning">{{ pending_workorders_count }}</span>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if pending_workorders %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>№</th>
+                                        <th>Продукт</th>
+                                        <th>Статус</th>
+                                        <th>Количество</th>
+                                        
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for workorder in pending_workorders %}
+                                    <tr>
+                                        <td>
+                                            {% if workorder.order_item %}
+                                                    <a href="{% url 'workorder_detail' workorder.order_item.production_order.id %}">
+                                                    Заказ №{{ workorder.order_item.production_order.id }}
+                                                    </a>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ workorder.product.name|truncatechars:25 }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ workorder.status_badge_class }}">
+                                                {{ workorder.status_display_short }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <span class="small fw-bold">
+                                                    {{ workorder.quantity_planned }} / {{ workorder.quantity_produced }} шт.
+                                                </span>
+                                                <div class="progress" style="height: 4px; width: 80px;">
+                                                    <div class="progress-bar bg-success" role="progressbar" 
+                                                         style="width: {% widthratio workorder.quantity_produced workorder.quantity_planned 100 %}%">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center p-4">
+                            <p class="text-muted">Все заказы выполнены 🎉</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer">
+                        <a href="{% url 'workorder_list' %}" class="btn btn-sm btn-outline-secondary">
+                            Все заказы →
+                        </a>
+                    </div>
+                </div>
+            </div>
+{% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

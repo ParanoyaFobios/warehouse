@@ -4,13 +4,14 @@ from .models import Operation, TechCardGroup, TechCardOperation, WorkEntry, Payo
 from .forms import OperationForm, TechCardGroupForm, HourlyWorkForm, PieceWorkForm, TechCardOperationFormSet
 from django.db import transaction
 from django.contrib import messages
-from warehouse2.models import Product, ProductCategory
+from warehouse2.models import Product, ProductCategory, ProductOperation
 from django.http import JsonResponse
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, get_object_or_404
 from django.db.models import Sum, F, Q, DecimalField
 from django.contrib.auth.models import User
 from django.db.models.functions import Coalesce
+from django.contrib.auth.decorators import login_required
 
 #===============================================
 # Операции CRUD для Operation
@@ -152,7 +153,7 @@ class BulkAssignTechCardView(ListView):
 
 
 #===============================================
-# Представления для подачи заявок на выполненные работы
+# Представления для подачи заявок на выполненные работы, кабинет работника
 #===============================================
     
 class WorkSelectionView(LoginRequiredMixin, TemplateView):
@@ -188,30 +189,115 @@ def get_operations_for_product(request):
     data = [{'id': o.operation.id, 'name': o.operation.name} for o in ops]
     return JsonResponse(data, safe=False)
 
+
+class MyWorkEntriesListView(LoginRequiredMixin, ListView):
+    model = WorkEntry
+    template_name = 'payroll/my_work_entries.html'
+    context_object_name = 'pending_entries'
+
+    def get_queryset(self):
+        # Показываем только записи ТЕКУЩЕГО пользователя, которые еще не проверены
+        return WorkEntry.objects.filter(
+            worker=self.request.user, 
+            is_verified=False
+        ).select_related('operation', 'product').order_by('-date_performed')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Добавим для справки последние 10 подтвержденных работ
+        context['verified_entries'] = WorkEntry.objects.filter(
+            worker=self.request.user, 
+            is_verified=True
+        ).select_related('operation', 'product').order_by('-created_at')[:10]
+        return context
 #===============================================
 # Кабинет менеджера, подтверждение заявок на работы
 #===============================================
 
-class WorkVerificationListView(ListView):
+class WorkVerificationListView(LoginRequiredMixin, ListView):
     model = WorkEntry
     template_name = 'payroll/verify_work.html'
     context_object_name = 'entries'
 
     def get_queryset(self):
-        # Показываем только непроверенные записи
-        return WorkEntry.objects.filter(is_verified=False).order_by('-created_at')
-
+        # Исправлено: order_by вместо order_name
+        return WorkEntry.objects.filter(is_verified=False).select_related(
+            'worker', 'operation', 'product'
+        ).order_by('-created_at')
+    
     def post(self, request, *args, **kwargs):
-        # Массовое подтверждение через чекбоксы
+        # Получаем список ID из чекбоксов
         entry_ids = request.POST.getlist('selected_entries')
         if entry_ids:
             WorkEntry.objects.filter(id__in=entry_ids).update(
                 is_verified=True, 
                 verified_by=request.user
             )
-            messages.success(request, f"Подтверждено записей: {len(entry_ids)}")
+            # Добавляем уведомление (не забудьте import messages в начале файла)
+            from django.contrib import messages
+            messages.success(request, f"Успешно подтверждено записей: {len(entry_ids)}")
+        
         return redirect('verify_work_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        entries = context['entries']
+        if not entries: return context
+
+        product_ids = list(entries.values_list('product_id', flat=True).distinct())
+        product_ids = [p for p in product_ids if p is not None]
+        
+        # 1. Склад (как было)
+        warehouse_stock = ProductOperation.objects.filter(
+            product_id__in=product_ids,
+            operation_type__in=['incoming', 'production']
+        ).values('product_id').annotate(total=Coalesce(Sum('quantity'), 0))
+        warehouse_map = {item['product_id']: item['total'] for item in warehouse_stock}
+
+        # 2. Считаем ВООБЩЕ ВСЕ записи (и подтвержденные, и те, что в очереди)
+        all_work_sums = WorkEntry.objects.filter(
+            product_id__in=product_ids
+        ).values('product_id', 'operation_id').annotate(
+            total_sum=Coalesce(Sum('quantity'), 0)
+        )
+        
+        # Карта всех существующих заявок в БД
+        total_existing_map = {f"{item['product_id']}-{item['operation_id']}": item['total_sum'] for item in all_work_sums}
+
+        # 3. Пришиваем данные
+        for entry in entries:
+            if entry.product_id:
+                limit = warehouse_map.get(entry.product_id, 0)
+                key = f"{entry.product_id}-{entry.operation_id}"
+                
+                # Общая сумма этой операции по этому товару в базе
+                total_in_db = total_existing_map.get(key, 0)
+                
+                entry.warehouse_limit = limit
+                # Для наглядности менеджеру:
+                entry.total_submitted = total_in_db 
+                
+                # ОПАСНО: если общая сумма всех заявок (даже не подтвержденных) > склада
+                entry.is_suspicious = total_in_db > limit
+            else:
+                entry.is_suspicious = False
+        return context
     
+
+@login_required
+def reject_work_entry(request, pk):
+    """Отклонение (удаление) заявки работника"""
+    # Проверяем права (только персонал или суперюзер)
+    if not (request.user.is_staff or request.user.is_superuser):
+        messages.error(request, "У вас нет прав для этого действия")
+        return redirect('verify_work_list')
+        
+    entry = get_object_or_404(WorkEntry, pk=pk, is_verified=False)
+    entry.delete()
+    messages.warning(request, "Заявка отклонена и удалена")
+    return redirect('verify_work_list')
+
+
 class PenaltyBonusCreateView(CreateView):
     model = PenaltyBonus
     fields = ['worker', 'type', 'amount', 'reason']
