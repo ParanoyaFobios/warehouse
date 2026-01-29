@@ -324,12 +324,14 @@
                   </tr>
                   <tr class="table__row">
                     <th>Запланировано</th>
-                    <td>{{ workorder.quantity_planned }}</td>
+                    <td>{{ workorder.order_item.production_order.total_requested }}</td>
                   </tr>
                   <tr class="table__row">
                     <th>Сделано</th>
-                    <td>{{ workorder.quantity_produced }}</td>
+                    <td>{{ workorder.order_item.production_order.total_produced }}</td>
                   </tr>
+
+                  <!--заменить на прогресс бар-->
                   <tr class="table__row">
                     <td>
                       <a class="table__color-text" href="#">
@@ -360,6 +362,8 @@
                       </a>
                     </td>
                   </tr>
+
+
                   <tr class="table__row">
                     <td class="table__td-buttons-cont">
                       <a class="width100 button button--blue" href="{% url 'workorder_detail' workorder.pk %}">

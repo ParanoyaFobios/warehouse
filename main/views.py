@@ -14,6 +14,7 @@ from django.contrib import messages
 from django.db.models import F, Q
 from warehouse1.models import Material
 from warehouse2.models import Product, ProductCategory
+from todo.models import ProductionOrder
 from django.urls import reverse
 from urllib.parse import urlencode
 from django.contrib.auth.models import User
@@ -122,6 +123,8 @@ class IndexView(LoginRequiredMixin, View):
             min_quantity__gt=0 # Учитываем только те, где мин. остаток задан
             ).count()
         
+        production_orders = ProductionOrder.objects.prefetch_related('items').order_by('-created_at')[:10]
+
         context = {
             'user': request.user,
             'pending_shipments': pending_shipments,
@@ -129,6 +132,7 @@ class IndexView(LoginRequiredMixin, View):
             'pending_shipments_count': Shipment.objects.filter(status__in=['pending', 'packaged']).count(),
             'pending_workorders_count': WorkOrder.objects.filter(status__in=['new', 'in_progress']).count(),
             'low_stock_materials_count': low_stock_materials_count,
+            'production_orders': production_orders,
         }
         return render(request, 'index.html', context)
     

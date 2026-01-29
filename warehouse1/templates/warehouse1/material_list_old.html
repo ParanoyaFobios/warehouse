@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<h1>Каталог материалов</h1>
+<a href="{% url 'material_create' %}" class="btn btn-primary">Добавить материал</a>
+<!-- Добавим в material_list.html перед таблицей -->
+<form method="get" class="mb-4" id="filter-form">
+    <div class="row">
+        <div class="col-md-4">
+            <select name="category" class="form-control">
+                <option value="">Все категории</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"s" %}selected{% endif %}>
+                    {{ category.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary">Фильтровать</button>
+            <a href="?" class="btn btn-secondary">Сбросить</a>
+        </div>
+    </div>
+</form>
+
+<video id="video-stream" style="display: none; width: 100%; max-width: 400px; border-radius: 8px; margin-bottom: 1rem;"></video>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Артикул</th>
+            <th>Категория</th>
+            <th>Цвет</th>
+            {% if perms.warehouse1.can_view_material_quantity %}
+            <th>Количество</th>
+            {% endif %}
+            <th>Штрихкод</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for material in materials %}
+        <tr>
+            <td>
+                <a href="{% url 'material_detail' material.pk %}">{{ material.name }}</a>
+            </td>
+            <td>{{ material.article }}</td>
+            <td>{{ material.category.name }}</td>
+            <td>{{ material.color }}</td>
+            {% if perms.warehouse1.can_view_material_quantity %}
+            <td>{{ material.quantity }} {{ material.unit.short_name }}</td>
+            {% endif %}
+            <td><a href="{% url 'barcode_display_page' content_type_id=material.get_content_type_id object_id=material.pk %}">{{ material.barcode }}</a></td>
+            <td>
+                <a href="{% url 'incoming_with_material' material.pk %}" 
+                class="btn btn-success" 
+                title="Принять материал">
+                 ➕ Прием
+             </a>
+            </td>
+            <td>
+                <a href="{% url 'outgoing_with_material' material.pk %}" 
+             class="btn btn-danger" 
+             title="Выдать материал">
+              ➖ Выдача
+          </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if is_paginated %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1&category={{ current_category }}&search={{ current_search }}">Первая</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&category={{ current_category }}&search={{ current_search }}">Назад</a>
+            </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}&category={{ current_category }}&search={{ current_search }}">
+                        {{ num }}
+                    </a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&category={{ current_category }}&search={{ current_search }}">Далее</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&category={{ current_category }}&search={{ current_search }}">Последняя</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
