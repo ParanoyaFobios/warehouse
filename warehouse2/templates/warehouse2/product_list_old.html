@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load main_tags %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Каталог продукции</h2>
+    <div class="btn-group">
+        <a href="{% url 'product_create' %}" class="btn btn-primary">Добавить продукт</a>
+        <a href="{% url 'product_incoming' %}" class="btn btn-success">Принять товар</a>
+        <a href="{% url 'sync_products' %}" class="btn btn-primary">
+            <i class="fas fa-sync"></i> Добавить новые из KeyCRM
+        </a>
+        <a href="{% url 'product_list' %}" class="btn btn-outline-primary {% if not is_archived_view %}active{% endif %}">Активные</a>
+        <a href="{% url 'product_list' %}?archived=1" class="btn btn-outline-secondary {% if is_archived_view %}active{% endif %}">Архив</a>
+    </div>
+</div>
+<form method="get" class="mb-4" id="filter-form">
+    <div class="row">
+        <div class="col-md-4">
+            <select name="category" class="form-control">
+                <option value="">Все категории</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"s" %}selected{% endif %}>
+                    {{ category.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary">Фильтровать</button>
+            <a href="?" class="btn btn-secondary">Сбросить</a>
+        </div>
+    </div>
+</form>
+
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Артикул</th>
+            <th>Категория</th>
+            <th>Цвет</th>
+{% if perms.can_view_product_quantity %}
+            <th>На складе</th>
+            <th>Доступно</th>
+{% endif %}
+            <th>Штрихкод</th>
+            <th>Цена</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for product in products %}
+        <tr>
+            <td><a href="{% url 'product_detail' product.pk %}">{{ product.name }}</a></td>
+            <td>{{ product.sku }}</td>
+            <td>{{ product.category }}</td>
+            <td>{{ product.color|default:"-" }}</td>
+{% if perms.can_view_product_quantity %}
+            <td>{{ product.total_quantity }}</td>
+            <td>{{ product.available_quantity }}</td>
+{% endif %}
+            <td><a href="{% url 'barcode_display_page' content_type_id=product.get_content_type_id object_id=product.pk %}" alt="Штрихкод" class="img-fluid mb-2">{{ product.barcode }}</a></td>
+            <td>{{ product.price }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="8" class="text-center">Продукты не найдены</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if is_paginated %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1&category={{ current_category }}&search={{ current_search }}">Первая</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&category={{ current_category }}&search={{ current_search }}">Назад</a>
+            </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}&category={{ current_category }}&search={{ current_search }}">
+                        {{ num }}
+                    </a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&category={{ current_category }}&search={{ current_search }}">Далее</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&category={{ current_category }}&search={{ current_search }}">Последняя</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

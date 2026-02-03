@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Отгрузки</h2>
+    <a href="{% url 'shipment_create' %}" class="btn btn-primary">Создать отгрузку</a>
+</div>
+
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">Дата отгрузки</label>
+                <input type="date" name="created_at" class="form-control" value="{{ filter_created_at }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">№ отгрузки</label>
+                <input type="number" name="order_id" class="form-control" placeholder="Напр: 15" value="{{ filter_order_id }}">
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary">Найти</button>
+                <a href="{% url 'shipment_list' %}" class="btn btn-outline-secondary">Сбросить</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>№ отгрузки</th>
+            <th>Назначение</th>
+            <th>Дата создания</th>
+            <th>Товаров (шт)</th>
+            <th>Позиций</th>
+            <th>Сумма</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for shipment in shipments %}
+        <tr>
+            <td><a href="{% url 'shipment_detail' shipment.pk %}">{{ shipment.id }}</a></td>
+            <td><a href="{% url 'shipment_detail' shipment.pk %}">{{ shipment.destination }}</a></td>  <!-- Исправлено: shipment.destination -->
+            <td>{{ shipment.created_at|date:"d.m.Y H:i" }}</td>
+            <td>{{ shipment.total_items_count }}</td>  <!-- Изменено на метод из модели -->
+            <td>{{ shipment.items.count }}</td>  <!-- Исправлено: количество позиций -->
+            <td>{{ shipment.grand_total_price|floatformat:2 }}</td>  <!-- Форматирование цены -->
+            <td>
+                <span class="badge bg-{% if shipment.status == 'shipped' %}success
+                {% elif shipment.status == 'packaged' %}warning
+                {% else %}secondary{% endif %}">
+                    {{ shipment.get_status_display }}
+                </span>
+            </td>
+            <td>
+                {% if shipment.can_be_edited %}
+                    <a href="{% url 'shipment_items' shipment.pk %}" class="btn btn-sm btn-primary">Товары</a>
+                {% endif %}
+            
+                {% if shipment.can_be_deleted %}
+                    <a href="{% url 'shipment_delete' shipment.pk %}" class="btn btn-sm btn-danger">Удалить</a>
+                {% endif %}
+            
+                {% if shipment.can_be_packed %}
+                    <form action="{% url 'shipment_mark_packaged' shipment.pk %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-warning">Собрать</button>
+                    </form>
+                {% endif %}
+                
+                {% if shipment.can_be_shipped %}
+                    <form action="{% url 'shipment_ship' shipment.pk %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-success">Отгрузить</button>
+                    </form>
+                {% endif %}
+            
+                {% if shipment.status == 'shipped' and perms.warehouse2.can_return_product %}
+                    <a href="{% url 'shipment_return' shipment.pk %}" class="btn btn-sm btn-danger">Возврат</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="8" class="text-center">Отгрузки не найдены</td>  <!-- Исправлено colspan -->
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if is_paginated %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">Первая</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">Назад</a>
+            </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">{{ num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">Далее</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&created_at={{ filter_created_at }}&order_id={{ filter_order_id }}">Последняя</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
