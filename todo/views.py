@@ -115,7 +115,7 @@ class ProductionOrderCreateView(LoginRequiredMixin, CreateView):
 
 class ProductionOrderUpdateView(LoginRequiredMixin, UpdateView):
     """
-    Обновление Заказа (шапка) с синхронизацией строк по данным из JSON.
+    Обновление Заказа с синхронизацией строк по данным из JSON.
     """
     model = ProductionOrder
     form_class = ProductionOrderForm
@@ -208,6 +208,9 @@ class ProductionOrderUpdateView(LoginRequiredMixin, UpdateView):
             
         messages.success(self.request, 'Заказ успешно обновлен.')
         return redirect(self.get_success_url())
+    def form_invalid(self, form):
+        messages.error(self.request, 'Что-то пошло не так. Проверьте введенные данные.')
+        return super().form_invalid(form)
 
 
 class ProductionOrderDeleteView(LoginRequiredMixin, DeleteView):

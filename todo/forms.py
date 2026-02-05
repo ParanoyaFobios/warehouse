@@ -8,12 +8,12 @@ class ProductionOrderForm(forms.ModelForm):
         fields = ['customer', 'due_date', 'comment']
         widgets = {
             'due_date': forms.DateInput(
-                format='%Y-%m-%d', # Важно: именно такой формат понимает HTML5
+                format='%Y-%m-%d',
                 attrs={
                     'type': 'date', # Превращает обычное поле в календарь
-                    'class': 'form-control'}),
-            'customer': forms.TextInput(attrs={'class': 'form-control'}),
-            'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+                    'class': 'form-input'}),
+            'customer': forms.TextInput(attrs={'class': 'form-input'}),
+            'comment': forms.Textarea(attrs={'class': 'form-input', 'rows': 3}),
         }
 
     def __init__(self, *args, **kwargs):
