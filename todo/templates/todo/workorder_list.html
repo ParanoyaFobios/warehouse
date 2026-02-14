@@ -1,106 +1,425 @@
 {% extends 'base.html' %}
-
 {% block content %}
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <main class="main">
+      <section class="section catalog-industry container">
+        <div class="section__header">
         {% if is_filtered %}
-            <h2>📅 Результаты фильтрации</h2>
-        {% else %}
-            <h2>📋 Задания на смену (Доска)</h2>
-        {% endif %}
-        
-        <button type="submit" form="aggregation-form" class="btn btn-success shadow-sm px-4">
-            <i class="bi bi-calculator"></i> Агрегировать выбранные
-        </button>
-    </div>
-
-    <form method="get" class="row g-3 mb-4 p-3 bg-white border rounded shadow-sm align-items-end">
-        <div class="col-md-3">
-            <label for="id_due_date" class="form-label fw-bold">Дата потребности:</label>
-            <input type="date" class="form-control" id="id_due_date" name="due_date" value="{{ request.GET.due_date|default:'' }}">
+            <h1 class="section__header-title flex-center">
+                Производство - Результаты фильтрации
+                <span class="content-size">
+                  <svg
+                    width="30"
+                    height="30"
+                    viewBox="0 0 30 30"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <g clip-path="url(#clip0_723_3497)">
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M24.1801 18.2768H21.4742C21.232 18.2768 21.0313 18.083 21.0313 17.8339V16.0553L19.7649 17.3218C19.5988 17.4948 19.3289 17.4948 19.1559 17.3218L17.2528 15.4256C17.1836 15.3495 17.1351 15.2318 17.1351 15.128C17.1351 15.0311 17.1836 14.9135 17.2528 14.8373L18.5261 13.5709H16.7407C16.4985 13.5709 16.3047 13.3771 16.3047 13.1349V10.4014C16.3047 10.1591 16.4985 9.96538 16.7407 9.96538H18.5261L17.2528 8.69894C17.0867 8.52593 17.0867 8.25603 17.2528 8.08994L19.1836 6.18683C19.3497 6.01382 19.6196 6.01382 19.7926 6.18683L21.059 7.45326V5.67472C21.059 5.4325 21.2528 5.23181 21.495 5.23181H24.2009C24.4431 5.23181 24.6438 5.4325 24.6438 5.67472V7.45326L25.8825 6.18683C26.0556 6.01382 26.3254 6.01382 26.4915 6.18683L28.3947 8.08994C28.5677 8.25603 28.5677 8.52593 28.3947 8.69894L27.1282 9.96538H28.9068C29.149 9.96538 29.3428 10.1591 29.3428 10.4014V13.1072C29.3428 13.3495 29.149 13.5432 28.9068 13.5432H27.1282L28.3947 14.8166C28.4708 14.8858 28.5192 15.0104 28.5192 15.1072C28.5192 15.2041 28.4708 15.3287 28.3947 15.3979L26.4915 17.301C26.4223 17.3702 26.2978 17.4256 26.2009 17.4256C26.0763 17.4256 25.9794 17.3702 25.9102 17.301L24.6438 16.0346V17.8131C24.5953 18.083 24.4223 18.2768 24.1801 18.2768ZM22.8376 14.7405C21.1767 14.7405 19.841 13.3979 19.841 11.7439C19.841 10.083 21.1767 8.76814 22.8376 8.76814C24.4985 8.76814 25.8133 10.1107 25.8133 11.7439C25.8133 13.3771 24.4708 14.7405 22.8376 14.7405ZM22.8376 9.61935C21.668 9.61935 20.6922 10.5744 20.6922 11.7647C20.6922 12.9342 21.6403 13.91 22.8376 13.91C24.0348 13.91 24.9829 12.9619 24.9829 11.7647C24.9552 10.5744 24.0071 9.61935 22.8376 9.61935Z"
+                        fill="#00A6F2"
+                      />
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M24.762 29.9723H22.2291V22.6159C22.2291 22.3737 22.0354 22.173 21.7931 22.173H16.0838C15.8416 22.173 15.6478 22.3737 15.6478 22.6159V29.9723H10.2153V22.6159C10.2153 22.3737 10.0146 22.173 9.77239 22.173H4.06997C3.82775 22.173 3.63398 22.3737 3.63398 22.6159V29.9723H1.09419C0.851975 29.9723 0.658203 29.7786 0.658203 29.5363V19.6401C0.658203 19.4948 0.727407 19.3495 0.851975 19.2734L6.96962 15.5225C7.06651 15.4464 7.19107 15.4256 7.28796 15.4741C7.40561 15.4948 7.48173 15.5709 7.55786 15.6678L9.55094 19.0519L15.3295 15.5225C15.4264 15.4741 15.5509 15.4464 15.6478 15.4741C15.7724 15.4948 15.8416 15.5709 15.9177 15.6678L18.0146 19.2042H24.762C25.0042 19.2042 25.2049 19.3979 25.2049 19.6401V29.564C25.1772 29.7786 24.9835 29.9723 24.762 29.9723ZM21.3502 29.9723H16.5267V23.0519H21.3502V29.9723ZM9.30872 29.9723H4.48519V23.0519H9.30872V29.9723Z"
+                        fill="#00A6F2"
+                      />
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M0.769531 18.3668L1.70379 7.96542C1.73147 7.74397 1.89756 7.57788 2.11901 7.57788H4.11901C4.34047 7.57788 4.53424 7.74397 4.53424 7.96542L5.24012 15.6194L0.769531 18.3668Z"
+                        fill="#00A6F2"
+                      />
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M6.47266 14.8651L7.09549 7.96541C7.11625 7.77164 7.31003 7.59863 7.53148 7.59863H9.53148C9.75293 7.59863 9.9467 7.77164 9.9467 7.98618L10.7979 17.3287L9.83598 17.9239L8.26504 15.2526C8.09895 14.9689 7.84982 14.7751 7.54532 14.6921C7.20622 14.5675 6.84636 14.6367 6.54186 14.8235L6.47266 14.8651Z"
+                        fill="#00A6F2"
+                      />
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M8.58282 6.89272C8.53437 6.89272 8.50669 6.89272 8.45825 6.86504C8.26448 6.8166 8.11915 6.62282 8.16759 6.40137C8.16759 6.35293 8.36136 5.21106 8.89424 4.06227C8.99112 3.84774 9.26102 3.77161 9.45479 3.8685L10.5551 2.5813C10.4582 2.35985 10.5551 2.11763 10.7766 2.02075C11.434 1.72317 12.1607 1.79929 12.915 1.89618C14.3337 2.04151 15.6486 2.21452 16.8458 0.214519C16.9634 0.0207477 17.1849 -0.0553769 17.3787 0.041509C17.5724 0.138395 17.6693 0.359848 17.6001 0.55362C17.524 0.747391 16.1814 4.84428 13.4548 4.84428C13.1849 4.84428 12.915 4.79583 12.652 4.71971C10.1607 4.01383 9.0188 6.52594 8.97036 6.65051C8.89424 6.79583 8.74891 6.89272 8.58282 6.89272Z"
+                        fill="#00A6F2"
+                      />
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M3.12188 7.13489C3.07344 7.13489 3.04575 7.13489 2.99731 7.11413C2.80354 7.06568 2.65821 6.84423 2.70665 6.62278C2.72742 6.50513 3.21877 3.5778 4.92119 2.42901C5.57863 1.99302 6.31219 1.89613 7.14264 2.08991C9.89697 2.82347 11.3572 0.435927 11.3849 0.408245C11.5025 0.214473 11.724 0.138349 11.9177 0.235235C12.1115 0.33212 12.2084 0.553574 12.1392 0.747345C12.0631 0.99648 10.4575 5.86845 7.19108 4.94112C4.70665 4.23523 3.55787 6.76811 3.50942 6.86499C3.4333 7.038 3.28797 7.13489 3.12188 7.13489Z"
+                        fill="#00A6F2"
+                      />
+                    </g>
+                    <defs>
+                      <clipPath id="clip0_723_3497">
+                        <rect width="30" height="30" fill="white" />
+                      </clipPath>
+                    </defs>
+                  </svg>
+                </span>
+              </h1>
+            {% else %}
+            <h1 class="section__header-title flex-center">
+              Производство
+              <span class="content-size">
+                <svg
+                  width="30"
+                  height="30"
+                  viewBox="0 0 30 30"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <g clip-path="url(#clip0_723_3497)">
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M24.1801 18.2768H21.4742C21.232 18.2768 21.0313 18.083 21.0313 17.8339V16.0553L19.7649 17.3218C19.5988 17.4948 19.3289 17.4948 19.1559 17.3218L17.2528 15.4256C17.1836 15.3495 17.1351 15.2318 17.1351 15.128C17.1351 15.0311 17.1836 14.9135 17.2528 14.8373L18.5261 13.5709H16.7407C16.4985 13.5709 16.3047 13.3771 16.3047 13.1349V10.4014C16.3047 10.1591 16.4985 9.96538 16.7407 9.96538H18.5261L17.2528 8.69894C17.0867 8.52593 17.0867 8.25603 17.2528 8.08994L19.1836 6.18683C19.3497 6.01382 19.6196 6.01382 19.7926 6.18683L21.059 7.45326V5.67472C21.059 5.4325 21.2528 5.23181 21.495 5.23181H24.2009C24.4431 5.23181 24.6438 5.4325 24.6438 5.67472V7.45326L25.8825 6.18683C26.0556 6.01382 26.3254 6.01382 26.4915 6.18683L28.3947 8.08994C28.5677 8.25603 28.5677 8.52593 28.3947 8.69894L27.1282 9.96538H28.9068C29.149 9.96538 29.3428 10.1591 29.3428 10.4014V13.1072C29.3428 13.3495 29.149 13.5432 28.9068 13.5432H27.1282L28.3947 14.8166C28.4708 14.8858 28.5192 15.0104 28.5192 15.1072C28.5192 15.2041 28.4708 15.3287 28.3947 15.3979L26.4915 17.301C26.4223 17.3702 26.2978 17.4256 26.2009 17.4256C26.0763 17.4256 25.9794 17.3702 25.9102 17.301L24.6438 16.0346V17.8131C24.5953 18.083 24.4223 18.2768 24.1801 18.2768ZM22.8376 14.7405C21.1767 14.7405 19.841 13.3979 19.841 11.7439C19.841 10.083 21.1767 8.76814 22.8376 8.76814C24.4985 8.76814 25.8133 10.1107 25.8133 11.7439C25.8133 13.3771 24.4708 14.7405 22.8376 14.7405ZM22.8376 9.61935C21.668 9.61935 20.6922 10.5744 20.6922 11.7647C20.6922 12.9342 21.6403 13.91 22.8376 13.91C24.0348 13.91 24.9829 12.9619 24.9829 11.7647C24.9552 10.5744 24.0071 9.61935 22.8376 9.61935Z"
+                      fill="#00A6F2"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M24.762 29.9723H22.2291V22.6159C22.2291 22.3737 22.0354 22.173 21.7931 22.173H16.0838C15.8416 22.173 15.6478 22.3737 15.6478 22.6159V29.9723H10.2153V22.6159C10.2153 22.3737 10.0146 22.173 9.77239 22.173H4.06997C3.82775 22.173 3.63398 22.3737 3.63398 22.6159V29.9723H1.09419C0.851975 29.9723 0.658203 29.7786 0.658203 29.5363V19.6401C0.658203 19.4948 0.727407 19.3495 0.851975 19.2734L6.96962 15.5225C7.06651 15.4464 7.19107 15.4256 7.28796 15.4741C7.40561 15.4948 7.48173 15.5709 7.55786 15.6678L9.55094 19.0519L15.3295 15.5225C15.4264 15.4741 15.5509 15.4464 15.6478 15.4741C15.7724 15.4948 15.8416 15.5709 15.9177 15.6678L18.0146 19.2042H24.762C25.0042 19.2042 25.2049 19.3979 25.2049 19.6401V29.564C25.1772 29.7786 24.9835 29.9723 24.762 29.9723ZM21.3502 29.9723H16.5267V23.0519H21.3502V29.9723ZM9.30872 29.9723H4.48519V23.0519H9.30872V29.9723Z"
+                      fill="#00A6F2"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M0.769531 18.3668L1.70379 7.96542C1.73147 7.74397 1.89756 7.57788 2.11901 7.57788H4.11901C4.34047 7.57788 4.53424 7.74397 4.53424 7.96542L5.24012 15.6194L0.769531 18.3668Z"
+                      fill="#00A6F2"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M6.47266 14.8651L7.09549 7.96541C7.11625 7.77164 7.31003 7.59863 7.53148 7.59863H9.53148C9.75293 7.59863 9.9467 7.77164 9.9467 7.98618L10.7979 17.3287L9.83598 17.9239L8.26504 15.2526C8.09895 14.9689 7.84982 14.7751 7.54532 14.6921C7.20622 14.5675 6.84636 14.6367 6.54186 14.8235L6.47266 14.8651Z"
+                      fill="#00A6F2"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M8.58282 6.89272C8.53437 6.89272 8.50669 6.89272 8.45825 6.86504C8.26448 6.8166 8.11915 6.62282 8.16759 6.40137C8.16759 6.35293 8.36136 5.21106 8.89424 4.06227C8.99112 3.84774 9.26102 3.77161 9.45479 3.8685L10.5551 2.5813C10.4582 2.35985 10.5551 2.11763 10.7766 2.02075C11.434 1.72317 12.1607 1.79929 12.915 1.89618C14.3337 2.04151 15.6486 2.21452 16.8458 0.214519C16.9634 0.0207477 17.1849 -0.0553769 17.3787 0.041509C17.5724 0.138395 17.6693 0.359848 17.6001 0.55362C17.524 0.747391 16.1814 4.84428 13.4548 4.84428C13.1849 4.84428 12.915 4.79583 12.652 4.71971C10.1607 4.01383 9.0188 6.52594 8.97036 6.65051C8.89424 6.79583 8.74891 6.89272 8.58282 6.89272Z"
+                      fill="#00A6F2"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M3.12188 7.13489C3.07344 7.13489 3.04575 7.13489 2.99731 7.11413C2.80354 7.06568 2.65821 6.84423 2.70665 6.62278C2.72742 6.50513 3.21877 3.5778 4.92119 2.42901C5.57863 1.99302 6.31219 1.89613 7.14264 2.08991C9.89697 2.82347 11.3572 0.435927 11.3849 0.408245C11.5025 0.214473 11.724 0.138349 11.9177 0.235235C12.1115 0.33212 12.2084 0.553574 12.1392 0.747345C12.0631 0.99648 10.4575 5.86845 7.19108 4.94112C4.70665 4.23523 3.55787 6.76811 3.50942 6.86499C3.4333 7.038 3.28797 7.13489 3.12188 7.13489Z"
+                      fill="#00A6F2"
+                    />
+                  </g>
+                  <defs>
+                    <clipPath id="clip0_723_3497">
+                      <rect width="30" height="30" fill="white" />
+                    </clipPath>
+                  </defs>
+                </svg>
+              </span>
+            </h1>
+          {% endif %}
+          <button
+            type="submit"
+            form="aggregation-form"
+            class="section__header-button button button--orange"
+          >
+            Сгруппировать выбранные
+          </button>
         </div>
-        <div class="col-md-3">
-            <label for="id_production_order_id" class="form-label fw-bold">№ заказа:</label>
-            <input type="number" class="form-control" id="id_production_order_id" name="production_order_id" value="{{ request.GET.production_order_id|default:'' }}" min="1">
-        </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn btn-primary w-100">Фильтровать</button>
-        </div>
-        <div class="col-md-2">
-            <a href="{% url 'workorder_list' %}" class="btn btn-secondary w-100">Сбросить</a>
-        </div>
-    </form>
-
-    <form method="post" action="{% url 'aggregate_orders' %}" id="aggregation-form">
-        {% csrf_token %}
-        
-        {% regroup workorders by order_item.production_order as grouped_orders %}
-
-        <div class="row">
-            {% for group in grouped_orders %}
-                <div class="col-12 mb-4">
-                    <div class="card shadow-sm border-primary">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap">
-                            
-                            <div class="d-flex align-items-center">
-                                <div class="form-check me-3">
-                                    <input class="form-check-input border-primary" type="checkbox" 
-                                           name="selected_orders" value="{{ group.grouper.id }}" 
-                                           style="width: 1.6rem; height: 1.6rem; cursor: pointer;">
-                                </div>
-
-                                <div>
-                                    <h5 class="mb-1 text-primary">
-                                        <a href="{% url 'workorder_detail' group.grouper.id %}" class="text-decoration-none fw-bold">
-                                            Заказ №{{ group.grouper.id }} 
-                                        </a>
-                                        <small class="text-muted ms-2">({{ group.grouper.customer }})</small>
-                                    </h5>
-                                    <div class="text-muted small">
-                                        Срок: <strong class="text-dark">{{ group.grouper.due_date|date:"d.m.Y" }}</strong> | 
-                                        Статус: <span class="badge bg-secondary text-uppercase">{{ group.grouper.get_status_display }}</span>
-                                    </div>
-                                    {% if group.grouper.comment %}
-                                        <div class="mt-1 text-info italic small">
-                                            <i class="bi bi-chat-left-text"></i> {{ group.grouper.comment }}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            <div class="text-end">
-                                <div class="mb-1">
-                                    <span class="badge bg-white text-dark border">
-                                        План: {{ group.grouper.total_requested }} шт.
-                                    </span>
-                                    <span class="badge {% if group.grouper.total_produced >= group.grouper.total_requested %}bg-success{% else %}bg-warning text-dark{% endif %}">
-                                        Факт: {{ group.grouper.total_produced }} шт.
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="progress" style="height: 8px; border-radius: 0;">
-                            <div id="progress-{{ group.grouper.id }}" 
-                                 class="progress-bar {% if group.grouper.total_produced >= group.grouper.total_requested %}bg-success{% else %}bg-info{% endif %}" 
-                                 role="progressbar" 
-                                 style="width: {% widthratio group.grouper.total_produced group.grouper.total_requested 100 %}%">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    </form>
-
-    {% if not workorders %}
-        <div class="row">
-            <div class="col-12 text-center py-5">
-                <div class="display-1 text-muted mb-3"><i class="bi bi-clipboard-check"></i></div>
-                <h4 class="text-muted">Задач не найдено 🎉</h4>
-                <p>Попробуйте изменить параметры фильтрации или выберите другой день.</p>
+        <div class="sorting">
+          <form method="GET" class="sorting__filtration-by-date">
+            <div class="sorting__filtration-by-date-inputs">
+              <div class="sorting__filtration-by-date-input-cont">
+                <label
+                for="id_due_date"
+                  class="sorting__filtration-by-date-input-cont-label"
+                >
+                  Дата сдачи:
+                </label>
+                <input
+                  type="date"
+                  id="id_due_date" name="due_date"
+                  
+                  class="form-input"
+                  value="{{ request.GET.due_date|default:'' }}"
+                />
+              </div>
+              <div class="sorting__filtration-by-date-input-cont">
+                <label
+                    for="id_production_order_id"
+                  class="sorting__filtration-by-date-input-cont-label"
+                >
+                  № заказа
+                </label>
+                <input
+                  type="number"
+                  id="id_production_order_id"
+                  name="production_order_id"
+                  class="form-input"
+                  placeholder="Напр: 15"
+                  value="{{ request.GET.production_order_id|default:'' }}" min="1"
+                />
+              </div>
             </div>
+            <div class="sorting__filtration-by-date-buttons flex-center">
+              <button
+                type="submit"
+                class="sorting__filtration-by-date-button button button--blue"
+              >
+                Найти
+                <span class="content-size">
+                  <svg
+                    width="20"
+                    height="22"
+                    viewBox="0 0 20 22"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M19.6959 20.0385L14.7656 14.5928C16.0332 12.9924 16.7278 10.9788 16.7278 8.88249C16.7278 3.98476 12.9757 0 8.36391 0C3.75212 0 0 3.98476 0 8.88249C0 13.7802 3.75212 17.765 8.36391 17.765C10.0952 17.765 11.7451 17.2104 13.1557 16.1576L18.1235 21.6447C18.3311 21.8737 18.6104 22 18.9097 22C19.193 22 19.4617 21.8853 19.6657 21.6768C20.0992 21.2338 20.113 20.4992 19.6959 20.0385ZM8.36391 2.31717C11.7727 2.31717 14.5459 5.2623 14.5459 8.88249C14.5459 12.5027 11.7727 15.4478 8.36391 15.4478C4.95507 15.4478 2.18189 12.5027 2.18189 8.88249C2.18189 5.2623 4.95507 2.31717 8.36391 2.31717Z"
+                      fill="white"
+                    />
+                  </svg>
+                </span>
+              </button>
+              <a
+              href="{% url 'workorder_list' %}"
+                class="sorting__filtration-by-date-button button button--orange"
+              >
+                Сбросить
+                <span class="content-size">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M1.79688 8.75389L1.375 2.95702L3.21484 4.27733C6.19141 0.769516 11.4102 0.074204 15.2188 2.80467C16.9766 4.06249 18.1445 5.84764 18.6523 7.78905L15.7695 8.53123C15.4258 7.24217 14.6523 6.06249 13.4844 5.22655C11.0156 3.45311 7.65625 3.84374 5.64453 6.01952L7.42188 7.29295L1.79688 8.75389ZM12.5742 12.707L14.3516 13.9805C12.3438 16.1562 8.98438 16.5469 6.51562 14.7773C5.34766 13.9414 4.57031 12.7617 4.23047 11.4726L1.34766 12.2148C1.85938 14.1562 3.02344 15.9375 4.78125 17.1992C8.58594 19.9258 13.8086 19.2344 16.7852 15.7265L18.625 17.0469L18.1992 11.25L12.5742 12.707Z"
+                      fill="white"
+                    />
+                  </svg>
+                </span>
+              </a>
+            </div>
+          </form>
         </div>
-    {% endif %}
-</div>
-{% endblock %}
+        <form method="post" action="{% url 'aggregate_orders' %}" id="aggregation-form">
+            {% csrf_token %}
+            
+            {% regroup workorders by order_item.production_order as grouped_orders %}
+        <div class="tables-cont tables-cont--first-type tables-cont--m-t-10-20">
+          <ul class="cont__list">
+            {% for group in grouped_orders %}
+            <li class="cont__item">
+              <article class="table-card-first">
+                <div class="table-card-first__title">
+                  <h1 class="table-card-first__title-text">Заказ №{{ group.grouper.id }}</h1>
+                  <label
+                    class="table-card-first__title-custom-checkbox custom-checkbox"
+                  >
+                    <input type="checkbox" name="selected_orders" value="{{ group.grouper.id }}"/>
+                    <span class="checkmark"></span>
+                  </label>
+                </div>
+                <table class="table-first">
+                    {% if group.grouper.comment %}
+                  <tr class="table__row">
+                    <th>О заказе</th>
+                    <td class="table__row">{{ group.grouper.comment }}</td>
+                  </tr>
+                     {% endif %}
+                  <tr class="table__row">
+                    <th>Назначение</th>
+                    <td class="table__row">{{ group.grouper.customer }}</td>
+                  </tr>
+                  <tr class="table__row">
+                    <th>Статус</th>
+                    <td class="table__status table__status--{{ wo.status_badge_class }}">
+                        {{ group.grouper.get_status_display }}
+                    </td>
+                  </tr>
+                  <tr class="table__row">
+                    <th>Срок</th>
+                    <td>{{ group.grouper.due_date|date:"d.m.Y" }}</td>
+                  </tr>
+                  <!-- <tr class="table__row">
+                    <th>Позиций</th>
+                    <td>6</td>
+                  </tr>
+                  <tr class="table__row">
+                    <th>Товаров (шт)</th>
+                    <td>60</td>
+                  </tr> -->
+                </table>
+                <div class="table-card-first__bottom-cont">
+                  <div class="progress">
+                    <div class="progress__info progress__info--double">
+                      <div class="progress__info-block">
+                        <span class="progress__text">Запрошено</span>
+                        <span class="progress__quantity">{{ group.grouper.total_requested }} шт</span>
+                      </div>
+                      <div class="progress__info-block">
+                        <span class="progress__text">Готово</span>
+                        <span class="progress__quantity">{{ group.grouper.total_produced }} шт</span>
+                      </div>
+                      {% if group.grouper.total_produced >= group.grouper.total_requested %}
+                      <div class="progress__info-completed flex-center">
+                        <svg
+                          width="80"
+                          height="81"
+                          viewBox="0 0 80 81"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M73.5101 7.78711C72.324 7.7941 71.1887 8.27631 70.3528 9.12844C70.3528 9.12844 51.574 28.1049 40.1701 39.6437L32.1332 31.5063C30.382 29.7377 27.5475 29.7377 25.7963 31.5063C24.0497 33.2793 24.0497 36.1492 25.7963 37.9223L37.0127 49.2789C38.764 51.0472 41.5983 51.0472 43.3495 49.2789C53.96 38.5397 76.6896 15.5445 76.6896 15.5445C78.4363 13.7714 78.4363 10.9015 76.6896 9.12844C75.8482 8.2709 74.704 7.78816 73.5101 7.78711Z"
+                            fill="#F28500"
+                          />
+                          <path
+                            d="M37.8983 4.16211C18.1286 4.16228 2 20.4746 2 40.4915C2 60.5081 18.1286 76.8384 37.8983 76.8384C54.1217 76.8384 68.3651 65.7686 72.5639 49.902C73.3759 46.8345 73.7789 43.6672 73.779 40.4915C73.779 37.9849 71.7739 35.9521 69.2983 35.9488C66.8227 35.9521 64.8176 37.9849 64.8176 40.4915C64.8174 42.8734 64.4977 45.2531 63.8887 47.5538C60.7298 59.4907 50.1038 67.7649 37.8983 67.765C22.9781 67.7649 10.9614 55.5982 10.9614 40.4915C10.9614 25.3848 22.978 13.2356 37.8983 13.2356C40.2511 13.2358 42.5834 13.5603 44.8559 14.176C47.2492 14.8257 49.7096 13.3881 50.3514 10.9648C50.352 10.9627 50.3525 10.9604 50.3531 10.9583C50.9948 8.53505 49.5748 6.04399 47.1815 5.39428C47.1794 5.39376 47.1773 5.39306 47.1751 5.39253C44.1451 4.57062 41.0353 4.16228 37.8983 4.16211Z"
+                            fill="#F28500"
+                          />
+                        </svg>
+                      </div>
+                      {% endif %}
+                    </div>
+                    <div class="progress__bar">
+                      <!-- вот здесь нужно заменить style="width: 20%" на style="width: {% widthratio order.total_produced order.total_requested 100 %}%" -->
+                      <div
+                        style="width: {% widthratio group.grouper.total_produced group.grouper.total_requested 100 %}%"
+                        class="progress__bar-inner"
+                        role="progressbar"
+                      ></div>
+                    </div>
+                  </div>
+                  <a class="button button--orange" href="{% url 'workorder_detail' group.grouper.id %}">
+                    Посмотреть полностью
+                  </a>
+                </div>
+              </article>
+            </li>
+            {% endfor %}
+            {% if not workorders %}
+            <div class="section__header">
+              <h1 class="section__header-title flex-center">
+                Нет заказов
+            </h1>
+            <p class="section__header-greeting">Попробуйте изменить параметры фильтрации или выберите другой день.</p>
+            </div>
+
+        {% endif %}
+        </ul>
+        {% if is_paginated %}
+        <div class="pagination">
+          <!-- для выделения активной кнопки добавляем кнопке класс pagination__button--active -->
+          <div class="pagination__block">
+            {% if page_obj.has_previous %}
+            <a class="pagination__button" href="?page=1&due_date={{ request.GET.due_date }}">
+              <span class="content-size">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M11.8497 17.5C11.859 17.5 11.864 17.4888 11.8572 17.4819L4.37528 10L11.8572 2.51812C11.864 2.51125 11.859 2.5 11.8497 2.5H8.75028L1.38278 9.8675C1.30965 9.94063 1.30965 10.0594 1.38278 10.1325L8.75028 17.5H11.8497Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M18.7247 17.5C18.734 17.5 18.739 17.4888 18.7322 17.4819L11.2503 10L18.7322 2.51812C18.739 2.51125 18.734 2.5 18.7247 2.5H15.6253L8.25778 9.8675C8.18465 9.94063 8.18465 10.0594 8.25778 10.1325L15.6253 17.5H18.7247Z"
+                    fill="white"
+                  />
+                </svg>
+              </span>
+            </a>
+            <a class="pagination__button" href="?page={{ page_obj.previous_page_number }}&due_date={{ request.GET.due_date }}">
+              <span class="content-size">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M14.9903 17.5C14.9997 17.5 15.0047 17.4888 14.9978 17.4819L7.5159 10L14.9978 2.51812C15.0047 2.51125 14.9997 2.5 14.9903 2.5H11.8909L4.5234 9.8675C4.45028 9.94063 4.45028 10.0594 4.5234 10.1325L11.8909 17.5H14.9903Z"
+                    fill="white"
+                  />
+                </svg>
+              </span>
+            </a>
+            {% endif %}
+          </div>
+    
+      <div class="pagination__block">
+      {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+            <button
+              class="pagination__button pagination__button--active"
+              type="button"
+            >
+              <span class="content-size">{{ num }}</span>
+            </button>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?page={{ num }}&due_date={{ request.GET.due_date }}"
+            class="pagination__button pagination__button"
+            type="button"
+          >
+            <span class="content-size">{{ num }}</span>
+          </a>
+          {% endif %}
+          {% endfor %}
+      </div>
+    
+      {% if page_obj.has_next %}
+          <div class="pagination__block">
+            <a class="pagination__button" href="?page={{ page_obj.next_page_number }}&due_date={{ request.GET.due_date }}">
+              <span class="content-size">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M5.00972 17.5C5.00035 17.5 4.99535 17.4888 5.00222 17.4819L12.4841 10L5.00222 2.51812C4.99535 2.51125 5.00035 2.5 5.00972 2.5H8.1091L15.4766 9.8675C15.5497 9.94063 15.5497 10.0594 15.4766 10.1325L8.1091 17.5H5.00972Z"
+                    fill="white"
+                  />
+                </svg>
+              </span>
+            </a>
+    
+    
+            <a class="pagination__button" href="?page={{ page_obj.paginator.num_pages }}&due_date={{ request.GET.due_date }}">
+              <span class="content-size">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M8.15035 17.5C8.14097 17.5 8.13597 17.4888 8.14285 17.4819L15.6247 10L8.14285 2.51812C8.13597 2.51125 8.14097 2.5 8.15035 2.5H11.2497L18.6172 9.8675C18.6903 9.94063 18.6903 10.0594 18.6172 10.1325L11.2497 17.5H8.15035Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M1.27535 17.5C1.26597 17.5 1.26097 17.4888 1.26785 17.4819L8.74972 10L1.26785 2.51812C1.26097 2.51125 1.26597 2.5 1.27535 2.5H4.37472L11.7422 9.8675C11.8153 9.94063 11.8153 10.0594 11.7422 10.1325L4.37472 17.5H1.27535Z"
+                    fill="white"
+                  />
+                </svg>
+              </span>
+            </a>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+  </div>
+</section>
+</main>
+  {% endblock %}

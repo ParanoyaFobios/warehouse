@@ -1,4 +1,5 @@
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, FormView
+from django.views.generic.list import MultipleObjectMixin
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
@@ -362,6 +363,7 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
     model = WorkOrder
     template_name = 'todo/workorder_list.html'
     context_object_name = 'workorders'
+    paginate_by  = 25
 
     def get_queryset(self):
         # 1. Получаем параметры из GET-запроса
@@ -431,23 +433,28 @@ class WorkOrderListView(LoginRequiredMixin, ListView):
         return context
 
 
-class WorkorderOrderDetailView(LoginRequiredMixin, DetailView):
+class WorkorderOrderDetailView(LoginRequiredMixin, MultipleObjectMixin, DetailView):
     """
     Детальная страница Производственного Заказа.
     Показывает список всех связанных WorkOrder (задач на производство)
     с возможностью быстрого отчета.
     """
+    # Я добавил MultipleObjectMixin, потому что оказалось что в джанговском DetailView невозможно вывести пагинцию
+    # по умолчанию он ставит в контекст paginated=false, так что пришлось накостылить
     model = ProductionOrder
     template_name = 'todo/production_order_detail.html'
     context_object_name = 'order'
+    paginate_by = 25
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        # Получаем все WorkOrders, связанные с этим заказом через items
-        # Используем select_related для оптимизации
-        context['workorders'] = WorkOrder.objects.filter(
+        self.object = self.get_object()
+        queryset = WorkOrder.objects.filter(
             order_item__production_order=self.object
         ).select_related('product').order_by('pk')
+        context = super().get_context_data(object_list=queryset, **kwargs)
+        context['workorders'] = context['page_obj']
+        context['order'] = self.object
+        
         return context
 
 @require_POST

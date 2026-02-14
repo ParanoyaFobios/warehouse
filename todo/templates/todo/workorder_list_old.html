@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        {% if is_filtered %}
+            <h2>📅 Результаты фильтрации</h2>
+        {% else %}
+            <h2>📋 Задания на смену (Доска)</h2>
+        {% endif %}
+        
+        <button type="submit" form="aggregation-form" class="btn btn-success shadow-sm px-4">
+            <i class="bi bi-calculator"></i> Агрегировать выбранные
+        </button>
+    </div>
+
+    <form method="get" class="row g-3 mb-4 p-3 bg-white border rounded shadow-sm align-items-end">
+        <div class="col-md-3">
+            <label for="id_due_date" class="form-label fw-bold">Дата потребности:</label>
+            <input type="date" class="form-control" id="id_due_date" name="due_date" value="{{ request.GET.due_date|default:'' }}">
+        </div>
+        <div class="col-md-3">
+            <label for="id_production_order_id" class="form-label fw-bold">№ заказа:</label>
+            <input type="number" class="form-control" id="id_production_order_id" name="production_order_id" value="{{ request.GET.production_order_id|default:'' }}" min="1">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Фильтровать</button>
+        </div>
+        <div class="col-md-2">
+            <a href="{% url 'workorder_list' %}" class="btn btn-secondary w-100">Сбросить</a>
+        </div>
+    </form>
+
+    <form method="post" action="{% url 'aggregate_orders' %}" id="aggregation-form">
+        {% csrf_token %}
+        
+        {% regroup workorders by order_item.production_order as grouped_orders %}
+
+        <div class="row">
+            {% for group in grouped_orders %}
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm border-primary">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap">
+                            
+                            <div class="d-flex align-items-center">
+                                <div class="form-check me-3">
+                                    <input class="form-check-input border-primary" type="checkbox" 
+                                           name="selected_orders" value="{{ group.grouper.id }}" 
+                                           style="width: 1.6rem; height: 1.6rem; cursor: pointer;">
+                                </div>
+
+                                <div>
+                                    <h5 class="mb-1 text-primary">
+                                        <a href="{% url 'workorder_detail' group.grouper.id %}" class="text-decoration-none fw-bold">
+                                            Заказ №{{ group.grouper.id }} 
+                                        </a>
+                                        <small class="text-muted ms-2">({{ group.grouper.customer }})</small>
+                                    </h5>
+                                    <div class="text-muted small">
+                                        Срок: <strong class="text-dark">{{ group.grouper.due_date|date:"d.m.Y" }}</strong> | 
+                                        Статус: <span class="badge bg-secondary text-uppercase">{{ group.grouper.get_status_display }}</span>
+                                    </div>
+                                    {% if group.grouper.comment %}
+                                        <div class="mt-1 text-info italic small">
+                                            <i class="bi bi-chat-left-text"></i> {{ group.grouper.comment }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="text-end">
+                                <div class="mb-1">
+                                    <span class="badge bg-white text-dark border">
+                                        План: {{ group.grouper.total_requested }} шт.
+                                    </span>
+                                    <span class="badge {% if group.grouper.total_produced >= group.grouper.total_requested %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                        Факт: {{ group.grouper.total_produced }} шт.
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="progress" style="height: 8px; border-radius: 0;">
+                            <div id="progress-{{ group.grouper.id }}" 
+                                 class="progress-bar {% if group.grouper.total_produced >= group.grouper.total_requested %}bg-success{% else %}bg-info{% endif %}" 
+                                 role="progressbar" 
+                                 style="width: {% widthratio group.grouper.total_produced group.grouper.total_requested 100 %}%">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
+    {% if not workorders %}
+        <div class="row">
+            <div class="col-12 text-center py-5">
+                <div class="display-1 text-muted mb-3"><i class="bi bi-clipboard-check"></i></div>
+                <h4 class="text-muted">Задач не найдено 🎉</h4>
+                <p>Попробуйте изменить параметры фильтрации или выберите другой день.</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

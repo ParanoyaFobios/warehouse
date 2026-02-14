@@ -1,93 +1,151 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="card mb-4">
-        <div class="card-body d-flex justify-content-between align-items-center">
-            <div>
-                <h2 class="mb-0">Заказ №{{ order.pk }}</h2>
-                <p class="text-muted mb-0">{{ order.customer }} | Срок: {{ order.due_date|date:"d.m.Y" }}</p>
-            </div>
-            <a href="{% url 'workorder_list' %}" class="btn btn-outline-secondary">← Назад к списку</a>
+<main class="main">
+    <section class="section order-details container">
+        <div class="section__header">
+            <h1 class="section__header-title section__header-title--double flex-center">
+                <span class="section__header-title-not-dedicated-block">
+                    Заказ №{{ order.pk }} ({{ order.customer }})
+                </span>
+                <span class="section__header-title-dedicated-block">
+                    Срок - {{ order.due_date|date:"d.m.Y" }}
+                </span>
+            </h1>
+            <a href="{% url 'workorder_list' %}" class="section__header-button button button--orange">
+                Назад к списку
+            </a>
         </div>
-    </div>
 
-    <div class="card">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">Производственные задания</h5>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Продукт</th>
-                        <th class="text-center" style="width: 150px;">Статус</th>
-                        <th class="text-center" style="width: 200px;">Прогресс</th>
-                        <th class="text-end" style="width: 300px;">Отчет о выпуске</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for wo in workorders %}
-                    <tr id="row-{{ wo.pk }}" class="{% if wo.status == 'completed' %}table-success{% endif %}">
-                        
-                        <td>
-                            <div class="fw-bold">{{ wo.product.name }}</div>
-                            <small class="text-muted">{{ wo.product.sku }}</small>
-                            <div class="small text-secondary mt-1">{{ wo.note|default:"" }}</div>
-                        </td>
+        <div class="tables-cont tables-cont--first-type tables-cont--without-m-t">
+            <ul class="cont__list">
+                {% for wo in workorders %}
+                <li class="cont__item" id="row-{{ wo.pk }}">
+                    <article class="table-card-first">
+                        <a href="{% url 'product_detail' wo.product.pk %}">
+                            <h1 class="table-card-first__title">Позиция №{{ wo.pk }}</h1>
+                        </a>
+                        <table class="table-first">
+                            <tr class="table__row">
+                                <th>Товар</th>
+                                <td class="table__row--color table__row--color-alt">
+                                    {{ wo.product.name }}
+                                </td>
+                            </tr>
+                            <tr class="table__row">
+                                <th>Артикул</th>
+                                <td>{{ wo.product.sku }}</td>
+                            </tr>
+                            <tr class="table__row">
+                                <th>Статус</th>
+                                <td id="badge-{{ wo.pk }}" class="table__status table__status--{{ wo.status_badge_class }}">
+                                    {{ wo.get_status_display }}
+                                </td>
+                            </tr>
+                            <tr class="table__row">
+                                <th>План</th>
+                                <td>{{ wo.quantity_planned }} шт</td>
+                            </tr>
+                        </table>
 
-                        <td class="text-center">
-                            <span class="badge bg-{{ wo.status_badge_class }}" id="badge-{{ wo.pk }}">
-                                {{ wo.get_status_display }}
-                            </span>
-                        </td>
-
-                        <td class="text-center">
-                            <div class="fw-bold mb-1">
-                                <span id="produced-{{ wo.pk }}">{{ wo.quantity_produced }}</span> / {{ wo.quantity_planned }}
-                            </div>
-                            <div class="progress" style="height: 6px;">
-                                <div id="progress-{{ wo.pk }}" class="progress-bar bg-success" role="progressbar" 
-                                     style="width: {% widthratio wo.quantity_produced wo.quantity_planned 100 %}%">
+                        <div class="table-card-first__bottom-cont">
+                            <div class="progress">
+                                <div class="progress__info progress__info--double">
+                                    <div class="progress__info-block">
+                                        <span class="progress__text">Готово</span>
+                                        <span class="progress__quantity"><span id="produced-{{ wo.pk }}">{{ wo.quantity_produced }}</span> шт</span>
+                                    </div>
+                                    <div class="progress__info-block">
+                                        <span class="progress__text">Остаток</span>
+                                        <span class="progress__quantity" id="remaining-text-{{ wo.pk }}">{{ wo.remaining_to_produce }} шт</span>
+                                    </div>
+                                    
+                                    <div id="done-icon-{{ wo.pk }}" class="progress__info-completed flex-center" style="{% if wo.status != 'completed' %}display:none;{% endif %}">
+                                        <svg width="80" height="81" viewBox="0 0 80 81" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M73.5101 7.78711C72.324 7.7941 71.1887 8.27631 70.3528 9.12844C70.3528 9.12844 51.574 28.1049 40.1701 39.6437L32.1332 31.5063C30.382 29.7377 27.5475 29.7377 25.7963 31.5063C24.0497 33.2793 24.0497 36.1492 25.7963 37.9223L37.0127 49.2789C38.764 51.0472 41.5983 51.0472 43.3495 49.2789C53.96 38.5397 76.6896 15.5445 76.6896 15.5445C78.4363 13.7714 78.4363 10.9015 76.6896 9.12844C75.8482 8.2709 74.704 7.78816 73.5101 7.78711Z" fill="#F28500"/>
+                                            <path d="M37.8983 4.16211C18.1286 4.16228 2 20.4746 2 40.4915C2 60.5081 18.1286 76.8384 37.8983 76.8384C54.1217 76.8384 68.3651 65.7686 72.5639 49.902C73.3759 46.8345 73.7789 43.6672 73.779 40.4915C73.779 37.9849 71.7739 35.9521 69.2983 35.9488C66.8227 35.9521 64.8176 37.9849 64.8176 40.4915C64.8174 42.8734 64.4977 45.2531 63.8887 47.5538C60.7298 59.4907 50.1038 67.7649 37.8983 67.765C22.9781 67.7649 10.9614 55.5982 10.9614 40.4915C10.9614 25.3848 22.978 13.2356 37.8983 13.2356C40.2511 13.2358 42.5834 13.5603 44.8559 14.176C47.2492 14.8257 49.7096 13.3881 50.3514 10.9648C50.352 10.9627 50.3525 10.9604 50.3531 10.9583C50.9948 8.53505 49.5748 6.04399 47.1815 5.39428C47.1794 5.39376 47.1773 5.39306 47.1751 5.39253C44.1451 4.57062 41.0353 4.16228 37.8983 4.16211Z" fill="#F28500"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="progress__bar">
+                                    <div
+                                        id="progress-{{ wo.pk }}"
+                                        style="width: {% widthratio wo.quantity_produced wo.quantity_planned 100 %}%"
+                                        class="progress__bar-inner"
+                                        role="progressbar"
+                                    ></div>
                                 </div>
                             </div>
-                            <small class="text-muted" id="remaining-text-{{ wo.pk }}">
-                                Осталось: {{ wo.remaining_to_produce }}
-                            </small>
-                        </td>
 
-                        <td>
-                            {% if wo.status != 'completed' %}
-                            <div class="input-group input-group-sm justify-content-end" id="control-panel-{{ wo.pk }}">
-                                <input type="number" 
-                                       class="form-control" 
-                                       id="input-{{ wo.pk }}" 
-                                       placeholder="Кол-во" 
-                                       min="1" 
-                                       max="{{ wo.remaining_to_produce }}"
-                                       style="max_width: 80px;">
-                                <button class="btn btn-primary btn-report" 
-                                        data-id="{{ wo.pk }}" 
-                                        type="button">
-                                    <i class="bi bi-check-lg"></i> ОК
+                            <div id="action-area-{{ wo.pk }}">
+                                {% if wo.status != 'completed' %}
+                                <div class="table-card-first__form-input-cont">
+                                    <label>Произведено</label>
+                                    <input
+                                        type="number"
+                                        id="input-{{ wo.pk }}"
+                                        placeholder="Кол-во"
+                                        min="1"
+                                        max="{{ wo.remaining_to_produce }}"
+                                        class="form-control"
+                                    />
+                                </div>
+                                <button class="button button--blue btn-report" type="button" data-id="{{ wo.pk }}">
+                                    <i class="bi bi-check-lg"></i>
+                                    Отчитаться
                                 </button>
+                                {% endif %}
                             </div>
-                            {% else %}
-                            <div class="text-end text-success fw-bold">
-                                <i class="bi bi-check-circle-fill"></i> Готово
-                            </div>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+                        </div>
+                    </article>
+                </li>
+                {% endfor %}
+            </ul>
+            
+            {% if is_paginated %}
+<div class="pagination">
+  <div class="pagination__block">
+    {% if page_obj.has_previous %}
+      <a class="pagination__button" href="?page=1">
+        <span class="content-size">«</span> </a>
+      <a class="pagination__button" href="?page={{ page_obj.previous_page_number }}">
+        <span class="content-size">‹</span>
+      </a>
+    {% endif %}
+  </div>
+
+  <div class="pagination__block">
+    {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+        <button class="pagination__button pagination__button--active" type="button">
+          <span class="content-size">{{ num }}</span>
+        </button>
+      {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}" class="pagination__button">
+          <span class="content-size">{{ num }}</span>
+        </a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="pagination__block">
+    {% if page_obj.has_next %}
+      <a class="pagination__button" href="?page={{ page_obj.next_page_number }}">
+        <span class="content-size">›</span>
+      </a>
+      <a class="pagination__button" href="?page={{ page_obj.paginator.num_pages }}">
+        <span class="content-size">»</span>
+      </a>
+    {% endif %}
+  </div>
 </div>
+{% endif %}
+        </div>
+    </section>
+</main>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Ищем кнопки по добавленному классу .btn-report
     const buttons = document.querySelectorAll('.btn-report');
 
     buttons.forEach(button => {
@@ -101,9 +159,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Блокируем кнопку, чтобы не нажали дважды
             this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            const originalText = this.innerHTML;
+            this.innerHTML = '...';
 
             fetch("{% url 'api_workorder_report' %}", {
                 method: 'POST',
@@ -119,44 +177,41 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // 1. Обновляем цифры
+                    // 1. Цифры
                     document.getElementById(`produced-${woId}`).innerText = data.new_produced;
-                    document.getElementById(`remaining-text-${woId}`).innerText = `Осталось: ${data.remaining}`;
+                    document.getElementById(`remaining-text-${woId}`).innerText = `${data.remaining} шт`;
                     
-                    // 2. Обновляем прогресс-бар
+                    // 2. Прогресс
                     const percent = (data.new_produced / data.total_qty) * 100;
-                    const progressBar = document.getElementById(`progress-${woId}`);
-                    progressBar.style.width = percent + "%";
+                    document.getElementById(`progress-${woId}`).style.width = percent + "%";
 
-                    // 3. Обновляем статус
+                    // 3. Статус (меняем текст и класс)
                     const badge = document.getElementById(`badge-${woId}`);
-                    badge.className = `badge bg-${data.status_class}`;
+                    badge.className = `table__status table__status--${data.status_class}`;
                     badge.innerText = data.status_label;
 
-                    // 4. Очищаем инпут
+                    // 4. Очистка
                     inputField.value = '';
                     
-                    // 5. Если заказ завершен, скрываем форму и красим строку
+                    // 5. Если финиш
                     if (data.is_completed) {
-                        document.getElementById(`control-panel-${woId}`).innerHTML = 
-                            '<div class="text-end text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Готово</div>';
-                        document.getElementById(`row-${woId}`).classList.add('table-success');
+                        // Скрываем форму ввода и кнопку
+                        document.getElementById(`action-area-${woId}`).innerHTML = '';
+                        // Показываем оранжевую галку (SVG)
+                        document.getElementById(`done-icon-${woId}`).style.display = 'flex';
                     }
-
-                    // Опционально: показать тост/уведомление успеха
                 } else {
                     alert('Ошибка: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Произошла ошибка соединения');
+                alert('Ошибка соединения');
             })
             .finally(() => {
-                // Разблокируем кнопку (если она еще существует)
                 if (document.body.contains(this)) {
                     this.disabled = false;
-                    this.innerHTML = '<i class="bi bi-check-lg"></i> ОК';
+                    this.innerHTML = originalText;
                 }
             });
         });
