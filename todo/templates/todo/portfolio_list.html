@@ -1,140 +1,398 @@
 {% extends 'base.html' %}
 {% block content %}
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Планирование заказов</h2>
-    <a href="{% url 'portfolio_create' %}" class="btn btn-success">
-        + Новый заказ
-    </a>
-</div>
-
-<div class="card mb-4 shadow-sm">
-    <div class="card-body">
-        <form method="GET" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label class="form-label small fw-bold">Дата сдачи</label>
-                <input type="date" name="due_date" class="form-control" value="{{ filter_due_date }}">
+    <main class="main">
+      <section class="section planning container">
+        <div class="section__header">
+          <h1 class="section__header-title flex-center">
+            Планирование
+            <span class="content-size">
+              <svg
+                width="30"
+                height="30"
+                viewBox="0 0 30 30"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g clip-path="url(#clip0_732_5580)">
+                  <path
+                    d="M16.2187 3.1875C16.2187 3.14062 16.2187 3.14062 16.2187 3.09375C16.2187 3.04688 16.2187 3.04688 16.2187 3C16.125 2.4375 15.6094 1.96875 15.0469 1.96875H12.375C12.0938 1.96875 11.9062 1.78125 11.9062 1.5C11.8594 0.703125 11.1562 0 10.3125 0C9.46875 0 8.76563 0.703125 8.76563 1.54688C8.76563 1.82812 8.53125 2.01562 8.29688 2.01562H5.625C5.01562 2.01562 4.54688 2.4375 4.45312 3.04688V3.14062V3.23438V4.125H16.2187V3.1875Z"
+                    fill="#00A6F2"
+                  />
+                  <path
+                    d="M20.1094 3.98438H17.1562V4.59375C17.1562 4.875 16.9688 5.0625 16.6875 5.0625H3.98437C3.70312 5.0625 3.51562 4.82813 3.51562 4.59375V3.98438H0.515625C0.234375 3.98438 0.046875 4.17187 0.046875 4.45312V29.5312C0.046875 29.8125 0.234375 30 0.515625 30H20.1094C20.3906 30 20.5781 29.7656 20.5781 29.5312V4.45312C20.5781 4.17187 20.3906 3.98438 20.1094 3.98438ZM5.01562 22.2656L3 24.2812C2.90625 24.375 2.8125 24.4219 2.67188 24.4219C2.53125 24.4219 2.4375 24.375 2.34375 24.2812L1.5 23.4375C1.3125 23.25 1.3125 22.9688 1.5 22.7812C1.6875 22.5938 1.96875 22.5938 2.15625 22.7812L2.625 23.2969L4.3125 21.6094C4.5 21.4219 4.78125 21.4219 4.96875 21.6094C5.20312 21.7969 5.20312 22.0781 5.01562 22.2656ZM5.01562 15.5625L3 17.5781C2.90625 17.6719 2.76562 17.7188 2.67188 17.7188C2.53125 17.7188 2.4375 17.6719 2.34375 17.5781L1.5 16.7344C1.3125 16.5469 1.3125 16.2656 1.5 16.0781C1.6875 15.8906 1.96875 15.8906 2.15625 16.0781L2.625 16.5469L4.3125 14.8594C4.5 14.6719 4.78125 14.6719 4.96875 14.8594C5.20312 15.0938 5.20312 15.375 5.01562 15.5625ZM5.01562 8.85938L3 10.875C2.90625 10.9688 2.76562 11.0156 2.67188 11.0156C2.53125 11.0156 2.4375 10.9688 2.34375 10.875L1.5 10.0312C1.3125 9.84375 1.3125 9.5625 1.5 9.375C1.6875 9.1875 1.96875 9.1875 2.15625 9.375L2.625 9.89062L4.3125 8.20312C4.5 8.01562 4.78125 8.01562 4.96875 8.20312C5.20312 8.39062 5.20312 8.67188 5.01562 8.85938ZM17.9531 26.8125H6.89062C6.60937 26.8125 6.42187 26.5781 6.42187 26.3438C6.42187 26.1094 6.65625 25.875 6.89062 25.875H17.9531C18.2344 25.875 18.4219 26.1094 18.4219 26.3438C18.4219 26.5781 18.2344 26.8125 17.9531 26.8125ZM17.9531 23.4375H6.89062C6.60937 23.4375 6.42187 23.25 6.42187 22.9688C6.42187 22.6875 6.65625 22.5 6.89062 22.5H17.9531C18.2344 22.5 18.4219 22.7344 18.4219 22.9688C18.4219 23.25 18.2344 23.4375 17.9531 23.4375ZM17.9531 20.0625H6.89062C6.60937 20.0625 6.42187 19.875 6.42187 19.5938C6.42187 19.3125 6.65625 19.125 6.89062 19.125H17.9531C18.2344 19.125 18.4219 19.3594 18.4219 19.5938C18.4219 19.875 18.2344 20.0625 17.9531 20.0625ZM17.9531 16.7344H6.89062C6.60937 16.7344 6.42187 16.5 6.42187 16.2656C6.42187 15.9844 6.65625 15.7969 6.89062 15.7969H17.9531C18.2344 15.7969 18.4219 16.0312 18.4219 16.2656C18.4219 16.5 18.2344 16.7344 17.9531 16.7344ZM17.9531 13.3594H6.89062C6.60937 13.3594 6.42187 13.125 6.42187 12.8906C6.42187 12.6094 6.65625 12.4219 6.89062 12.4219H17.9531C18.2344 12.4219 18.4219 12.6562 18.4219 12.8906C18.4219 13.1719 18.2344 13.3594 17.9531 13.3594ZM17.9531 10.0312H6.89062C6.60937 10.0312 6.42187 9.84375 6.42187 9.5625C6.42187 9.28125 6.65625 9.09375 6.89062 9.09375H17.9531C18.2344 9.09375 18.4219 9.32812 18.4219 9.5625C18.4219 9.79688 18.2344 10.0312 17.9531 10.0312Z"
+                    fill="#00A6F2"
+                  />
+                  <path
+                    d="M27.8906 11.625H29.7188C29.8594 11.625 29.9531 11.5312 29.9531 11.3906V8.71875C29.9531 8.57812 29.8594 8.48438 29.7188 8.48438H27.8906C27.75 8.48438 27.6563 8.57812 27.6563 8.71875V9.46875H24.8438C24.5156 9.46875 24.2813 9.70312 24.2813 10.0312V17.25H21.6094V18.375H24.2813V25.5938C24.2813 25.9219 24.5156 26.1562 24.8438 26.1562H27.6563V26.9063C27.6563 27.0469 27.75 27.1406 27.8906 27.1406H29.7188C29.8594 27.1406 29.9531 27.0469 29.9531 26.9063V24.2344C29.9531 24.0937 29.8594 24 29.7188 24H27.8906C27.75 24 27.6563 24.0937 27.6563 24.2344V24.9844H25.4531V18.4219H27.6563V19.1719C27.6563 19.3125 27.75 19.4063 27.8906 19.4063H29.7188C29.8594 19.4063 29.9531 19.3125 29.9531 19.1719V16.5C29.9531 16.3594 29.8594 16.2656 29.7188 16.2656H27.8906C27.75 16.2656 27.6563 16.3594 27.6563 16.5V17.25H25.4531V10.5938H27.6563V11.3438C27.6563 11.4844 27.75 11.625 27.8906 11.625Z"
+                    fill="#00A6F2"
+                  />
+                </g>
+                <defs>
+                  <clipPath id="clip0_732_5580">
+                    <rect width="30" height="30" fill="white" />
+                  </clipPath>
+                </defs>
+              </svg>
+            </span>
+          </h1>
+          <a href="{% url 'portfolio_create' %}" class="section__header-button button button--orange">
+            Новый заказ +
+          </a>
+        </div>
+        <div class="sorting">
+          <form method="GET" class="sorting__filtration-by-date">
+            <div class="sorting__filtration-by-date-inputs">
+              <div class="sorting__filtration-by-date-input-cont">
+                <label
+                  for="created-at"
+                  class="sorting__filtration-by-date-input-cont-label"
+                >
+                  Дата сдачи
+                </label>
+                <input
+                  type="date"
+                  name="due_date"
+                  class="form-input"
+                  value="{{ filter_due_date }}"
+                />
+              </div>
+              <div class="sorting__filtration-by-date-input-cont">
+                <label
+                  for="order-id"
+                  class="sorting__filtration-by-date-input-cont-label"
+                >
+                  № заказа
+                </label>
+                <input
+                  type="number"
+                  id="order_id"
+                  name="order-id"
+                  class="form-input"
+                  placeholder="Напр: 15"
+                  value="{{ filter_order_id }}"
+                />
+              </div>
             </div>
-            <div class="col-md-3">
-                <label class="form-label small fw-bold">№ заказа</label>
-                <input type="number" name="order_id" class="form-control" placeholder="Напр: 15" value="{{ filter_order_id }}">
+            <div class="sorting__filtration-by-date-buttons flex-center">
+              <button
+                type="submit"
+                class="sorting__filtration-by-date-button button button--blue"
+              >
+                Найти
+                <span class="content-size">
+                  <svg
+                    width="20"
+                    height="22"
+                    viewBox="0 0 20 22"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M19.6959 20.0385L14.7656 14.5928C16.0332 12.9924 16.7278 10.9788 16.7278 8.88249C16.7278 3.98476 12.9757 0 8.36391 0C3.75212 0 0 3.98476 0 8.88249C0 13.7802 3.75212 17.765 8.36391 17.765C10.0952 17.765 11.7451 17.2104 13.1557 16.1576L18.1235 21.6447C18.3311 21.8737 18.6104 22 18.9097 22C19.193 22 19.4617 21.8853 19.6657 21.6768C20.0992 21.2338 20.113 20.4992 19.6959 20.0385ZM8.36391 2.31717C11.7727 2.31717 14.5459 5.2623 14.5459 8.88249C14.5459 12.5027 11.7727 15.4478 8.36391 15.4478C4.95507 15.4478 2.18189 12.5027 2.18189 8.88249C2.18189 5.2623 4.95507 2.31717 8.36391 2.31717Z"
+                      fill="white"
+                    />
+                  </svg>
+                </span>
+              </button>
+              <a
+                href="{% url 'portfolio_list' %}"
+                class="sorting__filtration-by-date-button button button--orange"
+              >
+                Сбросить
+                <span class="content-size">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M1.79688 8.75389L1.375 2.95702L3.21484 4.27733C6.19141 0.769516 11.4102 0.074204 15.2188 2.80467C16.9766 4.06249 18.1445 5.84764 18.6523 7.78905L15.7695 8.53123C15.4258 7.24217 14.6523 6.06249 13.4844 5.22655C11.0156 3.45311 7.65625 3.84374 5.64453 6.01952L7.42188 7.29295L1.79688 8.75389ZM12.5742 12.707L14.3516 13.9805C12.3438 16.1562 8.98438 16.5469 6.51562 14.7773C5.34766 13.9414 4.57031 12.7617 4.23047 11.4726L1.34766 12.2148C1.85938 14.1562 3.02344 15.9375 4.78125 17.1992C8.58594 19.9258 13.8086 19.2344 16.7852 15.7265L18.625 17.0469L18.1992 11.25L12.5742 12.707Z"
+                      fill="white"
+                    />
+                  </svg>
+                </span>
+              </a>
             </div>
-            <div class="col-md-4">
-                <button type="submit" class="btn btn-primary">Найти</button>
-                <a href="{% url 'portfolio_list' %}" class="btn btn-outline-secondary">Сбросить</a>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-body">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>ID</th>
-                    <th>Заказчик</th>
-                    <th>Дата сдачи</th>
-                    <th class="text-center">План / Сделано / В отгрузке</th>
+          </form>
+        </div>
+        <div class="tables-cont tables-cont--first-type tables-cont--m-t-10-20">
+          <ul class="cont__list">
+          {% for order in orders %}
+            <li class="cont__item">
+              <article class="table-card-first">
+                <h1 class="table-card-first__title">Заказ №{{ order.id }}</h1>
+                <table class="table-first">
+                  <tr class="table__row">
+                    <th>Назначение</th>
+                    <td class="table__color-text">{{ order.customer|default:"-" }}</td>
+                  </tr>
+                  <tr class="table__row">
                     <th>Статус</th>
-                    <th class="text-end">Действия</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for order in orders %}
-                <tr class="{% if order.status == 'completed' %}table-success{% endif %}">
-                    <td><strong>#{{ order.id }}</strong></td>
-                    <td>{{ order.customer|default:"-" }}</td>
+                    {% if order.status == 'pending' %}
+                    <td class="table__status table__status--at-work">
+                      Ожидает 
+                    </td>
+                {% elif order.status == 'planned' %}
+                <td class="table__status table__status--at-work">
+                  В плане
+                </td>
+                {% elif order.status == 'partial' %}
+                <td class="table__status table__status--at-work">
+                  В работе
+                </td>
+                {% elif order.status == 'shipped' %}
+                <td class="table__status table__status--at-work">
+                  Передано в отгрузку
+                </td>
+                {% elif order.status == 'completed' %}
+                <td class="table__status table__status--at-work">
+                  Готов
+                </td>
+                {% endif %}
+                  </tr>
+                  <tr class="table__row">
+                    <th>Срок</th>
                     <td>{{ order.due_date|date:"d.m.Y" }}</td>
-                    
-                    <td class="text-center">
-                        <div class="d-flex flex-column align-items-center">
-                            <div class="mb-1">
-                                <span class="fw-bold" title="Заказано (План)">{{ order.total_requested }}</span>
-                                <span class="text-muted mx-1">/</span>
-                                <span class="text-primary fw-bold" title="Произведено (Цех)">{{ order.total_produced }}</span>
-                                <span class="text-muted mx-1">/</span>
-                                <span class="{% if order.is_under_shipped %}text-danger{% else %}text-success{% endif %} fw-bold" title="Отгружено (Накладная)">
-                                    {{ order.total_shipped }}
-                                </span>
-                            </div>
-                    
-                            <div class="progress w-100" style="height: 6px; background-color: #e9ecef; border-radius: 3px;">
-                                <div class="progress-bar bg-primary" role="progressbar" 
-                                     style="width: {% widthratio order.total_produced order.total_requested 100 %}%"></div>
-                            </div>
-                            
-                            {% if order.status == 'shipped' and order.is_under_shipped %}
-                                <small class="text-danger fw-bold" style="font-size: 0.75rem; margin-top: 2px;">
-                                    ⚠ Недогруз: {{ order.shipment_gap }} шт.
-                                </small>
-                            {% endif %}
-                        </div>
-                    </td>
-
-                    <td>
+                  </tr>
+                  {% if order.status == 'shipped' and order.is_under_shipped %}
+                  <tr class="table__row">
+                    <th>⚠ Недогруз: </th>
+                    <td>{{ order.shipment_gap }} шт.</td>
+                  </tr>
+                  {% endif %}
+                </table>
+                <div class="table-card-first__bottom-cont">
+                  <div class="progress">
+                    <div class="progress__info progress__info--triple">
+                      <div
+                        class="progress__info-block progress__info-block--text-s progress__info-block--p-l-10"
+                      >
+                        <span class="progress__text">План</span>
+                        <span class="progress__quantity">{{ order.total_requested }} шт</span>
+                      </div>
+                      <div
+                        class="progress__info-block progress__info-block--text-s progress__info-block--p-l-10"
+                      >
+                        <span class="progress__text">Сделано</span>
+                        <span class="progress__quantity">{{ order.total_produced }} шт</span>
+                      </div>
+                      <div
+                        class="progress__info-block progress__info-block--text-s progress__info-block--p-l-10"
+                      >
+                        <span class="progress__text">В отгрузке</span>
+                        <span class="progress__quantity">{{ order.total_shipped }} шт</span>
+                      </div>
+                    </div>
+                    <div class="progress__bar">
+                      <div
+                        style="width: {% widthratio order.total_produced order.total_requested 100 %}%"
+                        class="progress__bar-inner"
+                        role="progressbar"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="table__td-buttons-cont">
+                    <!-- удалить ненужные кнопки в зависимости от статуса -->
                     {% if order.status == 'shipped' %}
-                        <span class="badge bg-info">Накладная создана</span>
-                        {% if order.linked_shipment %}
-                            <br>
-                            <a href="{% url 'shipment_items' order.linked_shipment.pk %}" class="small">
-                                Документ №{{ order.linked_shipment.id }}
-                            </a>
-                        {% endif %}
-                    {% else %}
-                        {% if order.status == 'pending' %}
-                            <span class="badge bg-secondary">Ожидает</span>
-                        {% elif order.status == 'planned' %}
-                            <span class="badge bg-info text-dark">В плане</span>
-                        {% elif order.status == 'partial' %}
-                            <span class="badge bg-warning text-dark">В работе</span>
-                        {% elif order.status == 'completed' %}
-                            <span class="badge bg-success">Готов</span>
-                        {% endif %}
+                    <div class="table__text-and-button">
+                      <span>Сопряжено</span>
+                      {% if order.linked_shipment %}
+                      <a class="table__color-text" href="{% url 'shipment_items' order.linked_shipment.pk %}">Документ №{{ order.linked_shipment.id }}</a>
+                      {% endif %}
+                    </div>
                     {% endif %}
-                    </td>
-                    <td class="text-end">
-                        <a href="{% url 'portfolio_detail' order.pk %}" class="btn btn-sm btn-primary table-action-btn">Детали</a>
-                        {% if order.status != 'shipped' %}
-                        <a href="{% url 'portfolio_edit' order.pk %}" class="btn btn-sm btn-outline-secondary table-action-btn">Ред.</a>
-                        {% endif %}
-                        {% if order.status == 'planned' or order.status == 'pending' %}
-                        <a href="{% url 'portfolio_delete' order.pk %}" class="btn btn-sm btn-outline-danger">Удал.</a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="text-center py-4 text-muted">
-                        В портфеле пока нет заказов.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    {% if order.status != 'shipped' %}
+                    <a href="{% url 'portfolio_edit' order.pk %}"
+                      title="Редактировать"
+                      class="table__button-with-icon content-size"
+                    >
+                      <svg
+                        width="30"
+                        height="30"
+                        viewBox="0 0 30 30"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <rect
+                          width="30"
+                          height="30"
+                          rx="3"
+                          fill="#00A6F2"
+                          fill-opacity="0.6"
+                        />
+                        <path
+                          d="M23.5764 8.71494L20.3481 5.48667C20.0326 5.17111 19.5225 5.17111 19.2069 5.48667L16.7857 7.90787L21.1552 12.2773L23.5764 9.85613C23.892 9.54057 23.892 9.0305 23.5764 8.71494ZM7.10093 17.5927C7.01296 17.6806 6.94598 17.7888 6.90643 17.9082L6.83137 18.131L10.0927 21.3915C10.0927 21.3915 9.28566 22.1986 8.4794 21.3923L6.42784 19.3416L5.29149 22.7506C5.19464 23.0404 5.27051 23.3608 5.48599 23.5763C5.64014 23.7296 5.84675 23.8127 6.0574 23.8127C6.14214 23.8127 6.2293 23.799 6.31243 23.7708L11.1548 22.1566C11.2735 22.1171 11.3816 22.0501 11.4704 21.9621L20.3481 13.0844L15.9787 8.71494L7.10093 17.5927Z"
+                          fill="white"
+                        />
+                      </svg>
+                    </a>
+                    {% endif %}
+                    {% if order.status == 'planned' or order.status == 'pending' %}
+                    <a href="{% url 'portfolio_delete' order.pk %}"
+                      title="Удалить"
+                      class="table__button-with-icon content-size"
+                    >
+                      <svg
+                        width="30"
+                        height="30"
+                        viewBox="0 0 30 30"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <rect
+                          width="30"
+                          height="30"
+                          rx="3"
+                          fill="#F28500"
+                          fill-opacity="0.6"
+                        />
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M24 7.75C24.414 7.75 24.75 8.086 24.75 8.5C24.75 8.914 24.414 9.25 24 9.25H6C5.586 9.25 5.25 8.914 5.25 8.5C5.25 8.086 5.586 7.75 6 7.75H24Z"
+                          fill="white"
+                        />
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M19.636 6.245L20.221 8.294C20.286 8.52 20.24 8.764 20.099 8.952C19.957 9.14 19.735 9.25 19.5 9.25H10.5C10.265 9.25 10.043 9.14 9.90096 8.952C9.75996 8.764 9.71396 8.52 9.77896 8.294L10.364 6.245C10.702 5.064 11.781 4.25 13.009 4.25H16.991C18.219 4.25 19.298 5.064 19.636 6.245ZM18.193 6.657C18.04 6.12 17.55 5.75 16.991 5.75H13.009C12.45 5.75 11.96 6.12 11.807 6.657L11.494 7.75H18.506L18.193 6.657Z"
+                          fill="white"
+                        />
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M23.145 10.25L22.363 23.166C22.275 24.618 21.072 25.75 19.618 25.75H10.382C8.92798 25.75 7.72498 24.618 7.63698 23.166L6.85498 10.25H23.145ZM12.246 20.91L11.549 13.941C11.508 13.529 11.14 13.228 10.728 13.269C10.316 13.31 10.015 13.678 10.056 14.09L10.754 21.059C10.795 21.471 11.163 21.772 11.575 21.731C11.987 21.69 12.287 21.322 12.246 20.91ZM19.246 21.059L19.944 14.09C19.985 13.678 19.684 13.31 19.272 13.269C18.86 13.228 18.492 13.529 18.451 13.941L17.754 20.91C17.713 21.322 18.013 21.69 18.425 21.731C18.837 21.772 19.205 21.471 19.246 21.059ZM14.25 14V21C14.25 21.414 14.586 21.75 15 21.75C15.414 21.75 15.75 21.414 15.75 21V14C15.75 13.586 15.414 13.25 15 13.25C14.586 13.25 14.25 13.586 14.25 14Z"
+                          fill="white"
+                        />
+                      </svg>
+                    </a>
+                    {% endif %}
+                  </div>
+                  <a class="button button--orange width100" href="{% url 'portfolio_detail' order.pk %}">
+                    Посмотреть полностю
+                  </a>
+                </div>
+              </article>
+            </li>
+            {% empty %}
+            <tr>
+                <td>
+                    В портфеле пока нет заказов.
+                </td>
+            </tr>
+          {% endfor %}
+          </ul>
+          {% if is_paginated %}
+          <div class="pagination">
+            <!-- для выделения активной кнопки добавляем кнопке класс pagination__button--active -->
+            <div class="pagination__block">
+              {% if page_obj.has_previous %}
+              <a class="pagination__button" href="?page=1&due_date={{ request.GET.due_date }}">
+                <span class="content-size">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M11.8497 17.5C11.859 17.5 11.864 17.4888 11.8572 17.4819L4.37528 10L11.8572 2.51812C11.864 2.51125 11.859 2.5 11.8497 2.5H8.75028L1.38278 9.8675C1.30965 9.94063 1.30965 10.0594 1.38278 10.1325L8.75028 17.5H11.8497Z"
+                      fill="white"
+                    />
+                    <path
+                      d="M18.7247 17.5C18.734 17.5 18.739 17.4888 18.7322 17.4819L11.2503 10L18.7322 2.51812C18.739 2.51125 18.734 2.5 18.7247 2.5H15.6253L8.25778 9.8675C8.18465 9.94063 8.18465 10.0594 8.25778 10.1325L15.6253 17.5H18.7247Z"
+                      fill="white"
+                    />
+                  </svg>
+                </span>
+              </a>
+              <a class="pagination__button" href="?page={{ page_obj.previous_page_number }}&due_date={{ request.GET.due_date }}">
+                <span class="content-size">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M14.9903 17.5C14.9997 17.5 15.0047 17.4888 14.9978 17.4819L7.5159 10L14.9978 2.51812C15.0047 2.51125 14.9997 2.5 14.9903 2.5H11.8909L4.5234 9.8675C4.45028 9.94063 4.45028 10.0594 4.5234 10.1325L11.8909 17.5H14.9903Z"
+                      fill="white"
+                    />
+                  </svg>
+                </span>
+              </a>
+              {% endif %}
+            </div>
+      
+        <div class="pagination__block">
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+              <button
+                class="pagination__button pagination__button--active"
+                type="button"
+              >
+                <span class="content-size">{{ num }}</span>
+              </button>
+              {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+              <a href="?page={{ num }}&due_date={{ request.GET.due_date }}"
+              class="pagination__button pagination__button"
+              type="button"
+            >
+              <span class="content-size">{{ num }}</span>
+            </a>
+            {% endif %}
+            {% endfor %}
+        </div>
+      
+        {% if page_obj.has_next %}
+            <div class="pagination__block">
+              <a class="pagination__button" href="?page={{ page_obj.next_page_number }}&due_date={{ request.GET.due_date }}">
+                <span class="content-size">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M5.00972 17.5C5.00035 17.5 4.99535 17.4888 5.00222 17.4819L12.4841 10L5.00222 2.51812C4.99535 2.51125 5.00035 2.5 5.00972 2.5H8.1091L15.4766 9.8675C15.5497 9.94063 15.5497 10.0594 15.4766 10.1325L8.1091 17.5H5.00972Z"
+                      fill="white"
+                    />
+                  </svg>
+                </span>
+              </a>
+      
+      
+              <a class="pagination__button" href="?page={{ page_obj.paginator.num_pages }}&due_date={{ request.GET.due_date }}">
+                <span class="content-size">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M8.15035 17.5C8.14097 17.5 8.13597 17.4888 8.14285 17.4819L15.6247 10L8.14285 2.51812C8.13597 2.51125 8.14097 2.5 8.15035 2.5H11.2497L18.6172 9.8675C18.6903 9.94063 18.6903 10.0594 18.6172 10.1325L11.2497 17.5H8.15035Z"
+                      fill="white"
+                    />
+                    <path
+                      d="M1.27535 17.5C1.26597 17.5 1.26097 17.4888 1.26785 17.4819L8.74972 10L1.26785 2.51812C1.26097 2.51125 1.26597 2.5 1.27535 2.5H4.37472L11.7422 9.8675C11.8153 9.94063 11.8153 10.0594 11.7422 10.1325L4.37472 17.5H1.27535Z"
+                      fill="white"
+                    />
+                  </svg>
+                </span>
+              </a>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
     </div>
-</div>
-{% if is_paginated %} <!--начало логики для пагинации-->
-<nav aria-label="Page navigation" class="mt-4">
-<ul class="pagination justify-content-center">
-{% if page_obj.has_previous %}
-<li class="page-item"><a class="page-link" href="?page=1&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">Первая</a></li>
-<a class="page-link" href="?page={{ page_obj.previous_page_number }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">Назад</a>
-{% endif %}
-
-{% for num in page_obj.paginator.page_range %}
-  {% if page_obj.number == num %}
-  <li class="page-item active"><a class="page-link" href="?page={{ num }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">{{ num }}</a> </li>
-  {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-  <li class="page-item"><a class="page-link" href="?page={{ num }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">{{ num }}</a> </li>
-  {% endif %}
-{% endfor %}
-
-{% if page_obj.has_next %}
-<a class="page-link" href="?page={{ page_obj.next_page_number }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">Далее</a>
-<li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">Последняя</a></li>
-{% endif %}
-</ul>
-</nav> <!--конец логики для пагинации-->
-{% endif %}
-{% endblock %}
+  </section>
+  </main>
+    {% endblock %}

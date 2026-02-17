@@ -1,17 +1,115 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
-    <div class="col-md-6 offset-md-3">
-        <h2>Создание нового пользователя</h2>
-        <div class="card">
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    {{ form.as_p }}
-                    <button type="submit" class="btn btn-success mt-3">Создать пользователя</button>
-                    <a href="#" class="btn btn-secondary mt-3">Отмена</a> </form>
+<main class="main">
+    <section class="section creating-shipment container">
+        <div class="section__header">
+            <h1 class="section__header-title flex-center">
+                {% if form.instance.pk %}
+                    Редактирование: {{ form.instance.first_name }}
+                {% else %}
+                    Новый пользователь
+                {% endif %}
+                <span class="content-size">
+                    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6.19929 19.1637C9.96748 16.8336 14.7472 16.8336 18.5153 19.1637C18.6265 19.2325 18.7672 19.3147 18.9289 19.4093C19.6607 19.8376 20.8223 20.5173 21.615 21.3232C22.113 21.8292 22.6096 22.5192 22.7 23.3793C22.797 24.2994 22.4063 25.1513 21.6613 25.8884C20.4305 27.1062 18.9056 28.1304 16.9065 28.1304H7.80824C5.80902 28.1304 4.28426 27.1062 3.05338 25.8884C2.30828 25.1513 1.91771 24.2994 2.01457 23.3793C2.10511 22.5192 2.60168 21.8292 3.09957 21.3232C3.89228 20.5173 5.05398 19.8376 5.78579 19.4093C5.94746 19.3147 6.0882 19.2325 6.19929 19.1637Z" fill="#00A6F2"/>
+                        <path d="M6.28516 9.20191C6.28516 5.84876 9.00342 3.13049 12.3566 3.13049C15.7097 3.13049 18.428 5.84876 18.428 9.20191C18.428 12.5551 15.7097 15.2733 12.3566 15.2733C9.00342 15.2733 6.28516 12.5551 6.28516 9.20191Z" fill="#00A6F2"/>
+                    </svg>
+                </span>
+            </h1>
+        </div>
+
+        <div class="narrow-wrapper narrow-wrapper--alt">
+            <div class="form-wrapper">
+                <div class="form-cont">
+                    <form class="form-cont__form" method="post">
+                        {% csrf_token %}
+                        <div class="form-cont__two-tables">
+                            <table class="table-third table-third--alt">
+                                <tbody>
+                                    <tr>
+                                        <th><label for="{{ form.username.id_for_label }}">Логин</label></th>
+                                        <td>{{ form.username }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th><label for="{{ form.phone.id_for_label }}">Телефон</label></th>
+                                        <td>{{ form.phone }}</td>
+                                    </tr>
+                                    {% if not form.instance.pk %} <tr>
+                                        <th><label for="{{ form.password.id_for_label }}">Пароль</label></th>
+                                        <td>{{ form.password }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <th><label for="{{ form.new_password.id_for_label }}">Сменить пароль</label></th>
+                                        <td>{{ form.new_password }}</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+
+                            <table class="table-third table-third--alt">
+                                <tbody>
+                                    <tr>
+                                        <th><label for="{{ form.first_name.id_for_label }}">Имя</label></th>
+                                        <td>{{ form.first_name }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th><label>Роль</label></th>
+                                        <td>
+                                            <div class="custom-dropdown-wrapper" data-dropdown="">
+                                                <button type="button" class="custom-select custom-dropdown-trigger" data-dropdown-trigger="">
+                                                    <span class="selected-product" data-dropdown-value="">
+                                                        {% if form.instance.pk and form.instance.groups.exists %}
+                                                            {{ form.instance.groups.first.name }}
+                                                        {% elif form.group.value %}
+                                                            {% for group in form.fields.group.queryset %}
+                                                                {% if group.pk|stringformat:"s" == form.group.value|stringformat:"s" %}
+                                                                    {{ group.name }}
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        {% else %}
+                                                            Выберите роль
+                                                        {% endif %}
+                                                    </span>
+                                                </button>
+
+                                                <ul class="select-list" data-dropdown-list="" role="listbox">
+                                                    {% for group in form.fields.group.queryset %}
+                                                        <li class="select-item" role="option" data-value="{{ group.id }}">
+                                                            {{ group.name }}
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                                
+                                                <input type="hidden" name="group" id="id_group" value="{{ form.group.value|default:'' }}" class="dropdown-hidden-input" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% if not form.instance.pk %}
+                                    <tr>
+                                        <th><label for="{{ form.password2.id_for_label }}">Повторите пароль</label></th>
+                                        <td>{{ form.password2 }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <th><label>Статус</label></th>
+                                        <td>
+                                            {{ form.is_active }} Активен
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="form-cont__form-buttons">
+                            <button class="button button--blue" type="submit">Сохранить</button>
+                            <a href="{% url 'user_list' %}" class="button button--orange flex-center">Отмена</a>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-    </div>
-</div>
+    </section>
+</main>
 {% endblock %}

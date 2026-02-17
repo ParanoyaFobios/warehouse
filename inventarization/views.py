@@ -21,6 +21,7 @@ class InventoryCountListView(LoginRequiredMixin, ListView):
     template_name = 'inventarization/count_list.html'
     context_object_name = 'inventory_counts'
     ordering = ['-created_at']
+    paginate_by = 20
 
 class StartInventoryCountView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):

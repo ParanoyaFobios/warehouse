@@ -6,7 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 import barcode
 from barcode.writer import ImageWriter
 import io
-from django.views.generic import View, ListView
+from django.views.generic import View, ListView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from warehouse2.models import Shipment
 from todo.models import WorkOrder
@@ -19,7 +19,7 @@ from django.urls import reverse
 from urllib.parse import urlencode
 from django.contrib.auth.models import User
 from django.urls import reverse_lazy
-from .forms import UserCreationWithGroupForm
+from .forms import UserCreationWithGroupForm, UserUpdateForm
 from django.views.generic.edit import FormView
 from django.http import HttpResponse, Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
@@ -29,7 +29,7 @@ import time
 from django.conf import settings
 from django.db import transaction
 from django.core.files.base import ContentFile
-
+from main.models import UserProfile
 
 
 # ==============================================================================
@@ -71,37 +71,81 @@ class LogoutView(View):
         logout(request)
         return redirect('login')
 
+#===========================================
+# Представления для управления пользователями
+#===========================================
+
 class UserListView(PermissionRequiredMixin, ListView):
     model = User
     template_name = 'user_list.html'
     context_object_name = 'users'
     permission_required = 'auth.view_user' # Только те, кто может просматривать пользователей
+    paginate_by = 20
 
     def get_queryset(self):
         # Показываем пользователей с их группами
-        return User.objects.all().prefetch_related('groups').order_by('username')
+        return User.objects.filter(is_active=True).select_related('profile').prefetch_related('groups').order_by('username')
 
 class CreateUserWithGroupView(PermissionRequiredMixin, FormView):
     form_class = UserCreationWithGroupForm
     template_name = 'create_user_form.html'
-    success_url = reverse_lazy('user_list') # ИЛИ 'inbox', 'product_list' и т.д.
-    
+    success_url = reverse_lazy('user_list')
     permission_required = 'auth.add_user'
 
     def form_valid(self, form):
-        username = form.cleaned_data['username']
-        password = form.cleaned_data['password']
-        group = form.cleaned_data['group']
-        first_name = form.cleaned_data.get('first_name', '')
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
+            group = form.cleaned_data['group']
+            first_name = form.cleaned_data.get('first_name', '')
+            phone = form.cleaned_data.get('phone')
+
+            user = User.objects.create_user(
+                username=username, 
+                password=password, 
+                first_name=first_name
+            )
+            user.groups.add(group)
+
+            # Безопасное создание/обновление профиля
+            UserProfile.objects.update_or_create(user=user, defaults={'phone': phone})
+
+            messages.success(self.request, f"Пользователь '{username}' создан.")
+            return super().form_valid(form)
+
+
+class UserUpdateView(PermissionRequiredMixin, UpdateView):
+    model = User
+    form_class = UserUpdateForm
+    template_name = 'create_user_form.html'
+    success_url = reverse_lazy('user_list')
+    permission_required = 'auth.change_user'
+
+    def form_valid(self, form):
+        user = form.save()
+        # Обновляем телефон в профиле
         phone = form.cleaned_data.get('phone')
-
-        user = User.objects.create_user(username=username, password=password, first_name=first_name)
-        user.groups.add(group)
-
-        messages.success(self.request, f"Пользователь '{username}' успешно создан.")
-        # Мы выполняем свои действия, а затем просим родительский класс сделать редирект
+        UserProfile.objects.update_or_create(user=user, defaults={'phone': phone})
+        
+        # Обновляем группу (удаляем старые, ставим новую)
+        new_group = form.cleaned_data.get('group')
+        user.groups.clear()
+        user.groups.add(new_group)
+        
         return super().form_valid(form)
-
+    
+def user_safe_delete(request, pk):
+    if not request.user.has_perm('auth.delete_user'):
+        return redirect('user_list')
+    
+    user = get_object_or_404(User, pk=pk)
+    user.is_active = False # Мягкое удаление
+    user.save()
+    messages.warning(request, f"Пользователь {user.username} деактивирован.")
+    return redirect('user_list')
+#=============================================
+# Представление для главной страницы с обзором
+#=============================================
+    
 class IndexView(LoginRequiredMixin, View):
     def get(self, request):
         # Не выполненные отгрузки (не собранные и не отгруженные)

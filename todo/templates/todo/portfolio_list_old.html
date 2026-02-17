@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Планирование заказов</h2>
+    <a href="{% url 'portfolio_create' %}" class="btn btn-success">
+        + Новый заказ
+    </a>
+</div>
+
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">Дата сдачи</label>
+                <input type="date" name="due_date" class="form-control" value="{{ filter_due_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">№ заказа</label>
+                <input type="number" name="order_id" class="form-control" placeholder="Напр: 15" value="{{ filter_order_id }}">
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary">Найти</button>
+                <a href="{% url 'portfolio_list' %}" class="btn btn-outline-secondary">Сбросить</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>Заказчик</th>
+                    <th>Дата сдачи</th>
+                    <th class="text-center">План / Сделано / В отгрузке</th>
+                    <th>Статус</th>
+                    <th class="text-end">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr class="{% if order.status == 'completed' %}table-success{% endif %}">
+                    <td><strong>#{{ order.id }}</strong></td>
+                    <td>{{ order.customer|default:"-" }}</td>
+                    <td>{{ order.due_date|date:"d.m.Y" }}</td>
+                    
+                    <td class="text-center">
+                        <div class="d-flex flex-column align-items-center">
+                            <div class="mb-1">
+                                <span class="fw-bold" title="Заказано (План)">{{ order.total_requested }}</span>
+                                <span class="text-muted mx-1">/</span>
+                                <span class="text-primary fw-bold" title="Произведено (Цех)">{{ order.total_produced }}</span>
+                                <span class="text-muted mx-1">/</span>
+                                <span class="{% if order.is_under_shipped %}text-danger{% else %}text-success{% endif %} fw-bold" title="Отгружено (Накладная)">
+                                    {{ order.total_shipped }}
+                                </span>
+                            </div>
+                    
+                            <div class="progress w-100" style="height: 6px; background-color: #e9ecef; border-radius: 3px;">
+                                <div class="progress-bar bg-primary" role="progressbar" 
+                                     style="width: {% widthratio order.total_produced order.total_requested 100 %}%"></div>
+                            </div>
+                            
+                            {% if order.status == 'shipped' and order.is_under_shipped %}
+                                <small class="text-danger fw-bold" style="font-size: 0.75rem; margin-top: 2px;">
+                                    ⚠ Недогруз: {{ order.shipment_gap }} шт.
+                                </small>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <td>
+                    {% if order.status == 'shipped' %}
+                        <span class="badge bg-info">Накладная создана</span>
+                        {% if order.linked_shipment %}
+                            <br>
+                            <a href="{% url 'shipment_items' order.linked_shipment.pk %}" class="small">
+                                Документ №{{ order.linked_shipment.id }}
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        {% if order.status == 'pending' %}
+                            <span class="badge bg-secondary">Ожидает</span>
+                        {% elif order.status == 'planned' %}
+                            <span class="badge bg-info text-dark">В плане</span>
+                        {% elif order.status == 'partial' %}
+                            <span class="badge bg-warning text-dark">В работе</span>
+                        {% elif order.status == 'completed' %}
+                            <span class="badge bg-success">Готов</span>
+                        {% endif %}
+                    {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'portfolio_detail' order.pk %}" class="btn btn-sm btn-primary table-action-btn">Детали</a>
+                        {% if order.status != 'shipped' %}
+                        <a href="{% url 'portfolio_edit' order.pk %}" class="btn btn-sm btn-outline-secondary table-action-btn">Ред.</a>
+                        {% endif %}
+                        {% if order.status == 'planned' or order.status == 'pending' %}
+                        <a href="{% url 'portfolio_delete' order.pk %}" class="btn btn-sm btn-outline-danger">Удал.</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">
+                        В портфеле пока нет заказов.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% if is_paginated %} <!--начало логики для пагинации-->
+<nav aria-label="Page navigation" class="mt-4">
+<ul class="pagination justify-content-center">
+{% if page_obj.has_previous %}
+<li class="page-item"><a class="page-link" href="?page=1&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">Первая</a></li>
+<a class="page-link" href="?page={{ page_obj.previous_page_number }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">Назад</a>
+{% endif %}
+
+{% for num in page_obj.paginator.page_range %}
+  {% if page_obj.number == num %}
+  <li class="page-item active"><a class="page-link" href="?page={{ num }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">{{ num }}</a> </li>
+  {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+  <li class="page-item"><a class="page-link" href="?page={{ num }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">{{ num }}</a> </li>
+  {% endif %}
+{% endfor %}
+
+{% if page_obj.has_next %}
+<a class="page-link" href="?page={{ page_obj.next_page_number }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">Далее</a>
+<li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&due_date={{ filter_due_date }}&order_id={{ filter_order_id }}">Последняя</a></li>
+{% endif %}
+</ul>
+</nav> <!--конец логики для пагинации-->
+{% endif %}
+{% endblock %}
