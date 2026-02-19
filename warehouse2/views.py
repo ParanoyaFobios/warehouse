@@ -5,13 +5,17 @@ from django.urls import reverse_lazy
 from .models import Product, Shipment, ShipmentItem, Package, ProductCategory, ProductOperation
 from .forms import ProductForm, ShipmentForm, ShipmentItemForm, PackageForm, ProductIncomingForm
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, View
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db import models
 from django.views.generic.edit import FormView, FormMixin
 from django.db.models import F, Q
 from django.core.exceptions import ValidationError
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
+from django.conf import settings
+from django.template.loader import render_to_string
+from weasyprint import HTML
+import tempfile
 
 # ==============================================================================
 # Продукция
@@ -311,7 +315,7 @@ class ShipmentDeleteView(DeleteView):
             # вызывать стандартный метод удаления для самой отгрузки.
             response = super().form_valid(form)
 
-        messages.success(self.request, f'Отгрузка №{self.object.id} была удалена, товары возвращены из резерва.')
+        messages.success(self.request, f'Отгрузка была удалена, товары возвращены из резерва.')
         return response
 
 @login_required
@@ -426,7 +430,7 @@ class ShipmentItemsView(FormView):
                         new_item.package = package_obj
                     
                     new_item.save()
-                    messages.success(self.request, f'Создана новая позиция: {quantity} шт. по цене {target_price} грн.')
+                    messages.success(self.request, f'Добавлена новая позиция: {quantity} шт. по цене {target_price} грн.')
 
             except (ValueError, ValidationError) as e:
                 messages.error(self.request, f'Ошибка: {str(e)}')
@@ -513,6 +517,35 @@ def delete_shipment_item(request, pk):
     item.delete()
     messages.success(request, f'Позиция "{item_name}" удалена из отгрузки.')
     return redirect('shipment_items', pk=shipment_pk)
+
+#Генерация PDF для отгрузки (накладной)
+def shipment_pdf_view(request, shipment_id):
+    shipment = get_object_or_404(Shipment, id=shipment_id)
+    items = shipment.items.all()
+    
+    # 1. Рендерим HTML в строку
+    html_string = render_to_string('warehouse2/shipment_pdf.html', {
+        'shipment': shipment,
+        'items': items,
+        'request': request,  # Передаем request для генерации абсолютных URL к статике
+    })
+
+    # 2. Генерируем PDF
+    html = HTML(string=html_string, base_url=request.build_absolute_uri())
+    result = html.write_pdf()
+
+    # 3. Отдаем файл пользователю
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Накладная к отгрузке №{shipment.id}.pdf"'
+    response['Content-Transfer-Encoding'] = 'binary'
+    
+    with tempfile.NamedTemporaryFile(delete=True) as output:
+        output.write(result)
+        output.flush()
+        output = open(output.name, 'rb')
+        response.write(output.read())
+
+    return response
 
 # ==============================================================================
 # Product Search (только доступные товары)

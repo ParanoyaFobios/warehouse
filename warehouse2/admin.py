@@ -4,6 +4,7 @@ from .models import (
     Shipment, ShipmentItem, ProductOperation, Sender)
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 # ==============================================================================
 # Справочники
@@ -16,8 +17,14 @@ class ProductCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Sender)
 class SenderAdmin(admin.ModelAdmin):
-    list_display = ('name',)
-    search_fields = ('name',)
+    list_display = ('name', 'get_stamp_preview')
+    
+    def get_stamp_preview(self, obj):
+        if obj.stamp:
+            return mark_safe(f'<img src="{obj.stamp.url}" width="50" height="50" style="object-fit: contain;" />')
+        return "Нет печати"
+    
+    get_stamp_preview.short_description = "Миниатюра"
 # ==============================================================================
 # Основные модели
 # ==============================================================================

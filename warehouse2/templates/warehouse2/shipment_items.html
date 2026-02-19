@@ -1,398 +1,553 @@
 {% extends "base.html" %}
 {% load static %}
 {% block content %}
-<div class="container mt-4">
-    <h2>Управление товарами для отгрузки №{{ shipment.id }}</h2>
-    <p>Пункт назначения: <strong>{{ shipment.destination }}</strong></p>
-    <p>ФОП отправитель: <strong>{{ shipment.sender }}</strong></p>
-    <p>Статус: <span class="badge bg-{% if shipment.status == 'pending' %}secondary{% elif shipment.status == 'packaged' %}warning{% else %}success{% endif %}">
-        {{ shipment.get_status_display }}
-    </span></p>
-    {% if can_edit %}
-    <a href="{% url 'shipment_edit' shipment.pk %}" class="btn btn-primary btn-sm">
-        ✏️ Редактировать шапку
-    </a>
-    {% endif %}
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header"><h4>Добавить позицию</h4></div>
-
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        {{ form.item_identifier }}
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Поиск по товарам и упаковкам</label>
-                            <div class="input-group">
-                                <input type="text" id="stock-search-input" class="form-control" placeholder="Начните вводить название или сканируйте штрихкод...">
-                                <button class="btn btn-outline-secondary" type="button" 
-                                        title="Сканировать штрихкод" id="local-scan-btn" style="min-width: 50px;">
-                                    📸
-                                </button>
-                            </div>
-                            <div id="search-results" class="list-group mt-1" style="position: absolute; z-index: 1000; width: 95%; max-height: 300px; overflow-y: auto;"></div>
-                        </div>
-
-                        <!-- Добавим видео элемент для локального сканера -->
-                        <div id="local-scanner-container" style="display: none;">
-                            <video id="local-video-stream" style="width: 100%; max-width: 400px; border-radius: 8px; margin-bottom: 1rem;"></video>
-                            <div id="local-scanner-status" class="small text-muted text-center mt-2"></div>
-                            <button type="button" class="btn btn-danger btn-sm w-100" onclick="stopLocalScanner()">
-                                ⏹ Остановить сканирование
-                            </button>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="{{ form.quantity.id_for_label }}" class="form-label">{{ form.quantity.label }}</label>
-                                {{ form.quantity }}
-                                {% if form.quantity.errors %}
-                                    <div class="text-danger small">{{ form.quantity.errors }}</div>
-                                {% endif %}
-                            </div>
-                    
-                            <div class="col-md-6 mb-3">
-                                <label for="{{ form.price_override.id_for_label }}" class="form-label">
-                                    Цена за ед. <small class="text-muted">(если отличается)</small>
-                                </label>
-                                {{ form.price_override }}
-                                {% if form.price_override.errors %}
-                                    <div class="text-danger small">{{ form.price_override.errors }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-success">Добавить</button>
-                    </form>
-                </div>
-            </div>
+<main class="main">
+    <section class="section products-management-shipment container">
+    <div class="section__header">
+        <h1 class="section__header-title flex-center">Управление товарами</h1>
+        <h2
+        class="section__header-title section__header-title--blue flex-center"
+        >
+        Отгрузка №{{ shipment.id }}
+        </h2>
+    </div>
+    <div class="narrow-wrapper">
+        <div class="section__other-buttons-cont">
+        <a
+            class="section__other-buttons-cont-button section__other-buttons-cont-button--orange"
+            href="{% url 'shipment_list' %}"
+        >
+            <span class="content-size">
+            <svg
+                width="30"
+                height="30"
+                viewBox="0 0 30 30"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+            >
+                <rect width="30" height="30" rx="3" fill="#F28500" />
+                <path
+                d="M15.944 24C15.8073 24 15.6706 23.9554 15.5612 23.862L5.24216 15.511C5.08983 15.3892 5 15.1985 5 14.9997C5 14.8008 5.08983 14.6101 5.24216 14.4884L15.5612 6.13733C15.7487 5.98313 16.0065 5.95879 16.2213 6.06429C16.4361 6.17385 16.5728 6.40109 16.5728 6.64862V12.2972H20.5137C21.7245 12.2972 22.7986 12.7273 23.611 13.5389C24.3336 14.2612 24.814 15.2594 24.9546 16.3428C25.0991 17.4303 24.896 18.53 24.3843 19.4349C23.8102 20.4494 22.8923 21.1636 21.7284 21.5004C21.5019 21.5653 21.2597 21.4922 21.0996 21.3137C20.9395 21.1352 20.8926 20.8755 20.9746 20.6442C21.2519 19.8813 21.5058 18.8628 21.1543 18.3312C20.877 17.9132 20.1817 17.7022 19.0842 17.7022H16.5689V23.3467C16.5689 23.5942 16.4322 23.8215 16.2174 23.931C16.1314 23.9797 16.0377 24 15.944 24Z"
+                fill="white"
+                />
+            </svg>
+            </span>
+            <span>Вернуться к отгрузке</span>
+        </a>
         </div>
-        <a href="{% url 'shipment_detail' shipment.pk %}" class="btn btn-secondary">Вернуться к отгрузке</a>
-        
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">Текущие позиции</h4>
-                    <span class="badge bg-primary">{{ items.count }} позиций</span>
-                </div>
-                <div class="card-body p-0">
-                    {% if items %}
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Товар</th>
-                                    <th>Кол-во</th>
-                                    <th>Цена</th>
-                                    <th>Сумма</th>
-                                    <th>Действия</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in items %}
-                                <tr>
-                                    <td>
-                                        {% if item.product %}
-                                            <strong>{{ item.product.name }}</strong>
-                                            <br><small class="text-muted">Штучный товар</small>
-                                            <td>{{ item.quantity }}</td>
-                                            <td>{{ item.price_per_unit|floatformat:2 }} грн.</td>
-                                        {% else %}
-                                            <strong>{{ item.package.name }}-{{ item.package.product.name }}</strong>
-                                            <br><small class="text-muted">Упаковка ({{ item.quantity }} шт.)</small>
-                                            <td>{{ item.base_product_units }}</td>
-                                            <td>{{ item.price_per_unit|floatformat:2 }} грн.</td>
-                                        {% endif %}
-                                    </td>
-                                    
-                                    <td>{{ item.total_price|floatformat:2 }} грн.</td>
-                                    <td>
-                                        {% if shipment.can_be_edited %}
-                                        <form action="{% url 'delete_shipment_item' item.pk %}" method="post" class="d-inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-danger" 
-                                                    onclick="return confirm('Удалить эту позицию из отгрузки?')">
-                                                <i class="bi bi-trash"></i> Удалить
-                                            </button>
-                                        </form>
-                                        {% else %}
-                                        <span class="text-muted">Недоступно</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                            <tfoot class="table-group-divider">
-                                <tr class="table-primary">
-                                    <th colspan="3" class="text-end">Итого:</th>
-                                    <th colspan="2">{{ shipment.grand_total_price|floatformat:2 }} грн.</th>
-                                </tr>
-                                <tr class="table-info">
-                                    <td colspan="3" class="text-end">Общее количество товаров:</td>
-                                    <td colspan="2">{{ shipment.total_items_count }} шт.</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center p-4">
-                        <p class="text-muted">Товары еще не добавлены в отгрузку</p>
-                    </div>
-                    {% endif %}
-                </div>
+        <div class="table-card-first">
+        <table class="table-first">
+            <tr class="table__row">
+            <th>Отправитель :</th>
+            <td>{{ shipment.sender }}</td>
+            </tr>
+            <tr class="table__row">
+            <th>Пункт назначения :</th>
+            <td>{{ shipment.destination }}</td>
+            </tr>
+            <tr class="table__row">
+            <th>Статус</th>
+            <!--было class="table__status table__status-secondary-->
+            <td class="table__status table__status--{% if shipment.status == 'pending' %}in-progress{% elif shipment.status == 'packaged' %}warning{% else %}success{% endif %}">
+                В процессе
+            </td>
+            </tr>
+            {% if can_edit %}
+            <tr class="table__row">
+            <td class="table__td-buttons-cont">
+                <a href="{% url 'shipment_edit' shipment.pk %}"
+                title="Редактировать шапку"
+                class="table__button-with-icon content-size"
+                >
+                <svg
+                    width="30"
+                    height="30"
+                    viewBox="0 0 30 30"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <rect
+                    width="30"
+                    height="30"
+                    rx="3"
+                    fill="#00A6F2"
+                    fill-opacity="0.6"
+                    />
+                    <path
+                    d="M23.5764 8.71494L20.3481 5.48667C20.0326 5.17111 19.5225 5.17111 19.2069 5.48667L16.7857 7.90787L21.1552 12.2773L23.5764 9.85613C23.892 9.54057 23.892 9.0305 23.5764 8.71494ZM7.10093 17.5927C7.01296 17.6806 6.94598 17.7888 6.90643 17.9082L6.83137 18.131L10.0927 21.3915C10.0927 21.3915 9.28566 22.1986 8.4794 21.3923L6.42784 19.3416L5.29149 22.7506C5.19464 23.0404 5.27051 23.3608 5.48599 23.5763C5.64014 23.7296 5.84675 23.8127 6.0574 23.8127C6.14214 23.8127 6.2293 23.799 6.31243 23.7708L11.1548 22.1566C11.2735 22.1171 11.3816 22.0501 11.4704 21.9621L20.3481 13.0844L15.9787 8.71494L7.10093 17.5927Z"
+                    fill="white"
+                    />
+                </svg>
+            </a>
+            </td>
+            </tr>
+            {% endif %}
+        </table>
+        </div>
+        <div class="form-wrapper form-wrapper--m-t-20">
+        <div class="form-cont">
+
+            <form class="form-cont__form" method="post" id="add-item-form">
+    {% csrf_token %}
+    
+    {# Скрытое поле для ID товара (заполнится через JS) #}
+    {{ form.item_identifier }}
+
+    <div class="form-cont__form-paragraphs-cont form-cont__form-paragraphs-cont--alt form-cont__form-paragraphs-cont--without-first-pad-top">
+        <div class="cont__header">
+            <h2 class="cont__title">Добавить позицию</h2>
+        </div>
+        <div class="form-cont__form-paragraph" style="position: relative;">
+            <label for="stock-search-input">Поиск товара (упаковки)</label>
+            <div class="form-cont__input-with-button">
+                <input
+                    type="text"
+                    id="stock-search-input"
+                    placeholder="Начните вводить название или штрихкод..."
+                    class="form-input"
+                    autocomplete="off"
+                />
+                <button
+                    class="search-bar__elem button button--orange search-bar__button-scanner"
+                    type="button"
+                    title="Сканировать штрихкод"
+                    id="local-scan-btn"
+                >
+                    <svg
+                    width="30"
+                    height="31"
+                    viewBox="0 0 30 31"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <g clip-path="url(#clip0_183_868)">
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M24.3409 14.2615H14.8155L13.884 11.7483H19.7715C24.0246 11.7483 26.6608 7.23159 24.7979 3.57606C24.7627 3.52333 24.6397 3.29486 24.464 2.99609C27.522 3.06639 29.9824 5.562 29.9824 8.63757C29.9824 11.7483 27.4517 14.2615 24.3409 14.2615ZM13.638 11.0453L10.6503 2.99609H23.6731C23.9192 3.45304 24.1301 3.83968 24.1652 3.8924C25.7996 7.091 23.4974 11.0453 19.7715 11.0453H13.638ZM14.0773 14.2615H10.58C10.4394 14.2615 10.2988 14.1736 10.246 14.033L6.36204 3.47061C6.27416 3.24214 6.44991 2.99609 6.69596 2.99609H9.91213L13.058 11.5198V11.555L14.0773 14.2615Z"
+                        fill="white"
+                      ></path>
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M27.1178 27.5306H22.2847C21.8102 27.5306 21.4411 27.144 21.4411 26.687V24.3496C21.5466 24.4023 21.6696 24.4199 21.7926 24.4199H27.6098C27.7329 24.4199 27.8383 24.4023 27.9613 24.3672V26.687C27.9613 27.144 27.5747 27.5306 27.1178 27.5306Z"
+                        fill="white"
+                      ></path>
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M27.6099 23.84H21.7926C21.6345 23.84 21.5114 23.7522 21.4587 23.594L18.4886 14.8594H24.341C24.587 14.8594 24.8155 14.8418 25.0264 14.8242C25.8875 17.3374 27.9613 23.3655 27.9613 23.4885C27.9613 23.6819 27.8032 23.84 27.6099 23.84Z"
+                        fill="white"
+                      ></path>
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M18.5061 16.7047H17.2935C16.6959 16.7047 16.2039 16.2126 16.2039 15.6151V14.8594H17.8735L18.5061 16.7047Z"
+                        fill="white"
+                      ></path>
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M13.5325 26.3704H2.82952C2.2847 26.3704 1.84534 25.9134 1.84534 25.3686V18.7078C1.84534 18.163 2.2847 17.7236 2.82952 17.7236H13.5325C14.0773 17.7236 14.5167 18.163 14.5167 18.7078V25.3686C14.5167 25.9134 14.0773 26.3704 13.5325 26.3704ZM3.9543 24.525C3.76098 24.525 3.60281 24.3669 3.60281 24.1735V19.9029C3.60281 19.446 4.30579 19.446 4.30579 19.9029V24.1735C4.30579 24.3669 4.14762 24.525 3.9543 24.525ZM6.06326 24.525C5.86994 24.525 5.71177 24.3669 5.71177 24.1735V19.9029C5.71177 19.446 6.41476 19.446 6.41476 19.9029V24.1735C6.41476 24.3669 6.25659 24.525 6.06326 24.525ZM8.17223 24.525C7.97891 24.525 7.82073 24.3669 7.82073 24.1735V19.9029C7.82073 19.446 8.52372 19.446 8.52372 19.9029V24.1735C8.52372 24.3669 8.38312 24.525 8.17223 24.525ZM10.2988 24.525C10.1054 24.525 9.94727 24.3669 9.94727 24.1735V19.9029C9.94727 19.446 10.6503 19.446 10.6503 19.9029V24.1735C10.6503 24.3669 10.4921 24.525 10.2988 24.525ZM12.4077 24.525C12.2144 24.525 12.0562 24.3669 12.0562 24.1735V19.9029C12.0562 19.446 12.7592 19.446 12.7592 19.9029V24.1735C12.7592 24.3669 12.6011 24.525 12.4077 24.525Z"
+                        fill="white"
+                      ></path>
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M0.369073 19.5862C-0.492087 19.5862 -0.28119 18.3384 -0.28119 17.7936C-0.28119 16.6863 0.615119 15.79 1.72232 15.79H3.2689C4.11248 15.79 4.11248 17.073 3.2689 17.073H1.72232C1.33568 17.073 1.00176 17.4069 1.00176 17.7936C1.00176 18.3384 1.23023 19.5862 0.369073 19.5862ZM15.993 19.5862C15.1318 19.5862 15.3603 18.3384 15.3603 17.7936C15.3603 17.4069 15.0264 17.073 14.6397 17.073H13.0932C12.2496 17.073 12.2496 15.79 13.0932 15.79H14.6397C15.7469 15.79 16.6432 16.6863 16.6432 17.7936C16.6432 18.3384 16.8541 19.5862 15.993 19.5862ZM3.2689 28.2856H1.72232C0.615119 28.2856 -0.28119 27.3893 -0.28119 26.2821C-0.28119 25.7373 -0.492087 24.5071 0.369073 24.5071C1.23023 24.5071 1.00176 25.7373 1.00176 26.2821C1.00176 26.6864 1.33568 27.0027 1.72232 27.0027H3.2689C4.11248 27.0027 4.11248 28.2856 3.2689 28.2856ZM14.6397 28.2856H13.0932C12.2496 28.2856 12.2496 27.0027 13.0932 27.0027H14.6397C15.0264 27.0027 15.3603 26.6864 15.3603 26.2821C15.3603 25.7373 15.1318 24.5071 15.993 24.5071C16.8541 24.5071 16.6432 25.7373 16.6432 26.2821C16.6432 27.3893 15.7469 28.2856 14.6397 28.2856Z"
+                        fill="white"
+                      ></path>
+                    </g>
+                    <defs>
+                      <clipPath id="clip0_183_868">
+                        <rect
+                          width="30"
+                          height="30"
+                          fill="white"
+                          transform="translate(0 0.5)"
+                        ></rect>
+                      </clipPath>
+                    </defs>
+                  </svg>
+                </button>
             </div>
             
-            {% if items and shipment.can_be_edited %}
-            <div class="mt-3">
-                <form action="{% url 'shipment_mark_packaged' shipment.pk %}" method="post" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-check-circle"></i> Отметить как собранную
-                    </button>
-                </form>
-                <form action="{% url 'shipment_delete' shipment.pk %}" method="post" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger" 
-                            onclick="return confirm('Отменить эту отгрузку? Все позиции будут удалены.')">
-                        <i class="bi bi-x-circle"></i> Отменить
-                    </button>
-            </div>
-            {% endif %}
-            <div class="mt-3"></div>
-                <a class="d-inline" href="{% url 'shipment_list' %}">Назад</a>
-            </div>
+            {# Контейнер для результатов поиска (выпадающий список) #}
+            <div id="search-results" class="list-group mt-1" style="display: none; position: absolute; z-index: 1000; width: 100%; max-height: 250px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
+        </div>
+
+        {# Контейнер для видео-сканера (появится при клике) #}
+        <div id="local-scanner-container" style="display: none; margin-bottom: 1rem;">
+            <video id="local-video-stream" style="width: 100%; max-width: 400px; border-radius: 8px; border: 2px solid #ff8c00;"></video>
+            <div id="local-scanner-status" class="small text-muted text-center mt-2"></div>
+            <button type="button" class="button button--orange" style="width: 100%; margin-top: 10px;" onclick="stopLocalScanner()">
+                ⏹ Остановить сканирование
+            </button>
+        </div>
+
+        <div class="form-cont__form-paragraph">
+            <label for="{{ form.quantity.id_for_label }}">Количество</label>
+            <input
+                type="number"
+                id="{{ form.quantity.id_for_label }}"
+                name="{{ form.quantity.html_name }}"
+                value="{{ form.quantity.value|default:1 }}"
+                min="1"
+                class="form-input"
+            />
+            {% if form.quantity.errors %}<div class="text-danger small">{{ form.quantity.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-cont__form-paragraph">
+            <label for="{{ form.price_override.id_for_label }}">Цена (опционально)</label>
+            <input
+                type="number"
+                step="0.01"
+                id="{{ form.price_override.id_for_label }}"
+                name="{{ form.price_override.html_name }}"
+                class="form-input"
+                placeholder="Авто (по прайсу)"
+            />
         </div>
     </div>
-</div>
 
-<style>
-#search-results {
-    display: none;
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-}
+    <div class="form-cont__form-buttons">
+        <button class="button button--blue" type="submit">
+            Добавить +
+        </button>
+    </div>
+</form>
 
-#search-results:not(:empty) {
-    display: block;
-}
-
-.list-group-item {
-    cursor: pointer;
-    border: none;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.list-group-item:last-child {
-    border-bottom: none;
-}
-
-.list-group-item:hover {
-    background-color: #f8f9fa;
-}
-
-.table th, .table td {
-    vertical-align: middle;
-}
-/* Стили для изоляции локального сканера */
-#local-scanner-container {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.3);
-    z-index: 9999;
-    max-width: 90vw;
-}
-
-#local-video-stream {
-    max-height: 60vh;
-}
-
-/* Затемнение фона */
-.scanner-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 9998;
-}
-</style>
-
+        </div>
+        </div>
+        <div class="tables-cont tables-cont--second-type">
+        <div class="cont__header cont__header--with-border-top">
+            <h2 class="cont__title">
+            Текущие позиции
+            <span class="cont__title--color-block flex-center">
+                {{ items.count }} позиции
+            </span>
+            </h2>
+        </div>
+        <ul class="cont__list cont__list--narrow">
+            {% if items %}
+            {% for item in items %}
+            <li class="cont__item">
+            <article class="table-card-first">
+                {% if item.product %}
+                <h1 class="table-card-first__title">{{ item.product.name }}</h1>
+                <h1 class="table-card-first__title">Штучный</h1>
+                <table class="table-first">
+                <tr class="table__row">
+                    <th>Количество</th>
+                    <td>{{ item.quantity }}</td>
+                </tr>
+                <tr class="table__row">
+                    <th>Цена за шт</th>
+                    <td>{{ item.price_per_unit|floatformat:2 }} грн</td>
+                </tr>
+                <tr class="table__row">
+                    <th>Цена</th>
+                    <td>{{ item.total_price|floatformat:2 }} грн</td>
+                </tr>
+                {% else %}
+                <h1 class="table-card-first__title">{{ item.package.name }}-{{ item.package.product.name }}</h1>
+                <h1 class="table-card-first__title">Упаковка ({{ item.quantity }} шт.)</h1>
+                <table class="table-first">
+                <tr class="table__row">
+                    <th>Количество</th>
+                    <td>{{ item.base_product_units }}</td>
+                </tr>
+                <tr class="table__row">
+                    <th>Цена за шт</th>
+                    <td>{{ item.price_per_unit|floatformat:2 }} грн</td>
+                </tr>
+                <tr class="table__row">
+                    <th>Цена</th>
+                    <td>{{ item.total_price|floatformat:2 }} грн</td>
+                </tr>
+                {% endif %}
+                {% if shipment.can_be_edited %}
+                <tr class="table__row">
+                    <td class="table__td-buttons-cont">
+                        <form action="{% url 'delete_shipment_item' item.pk %}" method="post">
+                            {% csrf_token %}
+                    <button
+                        title="Удалить"
+                        class="table__button-with-icon content-size"
+                        type="submit"
+                        onclick="return confirm('Удалить эту позицию из отгрузки?')"
+                    >
+                        <svg
+                        width="30"
+                        height="30"
+                        viewBox="0 0 30 30"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        >
+                        <rect
+                            width="30"
+                            height="30"
+                            rx="3"
+                            fill="#F28500"
+                            fill-opacity="0.6"
+                        />
+                        <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            d="M24 7.75C24.414 7.75 24.75 8.086 24.75 8.5C24.75 8.914 24.414 9.25 24 9.25H6C5.586 9.25 5.25 8.914 5.25 8.5C5.25 8.086 5.586 7.75 6 7.75H24Z"
+                            fill="white"
+                        />
+                        <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            d="M19.636 6.245L20.221 8.294C20.286 8.52 20.24 8.764 20.099 8.952C19.957 9.14 19.735 9.25 19.5 9.25H10.5C10.265 9.25 10.043 9.14 9.90096 8.952C9.75996 8.764 9.71396 8.52 9.77896 8.294L10.364 6.245C10.702 5.064 11.781 4.25 13.009 4.25H16.991C18.219 4.25 19.298 5.064 19.636 6.245ZM18.193 6.657C18.04 6.12 17.55 5.75 16.991 5.75H13.009C12.45 5.75 11.96 6.12 11.807 6.657L11.494 7.75H18.506L18.193 6.657Z"
+                            fill="white"
+                        />
+                        <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            d="M23.145 10.25L22.363 23.166C22.275 24.618 21.072 25.75 19.618 25.75H10.382C8.92798 25.75 7.72498 24.618 7.63698 23.166L6.85498 10.25H23.145ZM12.246 20.91L11.549 13.941C11.508 13.529 11.14 13.228 10.728 13.269C10.316 13.31 10.015 13.678 10.056 14.09L10.754 21.059C10.795 21.471 11.163 21.772 11.575 21.731C11.987 21.69 12.287 21.322 12.246 20.91ZM19.246 21.059L19.944 14.09C19.985 13.678 19.684 13.31 19.272 13.269C18.86 13.228 18.492 13.529 18.451 13.941L17.754 20.91C17.713 21.322 18.013 21.69 18.425 21.731C18.837 21.772 19.205 21.471 19.246 21.059ZM14.25 14V21C14.25 21.414 14.586 21.75 15 21.75C15.414 21.75 15.75 21.414 15.75 21V14C15.75 13.586 15.414 13.25 15 13.25C14.586 13.25 14.25 13.586 14.25 14Z"
+                            fill="white"
+                        />
+                        </svg>
+                    </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endif %}
+                </table>
+            </article>
+            </li>
+            {% endfor %}
+            {% else %}
+            <div class="section__header">
+                <h1 class="section__header-title flex-center">Добавьте товары</h1>
+            </div>
+            {% endif %}
+        </ul>
+        </div>
+        <div class="price-calculation">
+        <p class="price-calculation__string price-calculation__string--top">
+            <span>Общее количество товаров :</span>
+            <span>{{ shipment.total_items_count }} шт</span>
+        </p>
+        <p
+            class="price-calculation__string price-calculation__string--bottom"
+        >
+            <span>Итого :</span>
+            <span>{{ shipment.grand_total_price|floatformat:2 }} грн</span>
+        </p>
+        </div>
+        {% if items and shipment.can_be_edited %}
+        <table class="table-first">
+                    <tr class="table__row">
+                    <td
+                    class="table__td-buttons-cont table__td-buttons-cont--dir-column-row"
+                    >
+                    <form action="{% url 'shipment_mark_packaged' shipment.pk %}" method="post">
+                        {% csrf_token %}
+                    <button
+                        class="width100 button button--blue"
+                        type="submit"
+                    >
+                        Отметить собрано
+                    </button>
+                    </form>
+                    <form action="{% url 'shipment_delete' shipment.pk %}" method="post">
+                        {% csrf_token %}
+                    <button
+                        class="width100 button button--orange"
+                        type="submit"
+                        onclick="return confirm('Отменить эту отгрузку? Все позиции будут удалены.')"></button>
+                    >
+                        Отмена
+                    </button>
+                    </form>
+                    </td>
+                </tr>
+        </table>
+        {% endif %}
+    </div>
+    </section>
+</main>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // --- 1. Получаем ссылки на все нужные элементы из вашего HTML ---
-    const searchInput = document.getElementById('stock-search-input');
-    const searchResults = document.getElementById('search-results');
-    const mainForm = document.querySelector('form[method="post"]'); // Находим форму на странице
-
-    // Скрытые поля Django, которые мы будем заполнять
-    const identifierInput = document.getElementById('id_item_identifier');
-    const quantityInput = document.getElementById('id_quantity');
-
-    // Элементы, связанные со сканером
-    const scanButton = document.getElementById('local-scan-btn');
-    const scannerContainer = document.getElementById('local-scanner-container');
-    const videoElement = document.getElementById('local-video-stream');
-    const scannerStatus = document.getElementById('local-scanner-status');
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- 1. Получаем ссылки на все нужные элементы из вашего HTML ---
+        const searchInput = document.getElementById('stock-search-input');
+        const searchResults = document.getElementById('search-results');
+        const mainForm = document.getElementById('add-item-form');
     
-    // Глобальная переменная для управления ридером
-    let codeReader = null;
-    let overlay = null; // Для затемнения фона
-    // Создаем объект аудио. Используем Django static для формирования пути.
-    const beepSound = new Audio("{% static 'sounds/bip.mp3' %}")
-    // --- 2. Логика для РУЧНОГО ПОИСКА ---
-
-    // Функция выполняет AJAX-запрос и отображает результаты
-    function performManualSearch(query) {
-        if (query.length < 2) {
-            searchResults.style.display = 'none';
-            return;
-        }
-        fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(data => {
-                searchResults.innerHTML = '';
-                if (data.results && data.results.length > 0) {
-                    data.results.forEach(item => {
-                        // Используем data-атрибуты для надежного хранения информации
-                        searchResults.innerHTML += `
-                            <button type="button" class="list-group-item list-group-item-action search-result-item" 
-                                    data-id="${item.id}" 
-                                    data-name="${item.name}">
-                                <strong>${item.name}</strong><br>
-                                {% if perms.warehouse2.can_view_product_quantity %}
-                                <small class="text-muted">${item.info}</small>
-                                {% endif %}
-                            </button>
-                        `;
-                    });
-                } else {
-                    searchResults.innerHTML = '<div class="list-group-item text-muted">Ничего не найдено</div>';
-                }
-                searchResults.style.display = 'block';
-            });
-    }
-
-    // Обработчик клика по результатам поиска (делегирование)
-    searchResults.addEventListener('click', function(event) {
-        const target = event.target.closest('.search-result-item');
-        if (target) {
-            // Заполняем скрытое поле ID товара/упаковки
-            identifierInput.value = target.dataset.id;
-            // Вставляем название в поле ввода для наглядности
-            searchInput.value = target.dataset.name; 
-            // Скрываем список результатов
-            searchResults.style.display = 'none';
-        }
-    });
-
-    // Запускаем поиск при вводе текста
-    searchInput.addEventListener('input', () => performManualSearch(searchInput.value.trim()));
-
-
-    // --- 3. Логика для СКАНИРОВАНИЯ ШТРИХКОДА ---
-
-    // Обрабатывает найденный штрихкод: ищет товар и отправляет форму
-    function processScannedBarcode(barcode) {
-        scannerStatus.textContent = `Штрихкод ${barcode} найден. Идет поиск...`;
+        // Скрытые поля Django, которые мы будем заполнять
+        const identifierInput = document.getElementById('id_item_identifier');
+        const quantityInput = document.getElementById('id_quantity');
+    
+        // Элементы, связанные со сканером
+        const scanButton = document.getElementById('local-scan-btn');
+        const scannerContainer = document.getElementById('local-scanner-container');
+        const videoElement = document.getElementById('local-video-stream');
+        const scannerStatus = document.getElementById('local-scanner-status');
         
-        fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(barcode)}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.results && data.results.length > 0) {
-                    const foundItem = data.results[0];
-                    
-                    // Заполняем скрытые поля формы
-                    identifierInput.value = foundItem.id;
-                    quantityInput.value = 1; // При сканировании всегда добавляем 1 шт.
-                    
-                    // Отправляем форму автоматически
-                    mainForm.submit();
-                } else {
-                    alert("Товар с таким штрихкодом не найден!");
-                    stopLocalScanner(); // Закрываем сканер в случае неудачи
+        // Глобальная переменная для управления ридером
+        let codeReader = null;
+        let overlay = null; // Для затемнения фона
+        // Создаем объект аудио. Используем Django static для формирования пути.
+        const beepSound = new Audio("{% static 'sounds/bip.mp3' %}")
+        // --- 2. Логика для РУЧНОГО ПОИСКА ---
+    
+        // 1. ПОИСК (AJAX)
+        function performManualSearch(query) {
+                if (query.length < 2) {
+                    searchResults.style.display = 'none';
+                    return;
                 }
-            });
-
-    }
-
-    // Запускает камеру и сканер
-    function startLocalScanner() {
-        if (typeof ZXing === 'undefined') {
-            return alert("Ошибка: библиотека сканера (ZXing) не загружена.");
-        }
-        
-        // ВАЖНО: Современные браузеры разрешают звук только после действия пользователя.
-        // Так как функция вызвана кликом по кнопке, мы "прогреваем" аудио файл.
-        beepSound.load(); 
-
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.className = 'scanner-overlay';
-            document.body.appendChild(overlay);
-        }
-        overlay.style.display = 'block';
-
-        codeReader = new ZXing.BrowserMultiFormatReader();
-        scannerContainer.style.display = 'block';
-        scannerStatus.textContent = 'Наведите камеру на штрихкод...';
-
-        codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
-            if (result) {
-                // 1. Сразу воспроизводим звук "Бип"
-                beepSound.play().catch(e => console.warn("Звук не смог проиграться:", e));
-
-                // 2. Обрабатываем штрихкод
-                processScannedBarcode(result.text);
                 
-                // Чтобы не было повторных срабатываний звука, пока идет поиск
-                codeReader.reset(); 
+                fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        searchResults.innerHTML = '';
+                        if (data.results && data.results.length > 0) {
+                            data.results.forEach(item => {
+                                // Создаем элемент результата (используем стили твоего проекта)
+                                const btn = document.createElement('button');
+                                btn.type = 'button';
+                                btn.className = 'list-group-item list-group-item-action p-2';
+                                btn.style.textAlign = 'left';
+                                btn.style.width = '100%';
+                                btn.style.display = 'block';
+                                btn.style.border = 'none';
+                                btn.style.borderBottom = '1px solid #eee';
+                                btn.style.background = 'none';
+                                btn.style.cursor = 'pointer';
+                                
+                                btn.innerHTML = `<strong>${item.name}</strong><br><small style="color: #666;">${item.info}</small>`;
+                                
+                                btn.onclick = () => {
+                                    identifierInput.value = item.id;
+                                    searchInput.value = item.name;
+                                    searchResults.style.display = 'none';
+                                };
+                                searchResults.appendChild(btn);
+                            });
+                            searchResults.style.display = 'block';
+                        } else {
+                            searchResults.innerHTML = '<div class="p-2 text-muted">Ничего не найдено</div>';
+                            searchResults.style.display = 'block';
+                        }
+                    });
             }
-            if (error && !(error instanceof ZXing.NotFoundException)) {
-                console.error("Ошибка сканирования:", error);
+    
+        // Обработчик клика по результатам поиска (делегирование)
+        searchResults.addEventListener('click', function(event) {
+            const target = event.target.closest('.search-result-item');
+            if (target) {
+                // Заполняем скрытое поле ID товара/упаковки
+                identifierInput.value = target.dataset.id;
+                // Вставляем название в поле ввода для наглядности
+                searchInput.value = target.dataset.name; 
+                // Скрываем список результатов
+                searchResults.style.display = 'none';
             }
         });
-    }
-
-    // Останавливает камеру и скрывает элементы сканера
-    // Делаем ее глобальной, чтобы кнопка `onclick` могла ее найти
-    window.stopLocalScanner = function() {
-        if (codeReader) {
-            codeReader.reset();
-            codeReader = null;
+    
+        // Запускаем поиск при вводе текста
+        searchInput.addEventListener('input', () => performManualSearch(searchInput.value.trim()));
+    
+    
+        // --- 3. Логика для СКАНИРОВАНИЯ ШТРИХКОДА ---
+    
+        // Обрабатывает найденный штрихкод: ищет товар и отправляет форму
+        function processScannedBarcode(barcode) {
+            scannerStatus.textContent = `Штрихкод ${barcode} найден. Идет поиск...`;
+            
+            fetch(`{% url 'stock_search' %}?q=${encodeURIComponent(barcode)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results && data.results.length > 0) {
+                        const foundItem = data.results[0];
+                        
+                        // Заполняем скрытые поля формы
+                        identifierInput.value = foundItem.id;
+                        quantityInput.value = 1; // При сканировании всегда добавляем 1 шт.
+                        
+                        // Отправляем форму автоматически
+                        mainForm.submit();
+                    } else {
+                        alert("Товар с таким штрихкодом не найден!");
+                        stopLocalScanner(); // Закрываем сканер в случае неудачи
+                    }
+                });
+    
         }
-        scannerContainer.style.display = 'none';
-        if (overlay) {
-            overlay.style.display = 'none';
+    
+        // Запускает камеру и сканер
+        function startLocalScanner() {
+            if (typeof ZXing === 'undefined') {
+                return alert("Ошибка: библиотека сканера (ZXing) не загружена.");
+            }
+            
+            // ВАЖНО: Современные браузеры разрешают звук только после действия пользователя.
+            // Так как функция вызвана кликом по кнопке, мы "прогреваем" аудио файл.
+            beepSound.load(); 
+    
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'scanner-overlay';
+                document.body.appendChild(overlay);
+            }
+            overlay.style.display = 'block';
+    
+            codeReader = new ZXing.BrowserMultiFormatReader();
+            scannerContainer.style.display = 'block';
+            scannerStatus.textContent = 'Наведите камеру на штрихкод...';
+    
+            codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
+                if (result) {
+                    // 1. Сразу воспроизводим звук "Бип"
+                    beepSound.play().catch(e => console.warn("Звук не смог проиграться:", e));
+    
+                    // 2. Обрабатываем штрихкод
+                    processScannedBarcode(result.text);
+                    
+                    // Чтобы не было повторных срабатываний звука, пока идет поиск
+                    codeReader.reset(); 
+                }
+                if (error && !(error instanceof ZXing.NotFoundException)) {
+                    console.error("Ошибка сканирования:", error);
+                }
+            });
         }
-    }
-
-    // Вешаем событие на кнопку сканирования
-    scanButton.addEventListener('click', startLocalScanner);
-
-
-    // --- 4. Общие вспомогательные функции ---
-
-    // Скрытие результатов поиска при клике вне области
-    document.addEventListener('click', function(e) {
-        if (!searchResults.contains(e.target) && e.target !== searchInput) {
-            searchResults.style.display = 'none';
+    
+        // Останавливает камеру и скрывает элементы сканера
+        // Делаем ее глобальной, чтобы кнопка `onclick` могла ее найти
+        window.stopLocalScanner = function() {
+            if (codeReader) {
+                codeReader.reset();
+                codeReader = null;
+            }
+            scannerContainer.style.display = 'none';
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
         }
+    
+        // Вешаем событие на кнопку сканирования
+        scanButton.addEventListener('click', startLocalScanner);
+    
+    
+        // --- 4. Общие вспомогательные функции ---
+    
+        // Скрытие результатов поиска при клике вне области
+        document.addEventListener('click', function(e) {
+            if (!searchResults.contains(e.target) && e.target !== searchInput) {
+                searchResults.style.display = 'none';
+            }
+        });
+    
+        // При фокусе на поле поиска - сбрасываем предыдущий выбор
+        searchInput.addEventListener('focus', function() {
+            identifierInput.value = '';
+        });
     });
-
-    // При фокусе на поле поиска - сбрасываем предыдущий выбор
-    searchInput.addEventListener('focus', function() {
-        identifierInput.value = '';
-    });
-});
-    </script>
+</script>
 {% endblock %}

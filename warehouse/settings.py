@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'rest_framework',
     'storages',
+    'axes',
     'django.contrib.staticfiles',
     'main.apps.MainConfig',
     'warehouse1.apps.Warehouse1Config',
@@ -59,8 +60,14 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'axes.middleware.AxesMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 ROOT_URLCONF = 'warehouse.urls'
@@ -170,9 +177,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 KEYCRM_API_KEY = os.getenv("KEYCRM_API_KEY")
 
 # --- Celery Configuration ---
-# Указываем Redis как брокер сообщений
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+# --- Axes Configuration ---
+AXES_FAILURE_LIMIT = 5 # Количество неудачных попыток до блокировки
+AXES_COOLOFF_TIME = 1 # Блокировка на 2 часа
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]# По каким критериям блокировать? 
+AXES_RESET_ON_SUCCESS = True # Сброс счетчика неудачных попыток при успешной авторизации

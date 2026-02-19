@@ -27,6 +27,8 @@ urlpatterns = [
     path('shipments/items/<int:pk>/delete/', views.delete_shipment_item, name='delete_shipment_item'),
     path('shipment/<int:pk>/return/', views.ReturnShipmentView.as_view(), name='shipment_return'),
     path('shipment/<int:pk>/mark_packaged/', views.mark_shipment_as_packaged, name='shipment_mark_packaged'),
+    # weasyprint для выгрузки накладных в PDF
+    path('shipment/<int:shipment_id>/pdf/', views.shipment_pdf_view, name='shipment_pdf'),
     # API endpoint for KeyCRM webhooks
     path('api/webhooks/keycrm/', KeyCRMWebhookView.as_view(), name='keycrm_webhook'),
 ]

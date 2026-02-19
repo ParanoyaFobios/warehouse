@@ -24,3 +24,9 @@ celery -A warehouse worker -l info
 # Заупск celery с отображением логов в командной строке
 celery -A warehouse purge
 # Очистить очередь задач
+
+python manage.py axes_reset_logs --age=30
+#очистка логов аксиса старше 30 дней
+
+#добавить buildpack перед деплоем на heroku что работал пакет выгрузки накладных в пдф
+heroku buildpacks:add --index 1 heroku-community/apt

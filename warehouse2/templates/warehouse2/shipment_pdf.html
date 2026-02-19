@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+            @bottom-right {
+                content: "Страница " counter(page) " из " counter(pages);
+                font-size: 10pt;
+            }
+        }
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 12pt; }
+        .header { text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+        .stamp { 
+            position: absolute; 
+            bottom: 50px; 
+            right: 100px; 
+            width: 150px; 
+            transform: rotate(-15deg); 
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ТОВАРНАЯ НАКЛАДНАЯ № {{ shipment.id }}</h1>
+        <p>Дата: {{ shipment.created_at|date:"d.m.Y" }}</p>
+    </div>
+
+    <p><strong>Отправитель:</strong> {{ shipment.sender.name }}</p>
+    <p><strong>Получатель:</strong> {{ shipment.recipient }} ({{ shipment.destination }})</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>№</th>
+                <th>Наименование</th>
+                <th>Кол-во</th>
+                <th>Цена</th>
+                <th>Сумма</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.get_name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.price_per_unit }}</td>
+                <td>{{ item.total_price }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top: 30px;">
+        <p>Итого: <strong>{{ shipment.grand_total_price }} UAH</strong></p>
+        <p style="margin-top: 50px;">Отпустил: ____________________ / {{ shipment.sender.name }} /</p>
+    </div>
+
+    {% if shipment.sender.stamp %}
+        <img src="{{ shipment.sender.stamp.path }}" class="stamp">
+    {% endif %}
+</body>
+</html>

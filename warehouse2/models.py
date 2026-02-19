@@ -10,6 +10,8 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from main.models import ContentTypeAware
 from django.db import transaction
+from django.db.models.signals import post_delete, pre_save
+from django.dispatch import receiver
 # ==============================================================================
 # Генераторы штрихкодов
 # ============================================================================== 
@@ -200,6 +202,8 @@ class ProductOperation(models.Model):
 class Sender(models.Model):
     """Физ/Юр лицо - отправитель отгрузки."""
     name = models.CharField(max_length=100, unique=True, verbose_name="ФОП отправитель")
+    stamp = models.ImageField(upload_to='stamps/', null=True, blank=True, 
+        help_text="Загрузите PNG с прозрачным фоном(400х400px)")
 
     def __str__(self):
         return self.name
@@ -207,6 +211,29 @@ class Sender(models.Model):
     class Meta:
         verbose_name = "ФОП отправитель"
         verbose_name_plural = "ФОП отправителя"
+        
+# 1. Удаление файла при удалении самой записи Sender
+@receiver(post_delete, sender=Sender)
+def submission_delete(sender, instance, **kwargs):
+    if instance.stamp:
+        instance.stamp.delete(False)
+
+# 2. Удаление старого файла при загрузке нового (замена печати)
+@receiver(pre_save, sender=Sender)
+def auto_delete_file_on_change(sender, instance, **kwargs):
+    if not instance.pk:
+        return False
+
+    try:
+        old_file = Sender.objects.get(pk=instance.pk).stamp
+    except Sender.DoesNotExist:
+        return False
+
+    new_file = instance.stamp
+    if not old_file == new_file:
+        if old_file:
+            old_file.delete(False)
+
 
 class Shipment(models.Model):
     """Отгрузка (накладная)."""
