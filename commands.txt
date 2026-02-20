@@ -27,6 +27,11 @@ celery -A warehouse purge
 
 python manage.py axes_reset_logs --age=30
 #очистка логов аксиса старше 30 дней
+Как сделать автоматическую очистку «по-взрослому»:
+На Heroku (и на Линуксе) для этого используют Cron (планировщик задач).
+На Heroku установи бесплатное дополнение Heroku Scheduler.
+Добавь туда задачу: python manage.py axes_reset_logs --age=30.
+Поставь частоту: «Daily» (раз в сутки).
 
 #добавить buildpack перед деплоем на heroku что работал пакет выгрузки накладных в пдф
 heroku buildpacks:add --index 1 heroku-community/apt

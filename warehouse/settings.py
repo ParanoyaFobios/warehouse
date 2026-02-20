@@ -14,6 +14,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 from pathlib import Path
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -188,3 +189,5 @@ AXES_FAILURE_LIMIT = 5 # Количество неудачных попыток 
 AXES_COOLOFF_TIME = 1 # Блокировка на 2 часа
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]# По каким критериям блокировать? 
 AXES_RESET_ON_SUCCESS = True # Сброс счетчика неудачных попыток при успешной авторизации
+if 'test' in sys.argv or 'pytest' in sys.modules:
+    AXES_ENABLED = False # Если в аргументах запуска есть 'test' или 'pytest', выключаем axes
