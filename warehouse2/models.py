@@ -445,8 +445,41 @@ class ShipmentItem(models.Model):
             update_stock_in_keycrm.delay(base_product.id)
 
         super().save(*args, **kwargs)
+        # АУДИТ: Если накладная уже "собрана/распечатана", пишем лог
+        if self.shipment.status == 'packaged':
+            from reports.models import ShipmentAuditLog
+            
+            # Определяем тип "нарушения"
+            if is_new:
+                details = f"В СОБРАННУЮ накладную добавлен товар: {self.stock_product.name} ({new_units} шт.)"
+                action = 'item_added'
+            else:
+                details = f"В СОБРАННОЙ накладной изменен товар {self.stock_product.name}: было {old_units}, стало {new_units}"
+                action = 'item_updated'
+
+            # Пишем в аудит
+            ShipmentAuditLog.objects.create(
+                shipment=self.shipment,
+                action=action,
+                details=details
+            )
+                        # Откатываем статус
+            self.shipment.status = 'pending'
+            self.shipment.save(update_fields=['status'])
+            
 
     def delete(self, *args, **kwargs):
+        if self.shipment.status == 'packaged':
+            from reports.models import ShipmentAuditLog
+            ShipmentAuditLog.objects.create(
+                shipment=self.shipment,
+                action='item_removed',
+                details=f"ИЗ СОБРАННОЙ накладной удален товар: {self.stock_product.name} ({self.base_product_units} шт.)"
+            )
+            # Откатываем статус
+            self.shipment.status = 'pending'
+            self.shipment.save(update_fields=['status'])
+            
         if self.shipment.status in ['pending', 'packaged']:
             units_to_release = self.base_product_units
             base_product = self.stock_product
@@ -459,7 +492,7 @@ class ShipmentItem(models.Model):
             # 2. Принудительно обновляем цифры в KeyCRM
             from .tasks import update_stock_in_keycrm
             update_stock_in_keycrm.delay(base_product.id)
-            
+                    
         super().delete(*args, **kwargs)
 
     class Meta:

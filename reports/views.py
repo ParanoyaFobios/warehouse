@@ -5,13 +5,14 @@ from django.db.models.functions import TruncDay, TruncMonth
 from django.utils import timezone
 from datetime import timedelta, date
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.paginator import Paginator
 from reports.servises import get_unified_movement_data, generate_movement_report_excel
 from django.views.generic import ListView
 from warehouse1.models import Material
 from .forms import MovementReportFilterForm, DateRangeFilterForm
 from warehouse2.models import Shipment, ShipmentItem, Product
+from reports.models import ShipmentAuditLog
 
 
 class ReportsHomeView(LoginRequiredMixin, TemplateView):
@@ -80,8 +81,10 @@ def sales_chart_data_api(request):
     })
 
 
-class MovementReportView(LoginRequiredMixin, TemplateView):
+class MovementReportView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
     template_name = 'reports/movement_report.html'
+    permission_required = 'reports.view_purchases_report'
+    raise_exception = True
 
     def get(self, request, *args, **kwargs):
         form = MovementReportFilterForm(request.GET or None)
@@ -266,4 +269,32 @@ class StockAgeingReportView(LoginRequiredMixin, ListView):
         # Передаем в шаблон текущий порядок сортировки для подсветки кнопок
         context = super().get_context_data(**kwargs)
         context['current_sort'] = self.request.GET.get('sort', 'asc')
+        return context
+    
+
+class ShipmentAuditListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = ShipmentAuditLog
+    template_name = 'reports/audit_list.html'
+    context_object_name = 'logs'
+    paginate_by = 50  # Сразу добавим пагинацию, логов будет много
+    # Формат: 'приложение.право_модель'
+    permission_required = 'reports.view_shipmentauditlog'
+    raise_exception = True
+
+
+    def get_queryset(self):
+        """Оптимизация запросов и фильтрация"""
+        queryset = super().get_queryset().select_related('shipment', 'user')
+        
+        # Фильтрация по shipment_id из GET-запроса (если есть)
+        shipment_id = self.request.GET.get('shipment_id')
+        if shipment_id:
+            queryset = queryset.filter(shipment_id=shipment_id)
+            
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        """Добавляем дополнительные данные в шаблон (например, для заголовков)"""
+        context = super().get_context_data(**kwargs)
+        context['shipment_id'] = self.request.GET.get('shipment_id')
         return context

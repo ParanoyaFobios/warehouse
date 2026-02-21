@@ -47,7 +47,15 @@
             {% for item in items %}
             <tr>
                 <td>{{ forloop.counter }}</td>
-                <td>{{ item.get_name }}</td>
+                <td>
+                {% if item.product %}
+                    {{ item.product.name }} ({{ item.product.sku }})
+                {% elif item.package %}
+                    {{ item.package.product.name }} ({{ item.package.product.sku }}) - Упаковка
+                {% else %}
+                    Товар не указан
+                {% endif %}
+                </td>
                 <td>{{ item.quantity }}</td>
                 <td>{{ item.price_per_unit }}</td>
                 <td>{{ item.total_price }}</td>
@@ -59,10 +67,10 @@
     <div style="margin-top: 30px;">
         <p>Итого: <strong>{{ shipment.grand_total_price }} UAH</strong></p>
         <p style="margin-top: 50px;">Отпустил: ____________________ / {{ shipment.sender.name }} /</p>
+        {% if shipment.sender.stamp %}
+            <img src="{{ shipment.sender.stamp.url }}" class="stamp">
+        {% endif %}
     </div>
 
-    {% if shipment.sender.stamp %}
-        <img src="{{ shipment.sender.stamp.path }}" class="stamp">
-    {% endif %}
 </body>
 </html>

@@ -115,18 +115,18 @@ class TestSalesChartDataApi:
 # ==================== MovementReportView ====================
 @pytest.mark.django_db
 class TestMovementReportView:
-    def test_movement_report_view_renders_correct_template(self, client, user):
+    def test_movement_report_view_renders_correct_template(self, client, admin_user):
         """Тест, что MovementReportView использует правильный шаблон"""
-        client.force_login(user)
+        client.force_login(admin_user)
         url = reverse('movement_report')
         response = client.get(url)
         
         assert response.status_code == 200
         assert 'reports/movement_report.html' in [t.name for t in response.templates]
     
-    def test_movement_report_view_with_filters(self, client, user, material_operation_incoming, product_operation_incoming):
+    def test_movement_report_view_with_filters(self, client, admin_user, material_operation_incoming, product_operation_incoming):
         """Тест MovementReportView с фильтрами"""
-        client.force_login(user)
+        client.force_login(admin_user)
         url = reverse('movement_report')
         
         # Тестируем разные фильтры
@@ -144,9 +144,9 @@ class TestMovementReportView:
             assert 'filter_form' in response.context
             assert 'page_obj' in response.context
     
-    def test_movement_report_view_pagination(self, client, user):
+    def test_movement_report_view_pagination(self, client, admin_user):
         """Тест пагинации в MovementReportView"""
-        client.force_login(user)
+        client.force_login(admin_user)
         url = reverse('movement_report')
         
         # Тестируем разные значения per_page
@@ -157,9 +157,9 @@ class TestMovementReportView:
             assert response.status_code == 200
             assert response.context['per_page'] == per_page
     
-    def test_movement_report_view_export_excel(self, client, user, material_operation_incoming, product_operation_incoming):
+    def test_movement_report_view_export_excel(self, client, admin_user, material_operation_incoming, product_operation_incoming):
         """Тест экспорта в Excel"""
-        client.force_login(user)
+        client.force_login(admin_user)
         url = reverse('movement_report')
         
         response = client.get(url, {'export_excel': 'true'})
@@ -453,9 +453,9 @@ class TestStockAgeingReportView:
 # ==================== Интеграционные тесты ====================
 @pytest.mark.django_db
 class TestReportsIntegration:
-    def test_all_report_views_accessible(self, client, user):
+    def test_all_report_views_accessible(self, client, admin_user):
         """Интеграционный тест: все отчеты доступны"""
-        client.force_login(user)
+        client.force_login(admin_user)
         
         report_urls = [
             reverse('reports_home'),
@@ -487,19 +487,45 @@ class TestReportsIntegration:
 
 @pytest.mark.django_db
 class TestReportsSecurity:
+    
     def test_all_reports_redirect_anonymous(self, client):
-        """Проверка, что анонимный пользователь перенаправляется на логин"""
-        report_urls = [
+        """Проверка доступа анонима"""
+        # Ссылки только с LoginRequiredMixin
+        redirect_urls = [
             reverse('reports_home'),
             reverse('sales_over_time'),
-            reverse('movement_report'),
             reverse('low_stock_report'),
             reverse('stock_ageing_report'),
+            reverse('sales_by_product_report'),
         ]
-        for url in report_urls:
+        # Ссылки с PermissionRequiredMixin + raise_exception=True
+        forbidden_urls = [
+            reverse('movement_report'),
+            reverse('shipment_audit_list'),
+        ]
+
+        for url in redirect_urls:
             response = client.get(url)
-            assert response.status_code == 302
-            assert 'login/' in response.url
+            assert response.status_code == 302, f"URL {url} должен редиректить"
+
+        for url in forbidden_urls:
+            response = client.get(url)
+            assert response.status_code == 403, f"URL {url} должен выдавать 403"
+
+    def test_restricted_reports_returns_403_for_regular_user(self, client, user):
+        """Залогиненный пользователь без прав получает 403 на защищенные отчеты"""
+        client.force_login(user)
+        
+        # Список URL, где есть PermissionRequiredMixin
+        restricted_urls = [
+            reverse('movement_report'),
+            reverse('shipment_audit_list'),
+        ]
+        
+        for url in restricted_urls:
+            response = client.get(url)
+            # Так как raise_exception = True, будет 403
+            assert response.status_code == 403
 
 
 @pytest.mark.django_db
@@ -612,9 +638,9 @@ class TestStockAgeingLogic:
 
 @pytest.mark.django_db
 class TestMovementReportRobustness:
-    def test_per_page_validation(self, client, user):
+    def test_per_page_validation(self, client, admin_user):
         """Проверка обработки некорректных параметров пагинации"""
-        client.force_login(user)
+        client.force_login(admin_user)
         url = reverse('movement_report')
         
         # Кейс 1: Слишком большое число (должно ограничиться 500)

@@ -1,93 +1,196 @@
 {% extends "base.html" %}
-
+{% load static %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Отгрузка №{{ shipment.id }}</h2>
-    <span class="badge bg-{% if shipment.status == 'shipped' %}success
-    {% elif shipment.status == 'packaged' %}warning
-    {% else %}secondary{% endif %}">
-        {{ shipment.get_status_display }}
-    </span>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">Информация об отгрузке</div>
-            <div class="card-body">
-                <p><strong>ФОП:</strong> {{ shipment.sender }}</p>
-                <p><strong>Назначение:</strong> {{ shipment.destination }}</p>
-                <p><strong>Создана:</strong> {{ shipment.created_at|date:"d.m.Y H:i" }} пользователем {{ shipment.created_by }}</p>
-                {% if shipment.shipped_at %}
-                <p><strong>Отгружена:</strong> {{ shipment.shipped_at|date:"d.m.Y H:i" }} пользователем {{ shipment.processed_by }}</p>
-                {% endif %}
-                <p><strong>Общее количество товаров:</strong> {{ shipment.total_items_count }} шт.</p>
-                <p><strong>Количество позиций:</strong> {{ shipment.items.count }}</p>
-                <p><strong>Общая сумма:</strong> {{ shipment.grand_total_price|floatformat:2 }} UAH.</p>
-            </div>
-        </div>
+<main class="main">
+    <section class="section products-management-shipment container">
+    <div class="section__header">
+        <h1 class="section__header-title flex-center">Информация о отгрузке</h1>
+        <h2
+        class="section__header-title section__header-title--blue flex-center"
+        >
+        Отгрузка №{{ shipment.id }}
+        </h2>
     </div>
-</div>
-
-<h4>Товары в отгрузке</h4>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Товар</th>
-            <th>Количество</th>
-            <th>Цена за ед.</th>
-            <th>Сумма</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in items %}
-        <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>
-                {% if item.product %}
-                <a href="{% url 'product_detail' item.product.pk %}">
-                    {{ item.product.name }}
-                </a>
-                <td>{{ item.quantity }}</td>
-                {% else %}
-                {{ item.package.name }}({{ item.package.quantity }})
-                <a href="{% url 'product_detail' item.package.product.pk %}">
-                {{ item.package.product.name }}
-                </a>
-                <td>{{ item.base_product_units }}</td>
-                {% endif %}
-            </td>
-            
-            <td>{{ item.price_per_unit|floatformat:2 }} UAH.</td>
-            <td>{{ item.total_price|floatformat:2 }} UAH.</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5" class="text-center">Товары не добавлены</td>
-        </tr>
-        {% endfor %}
-        <tfoot>
-            <tr class="table-primary">
-                <td colspan="3" class="text-end"><strong>Итого:</strong></td>
-                <td><strong>{{ shipment.grand_total_price|floatformat:2 }} UAH.</strong></td>
-                <td></td>
+    <div class="narrow-wrapper">
+        <div class="section__other-buttons-cont">
+        <a
+            class="section__other-buttons-cont-button section__other-buttons-cont-button--orange"
+            href="{% url 'shipment_list' %}"
+        >
+            <span class="content-size">
+            <svg
+                width="30"
+                height="30"
+                viewBox="0 0 30 30"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+            >
+                <rect width="30" height="30" rx="3" fill="#F28500" />
+                <path
+                d="M15.944 24C15.8073 24 15.6706 23.9554 15.5612 23.862L5.24216 15.511C5.08983 15.3892 5 15.1985 5 14.9997C5 14.8008 5.08983 14.6101 5.24216 14.4884L15.5612 6.13733C15.7487 5.98313 16.0065 5.95879 16.2213 6.06429C16.4361 6.17385 16.5728 6.40109 16.5728 6.64862V12.2972H20.5137C21.7245 12.2972 22.7986 12.7273 23.611 13.5389C24.3336 14.2612 24.814 15.2594 24.9546 16.3428C25.0991 17.4303 24.896 18.53 24.3843 19.4349C23.8102 20.4494 22.8923 21.1636 21.7284 21.5004C21.5019 21.5653 21.2597 21.4922 21.0996 21.3137C20.9395 21.1352 20.8926 20.8755 20.9746 20.6442C21.2519 19.8813 21.5058 18.8628 21.1543 18.3312C20.877 17.9132 20.1817 17.7022 19.0842 17.7022H16.5689V23.3467C16.5689 23.5942 16.4322 23.8215 16.2174 23.931C16.1314 23.9797 16.0377 24 15.944 24Z"
+                fill="white"
+                />
+            </svg>
+            </span>
+            <span>Вернуться к списку</span>
+        </a>
+        </div>
+        <div class="table-card-first">
+        <table class="table-first">
+            <tr class="table__row">
+            <th>Отправитель :</th>
+            <td>{{ shipment.sender }}</td>
             </tr>
-        </tfoot>
-    </tbody>
-</table>
-{% if shipment.status != 'shipped' and shipment.status != 'packaged' %}
-<div class="mt-3">
-    <a href="{% url 'shipment_list' %}" class="btn btn-secondary">Назад к списку</a>
-    {% if can_edit %}
-    <a href="{% url 'shipment_items' shipment.pk %}" class="btn btn-primary">Добавить товары</a>
-    {% endif %}
-    {% if can_pack %}
-    <a href="{% url 'shipment_mark_packaged' shipment.pk %}" class="btn btn btn-info">Отметить как собранную</a>
-    {% endif %}
-    {% if can_ship %}
-    <a href="{% url 'shipment_ship' shipment.pk %}" class="btn btn-success">Отгрузить</a>
-    {% endif %}
-</div>
-{% endif %}
+            <tr class="table__row">
+            <th>Пункт назначения :</th>
+            <td>{{ shipment.destination }}</td>
+            </tr>
+            <tr class="table__row">
+            <th>Статус</th>
+            <!--было class="table__status table__status-secondary-->
+            <td class="table__status table__status--{% if shipment.status == 'pending' %}in-progress{% elif shipment.status == 'packaged' %}warning{% else %}success{% endif %}">
+                В процессе
+            </td>
+            </tr>
+            {% if can_edit %}
+            <tr class="table__row">
+            <td class="table__td-buttons-cont">
+                <a href="{% url 'shipment_edit' shipment.pk %}"
+                title="Редактировать шапку"
+                class="table__button-with-icon content-size"
+                >
+                <svg
+                    width="30"
+                    height="30"
+                    viewBox="0 0 30 30"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <rect
+                    width="30"
+                    height="30"
+                    rx="3"
+                    fill="#00A6F2"
+                    fill-opacity="0.6"
+                    />
+                    <path
+                    d="M23.5764 8.71494L20.3481 5.48667C20.0326 5.17111 19.5225 5.17111 19.2069 5.48667L16.7857 7.90787L21.1552 12.2773L23.5764 9.85613C23.892 9.54057 23.892 9.0305 23.5764 8.71494ZM7.10093 17.5927C7.01296 17.6806 6.94598 17.7888 6.90643 17.9082L6.83137 18.131L10.0927 21.3915C10.0927 21.3915 9.28566 22.1986 8.4794 21.3923L6.42784 19.3416L5.29149 22.7506C5.19464 23.0404 5.27051 23.3608 5.48599 23.5763C5.64014 23.7296 5.84675 23.8127 6.0574 23.8127C6.14214 23.8127 6.2293 23.799 6.31243 23.7708L11.1548 22.1566C11.2735 22.1171 11.3816 22.0501 11.4704 21.9621L20.3481 13.0844L15.9787 8.71494L7.10093 17.5927Z"
+                    fill="white"
+                    />
+                </svg>
+            </a>
+            </td>
+            </tr>
+            {% endif %}
+        </table>
+        </div>
+
+        <div class="tables-cont tables-cont--second-type">
+        <div class="cont__header cont__header--with-border-top">
+            <h2 class="cont__title">
+            Текущие позиции
+            <span class="cont__title--color-block flex-center">
+                {{ items.count }} позиции
+            </span>
+            </h2>
+        </div>
+        <ul class="cont__list cont__list--narrow">
+            {% if items %}
+            {% for item in items %}
+            <li class="cont__item">
+            <article class="table-card-first">
+                {% if item.product %}
+                <h1 class="table-card-first__title">{{ item.product.name }}</h1>
+                <h1 class="table-card-first__title">Штучный</h1>
+                <table class="table-first">
+                <tr class="table__row">
+                    <th>Количество</th>
+                    <td>{{ item.quantity }}</td>
+                </tr>
+                <tr class="table__row">
+                    <th>Цена за шт</th>
+                    <td>{{ item.price_per_unit|floatformat:2 }} грн</td>
+                </tr>
+                <tr class="table__row">
+                    <th>Цена</th>
+                    <td>{{ item.total_price|floatformat:2 }} грн</td>
+                </tr>
+                {% else %}
+                <h1 class="table-card-first__title">{{ item.package.name }}-{{ item.package.product.name }}</h1>
+                <h1 class="table-card-first__title">Упаковка ({{ item.quantity }} шт.)</h1>
+                <table class="table-first">
+                <tr class="table__row">
+                    <th>Количество</th>
+                    <td>{{ item.base_product_units }}</td>
+                </tr>
+                <tr class="table__row">
+                    <th>Цена за шт</th>
+                    <td>{{ item.price_per_unit|floatformat:2 }} грн</td>
+                </tr>
+                <tr class="table__row">
+                    <th>Цена</th>
+                    <td>{{ item.total_price|floatformat:2 }} грн</td>
+                </tr>
+                {% endif %}
+                </table>
+            </article>
+            </li>
+            {% endfor %}
+            {% else %}
+            <div class="section__header">
+                <h1 class="section__header-title flex-center">Добавьте товары</h1>
+            </div>
+            {% endif %}
+        </ul>
+        </div>
+        <div class="price-calculation">
+        <p class="price-calculation__string price-calculation__string--top">
+            <span>Общее количество товаров :</span>
+            <span>{{ shipment.total_items_count }} шт</span>
+        </p>
+        <p
+            class="price-calculation__string price-calculation__string--bottom"
+        >
+            <span>Итого :</span>
+            <span>{{ shipment.grand_total_price|floatformat:2 }} грн</span>
+        </p>
+        </div>
+        {% if items and shipment.can_be_edited %}
+        <table class="table-first">
+                    <tr class="table__row">
+                    <td
+                    class="table__td-buttons-cont table__td-buttons-cont--dir-column-row"
+                    >
+                    <form action="{% url 'shipment_mark_packaged' shipment.pk %}" method="post">
+                        {% csrf_token %}
+                    <button
+                        class="width100 button button--blue"
+                        type="submit"
+                    >
+                        Отметить собрано
+                    </button>
+                    </form>
+                    <a href="{% url 'shipment_edit' shipment.pk %}"
+                    class="width100 button button--blue"
+                    
+                >
+                    Изменить
+                </a>
+                    <form action="{% url 'shipment_delete' shipment.pk %}" method="post">
+                        {% csrf_token %}
+                    <button
+                        class="width100 button button--orange"
+                        type="submit"
+                        onclick="return confirm('Отменить эту отгрузку? Все позиции будут удалены.')"></button>
+                    >
+                        Отмена
+                    </button>
+                    </form>
+                    </td>
+                </tr>
+        </table>
+        {% endif %}
+    </div>
+    </section>
+</main>
 {% endblock %}

@@ -53,6 +53,15 @@ def celery_settings(settings):
 def user():
     return User.objects.create_user(username='testuser', password='password')
 
+@pytest.fixture
+def admin_user():
+    """Фикстура суперпользователя, у которого есть все права по умолчанию"""
+    return User.objects.create_superuser(
+        username='admin', 
+        password='password', 
+        email='admin@example.com'
+    )
+
 # Фикстура для создания товара
 @pytest.fixture
 def product():

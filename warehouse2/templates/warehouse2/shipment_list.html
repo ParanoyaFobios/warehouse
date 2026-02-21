@@ -115,7 +115,9 @@
         {% for shipment in shipments %}
         <li class="cont__item">
           <article class="table-card-first">
+            <a href="{% url 'shipment_detail' shipment.pk %}" class="table-card-first__link">
             <h1 class="table-card-first__title">Отгрузка №{{ shipment.id }}</h1>
+            </a>
             <table class="table-first">
               <tr class="table__row">
                 <th>Назначение</th>
@@ -247,7 +249,7 @@
                   </button>
                   </form>
                   {% endif %}
-                  <a href="{% url 'shipment_detail' shipment.pk %}"
+                  <a href="{% url 'shipment_pdf' shipment.id %}"
                     title="Печать"
                     class="table__button-with-icon content-size"
                   >

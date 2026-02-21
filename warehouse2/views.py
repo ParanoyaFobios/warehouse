@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
 from .models import Product, Shipment, ShipmentItem, Package, ProductCategory, ProductOperation
+from reports.models import ShipmentAuditLog
 from .forms import ProductForm, ShipmentForm, ShipmentItemForm, PackageForm, ProductIncomingForm
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.http import JsonResponse, HttpResponse
@@ -338,9 +339,19 @@ def ship_shipment(request, pk):
 # Shipment Items Management
 # ==============================================================================
 
-class ShipmentItemsView(FormView):
+class ShipmentItemsView(LoginRequiredMixin, FormView):
     template_name = 'warehouse2/shipment_items.html'
     form_class = ShipmentItemForm
+
+    def dispatch(self, request, *args, **kwargs):
+        """Гарантируем, что никто не зайдет по ссылке, если отгрузка закрыта."""
+        shipment = get_object_or_404(Shipment, pk=self.kwargs['pk'])
+        
+        if not shipment.can_be_edited():
+            messages.error(request, "Редактирование состава невозможно: накладная уже отгружена или возвращена.")
+            return redirect('shipment_detail', pk=shipment.pk)
+            
+        return super().dispatch(request, *args, **kwargs)
     
     def get_success_url(self):
         return reverse_lazy('shipment_items', kwargs={'pk': self.kwargs['pk']})
@@ -514,6 +525,9 @@ def delete_shipment_item(request, pk):
     item = get_object_or_404(ShipmentItem, pk=pk)
     shipment_pk = item.shipment.pk
     item_name = str(item) # Запоминаем имя до удаления
+    if not item.shipment.can_be_edited():
+        messages.error(request, "Нельзя удалять товары из закрытой накладной!")
+        return redirect('shipment_detail', pk=item.shipment.pk)
     item.delete()
     messages.success(request, f'Позиция "{item_name}" удалена из отгрузки.')
     return redirect('shipment_items', pk=shipment_pk)
@@ -521,30 +535,34 @@ def delete_shipment_item(request, pk):
 #Генерация PDF для отгрузки (накладной)
 def shipment_pdf_view(request, shipment_id):
     shipment = get_object_or_404(Shipment, id=shipment_id)
+    
+    # ФИКСАЦИЯ СТАТУСА ПРИ ПЕРВОЙ ПЕЧАТИ
+    if shipment.status == 'pending':
+        shipment.status = 'packaged'
+        shipment.processed_by = request.user
+        shipment.save(update_fields=['status', 'processed_by'])
+
     items = shipment.items.all()
     
-    # 1. Рендерим HTML в строку
-    html_string = render_to_string('warehouse2/shipment_pdf.html', {
+    # Собираем контекст для шаблона
+    context = {
         'shipment': shipment,
         'items': items,
-        'request': request,  # Передаем request для генерации абсолютных URL к статике
-    })
+        'request': request, # важно для путей к медиа-файлам
+    }
 
-    # 2. Генерируем PDF
-    html = HTML(string=html_string, base_url=request.build_absolute_uri())
-    result = html.write_pdf()
+    # Рендерим HTML в строку
+    html_string = render_to_string('warehouse2/shipment_pdf.html', context)
 
-    # 3. Отдаем файл пользователю
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="Накладная к отгрузке №{shipment.id}.pdf"'
-    response['Content-Transfer-Encoding'] = 'binary'
+    # Создаем PDF в памяти
+    html = HTML(string=html_string, base_url=request.build_absolute_uri('/'))
+    pdf = html.write_pdf()
+
+    # Отдаем PDF браузеру
+    response = HttpResponse(pdf, content_type='application/pdf')
+    # 'inline' откроет в браузере, 'attachment' сразу начнет скачку
+    response['Content-Disposition'] = f'inline; filename="shipment_{shipment.id}.pdf"'
     
-    with tempfile.NamedTemporaryFile(delete=True) as output:
-        output.write(result)
-        output.flush()
-        output = open(output.name, 'rb')
-        response.write(output.read())
-
     return response
 
 # ==============================================================================
