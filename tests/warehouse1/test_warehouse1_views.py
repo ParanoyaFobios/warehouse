@@ -3,7 +3,7 @@ import io
 from decimal import Decimal
 from PIL import Image
 from django.urls import reverse
-from warehouse1.models import Material, MaterialCategory, MaterialOperation, MaterialColor, UnitOfMeasure
+from warehouse1.models import Material, MaterialCategory, MaterialOperation, UnitOfMeasure
 from warehouse1.forms import MaterialForm
 
 
@@ -154,7 +154,7 @@ class TestMaterialCreateView:
         assert 'login/' in response.url
     
     @pytest.mark.django_db
-    def test_post_create_view_valid_data(self, client, user, material_category, unit_of_measure, material_color):
+    def test_post_create_view_valid_data(self, client, user, material_category, unit_of_measure):
         """Тест успешного создания материала с валидными данными."""
         client.force_login(user)
         url = reverse('material_create')
@@ -164,7 +164,6 @@ class TestMaterialCreateView:
             'article': 'NEW-TEST-001',
             'category': material_category.pk,
             'min_quantity': '10.00',
-            'color': material_color.pk,
             'unit': unit_of_measure.pk,
             'description': 'Описание нового материала'
         }
@@ -184,28 +183,6 @@ class TestMaterialCreateView:
         assert material.quantity == Decimal('0.00') 
         # assert material.quantity == material.default # более надежная проверка
     
-    @pytest.mark.django_db
-    def test_post_create_view_without_color(self, client, user, material_category, unit_of_measure):
-        """Тест создания материала без указания цвета (опциональное поле)"""
-        client.force_login(user)
-        url = reverse('material_create')
-        
-        post_data = {
-            'name': 'Материал без цвета',
-            'article': 'NO-COLOR-001',
-            'category': material_category.pk,
-            'quantity': '0',
-            'min_quantity': '0',
-            'unit': unit_of_measure.pk,
-            'description': 'Материал без указания цвета'
-        }
-        
-        response = client.post(url, post_data, follow=True)
-        
-        assert response.status_code == 200
-        material = Material.objects.filter(article='NO-COLOR-001').first()
-        assert material is not None
-        assert material.color is None
     
     @pytest.mark.django_db
     def test_post_create_view_duplicate_article(self, client, user, material):
@@ -364,7 +341,7 @@ class TestMaterialDetailView:
     
     @pytest.mark.django_db
     def test_detail_view_operations_limit(self, client, user, material):
-        """Тест ограничения количества операций (15 последних)"""
+        """Тест ограничения количества операций (10 последних)"""
         client.force_login(user)
         
         # Создаем больше 15 операций
@@ -382,7 +359,7 @@ class TestMaterialDetailView:
         
         assert response.status_code == 200
         operations = response.context['operations']
-        assert operations.count() == 15  # Ограничение [:15]
+        assert operations.count() == 10  # Ограничение [:10]
 
 
 class TestMaterialUpdateView:
@@ -434,7 +411,6 @@ class TestMaterialUpdateView:
             'category': material.category.pk,
             'quantity': material.quantity,
             'min_quantity': material.min_quantity,
-            'color': material.color.pk if material.color else '',
             'unit': material.unit.pk,
             'description': 'Обновленное описание материала'
         }
@@ -505,34 +481,6 @@ class TestMaterialUpdateView:
         material.refresh_from_db()
         assert material.name == 'Новое имя, тот же артикул'
     
-    @pytest.mark.django_db
-    def test_post_update_view_remove_color(self, client, user, material):
-        """Тест обновления с удалением цвета"""
-        # Сначала убедимся что у материала есть цвет
-        if material.color is None:
-            color = MaterialColor.objects.create(name="Тестовый цвет")
-            material.color = color
-            material.save()
-        
-        client.force_login(user)
-        url = reverse('material_update', kwargs={'pk': material.pk})
-        
-        post_data = {
-            'name': material.name,
-            'article': material.article,
-            'category': material.category.pk,
-            'quantity': str(material.quantity),
-            'min_quantity': str(material.min_quantity),
-            'color': '',  # Пустое значение - удаляем цвет
-            'unit': material.unit.pk,
-            'description': material.description
-        }
-        
-        response = client.post(url, post_data, follow=True)
-        
-        assert response.status_code == 200
-        material.refresh_from_db()
-        assert material.color is None
     
     @pytest.mark.django_db
     def test_post_update_view_invalid_quantity(self, client, user, material):

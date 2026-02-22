@@ -3,8 +3,7 @@ from decimal import Decimal
 from django.db import IntegrityError
 from django.db.models.deletion import ProtectedError
 from warehouse1.models import (
-    MaterialCategory, UnitOfMeasure, MaterialColor, 
-    Material, OperationOutgoingCategory, MaterialOperation,
+    MaterialCategory, UnitOfMeasure, Material, OperationOutgoingCategory, MaterialOperation,
     generate_material_barcode
 )
 from django.contrib.auth.models import User
@@ -65,31 +64,6 @@ class TestUnitOfMeasureModel:
 
 
 @pytest.mark.django_db
-class TestMaterialColorModel:
-    """Тесты для модели MaterialColor"""
-    
-    def test_create_material_color(self):
-        """Тест создания цвета материала"""
-        color = MaterialColor.objects.create(name="Красный")
-        
-        assert color.pk is not None
-        assert color.name == "Красный"
-        assert str(color) == "Красный"
-    
-    def test_material_color_unique_name(self):
-        """Тест уникальности названия цвета"""
-        MaterialColor.objects.create(name="Красный")
-        
-        with pytest.raises(IntegrityError):
-            MaterialColor.objects.create(name="Красный")
-    
-    def test_material_color_verbose_names(self):
-        """Тест verbose names"""
-        assert MaterialColor._meta.verbose_name == "Цвет материала"
-        assert MaterialColor._meta.verbose_name_plural == "Цвета материала"
-
-
-@pytest.mark.django_db
 class TestOperationOutgoingCategoryModel:
     """Тесты для модели OperationOutgoingCategory"""
     
@@ -120,7 +94,7 @@ class TestOperationOutgoingCategoryModel:
 class TestMaterialModel:
     """Тесты для модели Material"""
     
-    def test_create_material(self, material_category, unit_of_measure, material_color):
+    def test_create_material(self, material_category, unit_of_measure):
         """Тест создания материала"""
         material = Material.objects.create(
             name="Хлопковая ткань",
@@ -128,7 +102,6 @@ class TestMaterialModel:
             category=material_category,
             quantity=150,
             min_quantity=20,
-            color=material_color,
             unit=unit_of_measure,
             description="Высококачественная хлопковая ткань"
         )
@@ -139,7 +112,6 @@ class TestMaterialModel:
         assert material.category == material_category
         assert material.quantity == 150
         assert material.min_quantity == 20.00
-        assert material.color == material_color
         assert material.unit == unit_of_measure
         assert material.description == "Высококачественная хлопковая ткань"
         assert len(material.barcode) == 15
@@ -206,19 +178,6 @@ class TestMaterialModel:
         material.refresh_from_db()
         assert material.quantity == Decimal('0.00')
     
-    def test_material_without_color(self, material_category, unit_of_measure):
-        """Тест создания материала без цвета (опциональное поле)"""
-        material = Material.objects.create(
-            name="Материал без цвета",
-            article="NOCOLOR-001",
-            category=material_category,
-            quantity=100,
-            unit=unit_of_measure,
-            color=None
-        )
-        
-        assert material.pk is not None
-        assert material.color is None
     
     def test_material_barcode_generation(self, material_category, unit_of_measure):
         """Тест автоматической генерации штрихкода"""
@@ -473,14 +432,6 @@ class TestMaterialRelationships:
         
         assert MaterialCategory.objects.filter(pk=material_category.pk).exists()
     
-    def test_material_color_protect_on_delete(self, material_color, material):
-        """Тест PROTECT при удалении цвета, если есть материалы"""
-        # В модели Material поле color имеет on_delete=models.PROTECT
-        # Поэтому удаление должно вызвать ProtectedError
-        with pytest.raises(ProtectedError):
-            material_color.delete()
-        
-        assert MaterialColor.objects.filter(pk=material_color.pk).exists()
     
     def test_operation_outgoing_category_protect_on_delete(self, operation_outgoing_category, material_operation_outgoing):
         """Тест PROTECT при удалении категории выдачи, если есть операции"""

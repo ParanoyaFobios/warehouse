@@ -1,98 +1,121 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load main_tags %}
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h2>{{ material.name }}</h2>
+<main class="main">
+    <section class="section materials-subject container">
+    <div class="section__header">
+        <h1 class="section__header-title flex-center">{{ material.name }}</h1>
+        <div class="section__header-buttons-cont">
+        <a href="{% url 'material_update' material.pk %}" class="section__header-button button button--blue">
+            Редактировать
+        </a>
+        <a href="{% url 'material_list' %}" class="section__header-button button button--orange">
+            Назад
+        </a>
+        </div>
     </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-4">
-                {% if material.image %}
-                <img src="{{ material.image.url }}" class="img-fluid mb-3" alt="{{ material.name }}">
-                {% endif %}
-                
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h5>Штрихкод</h5>
-                    </div>
-                    <div class="card-body text-center">
-                        {{ barcode_img }}
-                        <p class="mt-2">{{ material.barcode }}</p>
-                    </div>
-                </div>
-            </div>
+    <div class="subject-card">
+        <div class="subject-card__pictures-cont flex-center">
             
-            <div class="col-md-8">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <p><strong>Артикул:</strong> {{ material.article }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Категория:</strong> {{ material.category.name }}</p>
-                    </div>
-                </div>
-                
-                <div class="row mb-3">
-                    {% if perms.warehouse1.can_view_material_quantity %}
-                    <div class="col-md-6">
-                        <p><strong>Количество:</strong> {{ material.quantity }} {{ material.unit.short_name }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Единица измерения:</strong> {{ material.unit.name }}</p>
-                    </div>
-                    {% endif %}
-                    <div class="col-md-6">
-                        <p><strong>Минимально допустимое количество:</strong> {{ material.min_quantity }} {{ material.unit.short_name }}</p>
-                    </div>
-                </div>
-                
-                {% if material.description %}
-                <div class="mb-3">
-                    <h5>Описание</h5>
-                    <p>{{ material.description }}</p>
-                </div>
-                {% endif %}
-                
-                <div class="d-flex gap-2">
-                    <a href="{% url 'material_update' material.pk %}" class="btn btn-warning">Редактировать</a>
-                    <a href="{% url 'material_list' %}" class="btn btn-secondary" onclick="history.back(); return false;">Назад</a>
-                </div>
-            </div>
+        <img
+            class="subject-card__image"
+            src="{% if material.image %}{{ material.image.url }}{% else %}{% static 'images/no-image.jpg' %}{% endif %}"
+            height="328"
+            loading="lazy"
+            alt="{{ material.name }}"
+        />
+
+        <a class="subject-card__barcode-link" href="{% url 'barcode_display_page' content_type_id=material|get_content_type_id object_id=material.pk %}">
+            <img
+            class="subject-card__barcode-image"
+            src="{% url 'generate_barcode_image' content_type_id=material|get_content_type_id object_id=material.pk %}"
+            height="228"
+            loading="lazy"
+            alt="{{ material.barcode }}"
+            />
+        </a>
+
         </div>
-        
-        <hr>
-        {% if perms.warehouse1.can_view_material_quantity %}
-        <h4>Последние операции</h4>
+        <div class="table-card-second">
+        <table class="table-second">
+            <tr>
+            <th>Артикул</th>
+            <td>{{ material.article }}</td>
+            </tr>
+            <tr>
+            <th>Категории</th>
+            <td>{{ material.category.name }}</td>
+            </tr>
+            <tr>
+            <th>Штрихкод</th>
+            <td>
+                <a href="{% url 'barcode_display_page' content_type_id=material.get_content_type_id object_id=material.pk %}"
+                 class="table__color-text">{{ material.barcode }}</a>
+            </td>
+            </tr>
+            {% if perms.warehouse1.can_view_material_quantity %}
+            <tr>
+            <th>Количество</th>
+            <td>2{{ material.quantity }} {{ material.unit.short_name }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+            <th>Min количество</th>
+            <td>{{ material.min_quantity }} {{ material.unit.short_name }}</td>
+            </tr>
+            {% if material.description %}
+            <tr>
+                <th>Описание</th>
+                <td>{{ material.description }}</td>
+            </tr>
+            {% endif %}
+        </table>
+        </div>
+    </div>
+    {% if perms.warehouse1.can_view_material_quantity %}
+    <div class="tables-cont tables-cont--second-type">
         {% if operations %}
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Дата</th>
-                        <th>Тип операции</th>
-                        <th>Количество</th>
-                        <th>Пользователь</th>
-                        <th>Комментарий</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for operation in operations %}
-                    <tr>
-                        <td>{{ operation.date|date:"d.m.Y H:i" }}</td>
-                        <td>{{ operation.get_operation_type_display }}{% if operation.outgoing_category %} {{ operation.outgoing_category }}{% else %} {% endif %}</td>
-                        <td>{{ operation.quantity }} {{ material.unit.short_name }}</td>
-                        <td>{{ operation.user.username }}</td>
-                        <td>{{ operation.comment|default:"-" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="cont__header cont__header--with-border-top">
+        <h2 class="cont__title">Последние операции</h2>
         </div>
+        <ul class="cont__list">
+            {% for operation in operations %}
+        <li class="cont__item">
+            <article class="table-card-first">
+            <table class="table-first">
+                <tr class="table__row">
+                <th>Дата</th>
+                <td>{{ operation.date|date:"d.m.Y H:i" }}</td>
+                </tr>
+                <tr class="table__row">
+                <th>Операция</th>
+                <td>{{ operation.get_operation_type_display }}{% if operation.outgoing_category %} {{ operation.outgoing_category }}{% else %} {% endif %}</td>
+                </tr>
+                <tr class="table__row">
+                <th>Количество</th>
+                <td>{{ operation.quantity }} {{ material.unit.short_name }}</td>
+                </tr>
+                <tr class="table__row">
+                <th>Пользователь</th>
+                <td>{{ operation.user.username }}</td>
+                </tr>
+                <tr class="table__row">
+                <th>Коментарий</th>
+                <td>{{ operation.comment|default:"-" }}</td>
+                </tr>
+            </table>
+            </article>
+        </li>
+            {% endfor %}
+        </ul>
         {% else %}
-        <p>Нет данных об операциях</p>
-        {% endif %}
+        <div class="cont__header cont__header--with-border-top">
+            <h2 class="cont__title">Движения товара еще не было</h2>
+            </div>
         {% endif %}
     </div>
-</div>
+    {% endif %}
+    </section>
+</main>
 {% endblock %}

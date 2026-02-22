@@ -36,16 +36,6 @@ class UnitOfMeasure(models.Model):
         verbose_name = "Единица измерения"
         verbose_name_plural = "Единицы измерения"
 
-class MaterialColor(models.Model):
-    """Цвета продукции (например, Белый, Синий)."""
-    name = models.CharField(max_length=50, unique=True, verbose_name="Цвет")
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        verbose_name = "Цвет материала"
-        verbose_name_plural = "Цвета материала"
 
 class Material(ContentTypeAware, models.Model):
     name = models.CharField(max_length=200, db_index=True, verbose_name="Название материала")
@@ -54,7 +44,6 @@ class Material(ContentTypeAware, models.Model):
     barcode = models.CharField(max_length=15, unique=True, verbose_name="Штрихкод", default=generate_material_barcode, editable=False)
     quantity = models.IntegerField(default=0, verbose_name="Количество")
     min_quantity = models.IntegerField(default=0, verbose_name="Минимальное количество")
-    color = models.ForeignKey(MaterialColor, on_delete=models.PROTECT, verbose_name="Цвет", blank=True, null=True)
     unit = models.ForeignKey(UnitOfMeasure, on_delete=models.PROTECT, verbose_name="Единица измерения")
     image = models.ImageField(upload_to='material/', blank=True, null=True, verbose_name="Изображение")
     description = models.TextField(blank=True, verbose_name="Описание")

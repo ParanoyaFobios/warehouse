@@ -48,7 +48,6 @@
             </td>
             <td>{{ material.article }}</td>
             <td>{{ material.category.name }}</td>
-            <td>{{ material.color }}</td>
             {% if perms.warehouse1.can_view_material_quantity %}
             <td>{{ material.quantity }} {{ material.unit.short_name }}</td>
             {% endif %}

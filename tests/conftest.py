@@ -2,7 +2,7 @@ import pytest
 from django.contrib.auth.models import User, Permission
 from warehouse2.models import Product, Sender
 from todo.models import ProductionOrder, ProductionOrderItem, WorkOrder
-from warehouse1.models import MaterialCategory, UnitOfMeasure, MaterialColor, Material, OperationOutgoingCategory, MaterialOperation
+from warehouse1.models import MaterialCategory, UnitOfMeasure, Material, OperationOutgoingCategory, MaterialOperation
 from warehouse2.models import (Product, Sender, ProductCategory, Package, ProductOperation,
     generate_product_barcode, generate_package_barcode, Shipment, ShipmentItem)
 from django.contrib.contenttypes.models import ContentType
@@ -134,12 +134,6 @@ def unit_of_measure():
         short_name="кг."
     )
 
-@pytest.fixture
-def material_color():
-    """Фикстура для цвета материала"""
-    return MaterialColor.objects.create(
-        name="Белый"
-    )
 
 @pytest.fixture
 def operation_outgoing_category():
@@ -149,7 +143,7 @@ def operation_outgoing_category():
     )
 
 @pytest.fixture
-def material(material_category, unit_of_measure, material_color):
+def material(material_category, unit_of_measure):
     """Фикстура для материала"""
     return Material.objects.create(
         name="Тестовый материал",
@@ -157,7 +151,6 @@ def material(material_category, unit_of_measure, material_color):
         category=material_category,
         quantity=100.00,
         min_quantity=10.00,
-        color=material_color,
         unit=unit_of_measure,
         description="Тестовое описание материала"
     )

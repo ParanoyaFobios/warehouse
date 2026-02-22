@@ -376,7 +376,6 @@ class TestLowStockReportView:
             category=material.category,
             quantity=2.00,
             min_quantity=10.00,
-            color=material.color,
             unit=material.unit
         )
         

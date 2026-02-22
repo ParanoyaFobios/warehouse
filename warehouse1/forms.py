@@ -5,7 +5,7 @@ class MaterialForm(forms.ModelForm):
     class Meta:
         model = Material
         fields = [
-            'name', 'article', 'category', 'unit', 'color', 'image', 'min_quantity', 'description'
+            'name', 'article', 'category', 'unit', 'image', 'min_quantity', 'description'
         ]
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),

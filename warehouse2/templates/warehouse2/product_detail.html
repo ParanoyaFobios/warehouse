@@ -43,8 +43,10 @@
             <div class="card">
                 <div class="card-header"><h5>Штрихкод (штучный)</h5></div>
                 <div class="card-body text-center">
+                    <a class="table__color-text" href="{% url 'barcode_display_page' content_type_id=product.get_content_type_id object_id=product.pk %}">
                     <img src="{% url 'generate_barcode_image' content_type_id=product.get_content_type_id object_id=product.pk %}" alt="Штрихкод" class="img-fluid mb-2">
                     <p class="mt-2 font-monospace">{{ product.barcode }}</p>
+                    </a>
                 </div>
             </div>
         </div>
