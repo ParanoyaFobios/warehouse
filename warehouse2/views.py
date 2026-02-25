@@ -208,7 +208,6 @@ class PackageUpdateView(UpdateView):
 
 class PackageDeleteView(DeleteView):
     model = Package
-    template_name = 'warehouse2/package_confirm_delete.html' # И этот тоже создадим
 
     def get_success_url(self):
         # После удаления также возвращаемся на страницу товара

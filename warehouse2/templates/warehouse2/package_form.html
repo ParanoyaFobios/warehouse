@@ -1,16 +1,75 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="container mt-4">
-    <div class="col-md-6 offset-md-3">
-        <h2>Редактировать упаковку</h2>
-        <p>Для товара: <strong>{{ package.product.name }}</strong></p>
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit" class="btn btn-success">Сохранить изменения</button>
-            <a href="{% url 'product_detail' package.product.pk %}" class="btn btn-secondary">Отмена</a>
-        </form>
+<main class="main">
+    <section class="section editing-package container">
+    <div class="section__header">
+        <h1 class="section__header-title flex-center">
+        Редактировать упаковку
+        </h1>
     </div>
-</div>
+    <div class="narrow-wrapper">
+        <div class="form-wrapper">
+        <div class="form-cont">
+            <div class="cont__header">
+            <h2 class="cont__title cont__title--inline">
+                Товар :
+                <span class="cont__title--white-text">
+                    {{ package.product.name }}
+                </span>
+            </h2>
+            </div>
+            <form class="form-cont__form" method="post">
+                {% csrf_token %}
+                {% if form.errors %}
+                <div class="errors-summary" style="color: red; margin-bottom: 10px;">
+                  Пожалуйста, проверьте правильность заполнения полей.
+                </div>
+              {% endif %}
+            <div
+                class="form-cont__form-paragraphs-cont form-cont__form-paragraphs-cont--alt"
+            >
+                <div class="form-cont__form-paragraph">
+                <label for="{{ form.name.id_for_label }}">Название упаковки:</label>
+                <input
+                    type="text"
+                    name="{{ form.name.html_name }}" 
+                    id="{{ form.name.id_for_label }}"
+                    value="{{ form.name.value|default_if_none:'' }}"
+                    class="form-input {% if form.name.errors %}is-invalid{% endif %}"
+                />
+                {% for error in form.name.errors %}
+                <small class="error-text" style="color: red;">{{ error }}</small>
+              {% endfor %}
+                </div>
+                <div class="form-cont__form-paragraph">
+                <label for="{{ form.quantity.id_for_label }}">Количество в упаковке:</label>
+                <input
+                    type="number"
+                    id="{{ form.quantity.id_for_label }}"
+                    name="{{ form.quantity.name }}"
+                    value="{{ form.quantity.value|default:1 }}"
+                    min="1"
+                    class="form-input {% if form.quantity.errors %}is-invalid{% endif %}"
+                />
+                {% for error in form.quantity.errors %}
+                <small class="error-text" style="color: red;">{{ error }}</small>
+              {% endfor %}
+                </div>
+            </div>
+            <div
+                class="form-cont__form-buttons form-cont__form-buttons--dir-column-row"
+            >
+                <button class="button button--blue" type="submit">
+                Сохранить
+                </button>
+                <a href="{% url 'product_detail' package.product.pk %}" class="button button--orange">
+                Отмена
+                </a>
+            </div>
+            </form>
+        </div>
+        </div>
+    </div>
+    </section>
+</main>
 {% endblock %}

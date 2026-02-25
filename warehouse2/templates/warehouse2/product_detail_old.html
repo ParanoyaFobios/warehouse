@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load main_tags %}
+{% load static %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2>{{ product.name }}</h2>
+            {% if product.image %}
+            <img src="{{ product.get_image_url }}" class="img-fluid mb-3" alt="{{ product.name }}">
+            {% endif %}
+            <table class="table table-sm table-striped">
+                <tbody>
+                    <tr><th>Артикул:</th><td>{{ product.sku }}</td></tr>
+                    <tr><th>Категория:</th><td>{{ product.category }}</td></tr>
+                    <tr><th>Цвет</th><td>{{ product.color }}</td></tr>
+                    <tr><th>Цена</th><td>{{ product.price }}</td></tr>
+                    {% if perms.can_view_product_quantity %}
+                    <tr><th>На складе:</th><td>{{ product.total_quantity }}</td></tr>
+                    <tr class="table-info"><th>Доступно:</th><td class="fw-bold">{{ product.available_quantity }}</td></tr>
+                    {% endif %}
+                    <tr><th>Зарезервировано:</th><td>{{ product.reserved_quantity }}</td></tr>
+                </tbody>
+            </table>
+            <a href="{% url 'product_edit' product.pk %}" class="btn btn-warning btn-sm">Редактировать товар</a>
+            {% if product.pk %}
+            <form action="{% url 'product_archive' product.pk %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                {% if product.is_archived %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-arrow-up-circle"></i> Восстановить из архива
+                    </button>
+                {% else %}
+                    <button type="submit" class="btn btn-warning" onclick="return confirm('Архивировать этот товар?')">
+                        <i class="bi bi-archive"></i> В архив
+                    </button>
+                {% endif %}
+            </form>
+            {% endif %}
+            <a href="{% url 'product_list' %}" class="btn btn-secondary btn-sm">К списку товаров</a>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header"><h5>Штрихкод (штучный)</h5></div>
+                <div class="card-body text-center">
+                    <a class="table__color-text" href="{% url 'barcode_display_page' content_type_id=product.get_content_type_id object_id=product.pk %}">
+                    <img src="{% url 'generate_barcode_image' content_type_id=product.get_content_type_id object_id=product.pk %}" alt="Штрихкод" class="img-fluid mb-2">
+                    <p class="mt-2 font-monospace">{{ product.barcode }}</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="row">
+        <div class="col-md-4">
+            <h4>Создать новую упаковку</h4>
+            
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Создать</button>
+            </form>
+        </div>
+
+        <div class="col-md-8">
+            <h4>Существующие упаковки</h4>
+            {% if packages %}
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Название/Описание</th>
+                            <th>Кол-во</th>
+                            <th>Штрихкод</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for package in packages %}
+                        <tr>
+                            <td>{{ package }}</a></td>
+                            <td>{{ package.quantity }} шт.</td>
+                            <td class="font-monospace"><a href="{% url 'barcode_display_page' content_type_id=package.get_content_type_id object_id=package.pk %}" alt="Штрихкод" class="img-fluid mb-2">{{ package.barcode }}</a></td>
+                            <td>
+                                <a href="{% url 'package_edit' package.pk %}" class="btn btn-sm btn-outline-primary">✏️</a>
+                                <a href="{% url 'package_delete' package.pk %}" class="btn btn-sm btn-outline-danger">🗑️</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="text-muted">Для этого товара еще не создано ни одной упаковки.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

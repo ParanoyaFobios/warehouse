@@ -2,98 +2,339 @@
 {% load main_tags %}
 {% load static %}
 {% block content %}
-<div class="container mt-4">
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <h2>{{ product.name }}</h2>
-            {% if product.image %}
-            <img src="{{ product.get_image_url }}" class="img-fluid mb-3" alt="{{ product.name }}">
-            {% endif %}
-            <table class="table table-sm table-striped">
-                <tbody>
-                    <tr><th>Артикул:</th><td>{{ product.sku }}</td></tr>
-                    <tr><th>Категория:</th><td>{{ product.category }}</td></tr>
-                    <tr><th>Цвет</th><td>{{ product.color }}</td></tr>
-                    <tr><th>Цена</th><td>{{ product.price }}</td></tr>
-                    {% if perms.can_view_product_quantity %}
-                    <tr><th>На складе:</th><td>{{ product.total_quantity }}</td></tr>
-                    <tr class="table-info"><th>Доступно:</th><td class="fw-bold">{{ product.available_quantity }}</td></tr>
-                    {% endif %}
-                    <tr><th>Зарезервировано:</th><td>{{ product.reserved_quantity }}</td></tr>
-                </tbody>
+<main class="main">
+  <section class="section products-subject container">
+    <div class="section__header">
+      <h1 class="section__header-title flex-center">{{ product.name }}</h1>
+      <a href="{% url 'product_edit' product.pk %}" class="section__header-button button button--blue">
+        Редактировать
+      </a>
+    </div>
+    <div class="section__other-buttons-cont">
+      <a
+        class="section__other-buttons-cont-button section__other-buttons-cont-button--orange"
+        href="javascript:history.back()"
+      >
+        <span class="content-size">
+          <svg
+            width="30"
+            height="30"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect width="30" height="30" rx="3" fill="#F28500" />
+            <path
+              d="M15.944 24C15.8073 24 15.6706 23.9554 15.5612 23.862L5.24216 15.511C5.08983 15.3892 5 15.1985 5 14.9997C5 14.8008 5.08983 14.6101 5.24216 14.4884L15.5612 6.13733C15.7487 5.98313 16.0065 5.95879 16.2213 6.06429C16.4361 6.17385 16.5728 6.40109 16.5728 6.64862V12.2972H20.5137C21.7245 12.2972 22.7986 12.7273 23.611 13.5389C24.3336 14.2612 24.814 15.2594 24.9546 16.3428C25.0991 17.4303 24.896 18.53 24.3843 19.4349C23.8102 20.4494 22.8923 21.1636 21.7284 21.5004C21.5019 21.5653 21.2597 21.4922 21.0996 21.3137C20.9395 21.1352 20.8926 20.8755 20.9746 20.6442C21.2519 19.8813 21.5058 18.8628 21.1543 18.3312C20.877 17.9132 20.1817 17.7022 19.0842 17.7022H16.5689V23.3467C16.5689 23.5942 16.4322 23.8215 16.2174 23.931C16.1314 23.9797 16.0377 24 15.944 24Z"
+              fill="white"
+            />
+          </svg>
+        </span>
+        <span>Назад</span>
+      </a>
+      <!-- дальше использовать одну из двух кнопок: -->
+      {% if product.pk %}
+      <form action="{% url 'product_archive' product.pk %}" method="post">
+        {% csrf_token %}
+        {% if product.is_archived %}
+      <button
+        class="section__other-buttons-cont-button section__other-buttons-cont-button--blue"
+        type="submit"
+      >
+        <span class="content-size">
+          <svg
+            width="30"
+            height="30"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect width="30" height="30" rx="3" fill="#00A6F2" />
+            <path d="M5 5V8.53625H14.6205L12.7802 5H5Z" fill="white" />
+            <path
+              d="M15.75 10.6172C12.3037 10.6172 9.5 13.4209 9.5 16.8672C9.5 20.3135 12.3037 23.1172 15.75 23.1172C19.1963 23.1172 22 20.3135 22 16.8672C22 13.4209 19.1963 10.6172 15.75 10.6172ZM19.1485 16.096C18.8511 16.4504 18.3225 16.496 17.9685 16.1999L16.5882 15.0425L16.5882 20.4869C16.5882 20.9494 16.2129 21.3247 15.7504 21.3247C15.288 21.3247 14.9126 20.9494 14.9126 20.4869L14.9126 15.0425L13.5323 16.1999C13.1775 16.4965 12.6493 16.4504 12.3523 16.096C12.0553 15.7412 12.1014 15.2129 12.4562 14.9155L15.2126 12.6049C15.2251 12.5944 15.2394 12.5869 15.2523 12.5772C15.2704 12.5638 15.2884 12.5508 15.3072 12.5391C15.3332 12.5228 15.36 12.5089 15.3877 12.4955C15.4069 12.4863 15.4254 12.4767 15.4455 12.4691C15.4765 12.457 15.5083 12.4478 15.5406 12.4398C15.5586 12.4352 15.5757 12.4294 15.5942 12.4256C15.6461 12.4159 15.6985 12.4097 15.7508 12.4097C15.8032 12.4097 15.8556 12.4155 15.9075 12.4256C15.9259 12.4289 15.9431 12.4348 15.9611 12.4398C15.9934 12.4482 16.0252 12.457 16.0562 12.4691C16.0763 12.4771 16.0948 12.4863 16.114 12.4955C16.1413 12.5089 16.1681 12.5228 16.1945 12.5391C16.2133 12.5513 16.2313 12.5638 16.2493 12.5772C16.2623 12.5869 16.2766 12.5944 16.2891 12.6049L19.0455 14.9155C19.4003 15.2129 19.446 15.7416 19.1485 16.096Z"
+              fill="white"
+            />
+            <path
+              d="M15.4233 9.53638H5V23.7341H26.5V9.53938H15.4462C15.4385 9.53938 15.431 9.53688 15.4233 9.53638ZM7.0625 18.1716C7.0625 18.4476 6.8385 18.6716 6.5625 18.6716C6.2865 18.6716 6.0625 18.4476 6.0625 18.1716V15.3449C6.0625 15.0689 6.2865 14.8449 6.5625 14.8449C6.8385 14.8449 7.0625 15.0689 7.0625 15.3449V18.1716ZM7.0625 13.5014C7.0625 13.7774 6.8385 14.0014 6.5625 14.0014C6.2865 14.0014 6.0625 13.7774 6.0625 13.5014V12.9689C6.0625 12.6929 6.2865 12.4689 6.5625 12.4689C6.8385 12.4689 7.0625 12.6929 7.0625 12.9689V13.5014ZM20.48 16.6369C20.48 19.2451 18.3582 21.3669 15.75 21.3669C13.1418 21.3669 11.02 19.2451 11.02 16.6369C11.02 14.0286 13.1418 11.9069 15.75 11.9069C18.3582 11.9069 20.48 14.0286 20.48 16.6369Z"
+              fill="white"
+            />
+          </svg>
+        </span>
+        <span>Восстановить</span>
+      </button>
+      {% else %}
+      <button
+        class="section__other-buttons-cont-button section__other-buttons-cont-button--blue"
+        type="submit"
+        onclick="return confirm('Архивировать этот товар?')"
+      >
+        <span class="content-size">
+          <svg
+            width="30"
+            height="30"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect width="30" height="30" rx="3" fill="#00A6F2" />
+            <path d="M5 5V8.53625H14.6205L12.7802 5H5Z" fill="white" />
+            <path
+              d="M15.75 23.1169C19.1963 23.1169 22 20.3132 22 16.8669C22 13.4206 19.1963 10.6169 15.75 10.6169C12.3037 10.6169 9.5 13.4206 9.5 16.8669C9.5 20.3132 12.3037 23.1169 15.75 23.1169ZM12.3515 17.6381C12.6489 17.2837 13.1775 17.2381 13.5315 17.5343L14.9118 18.6917V13.2472C14.9118 12.7848 15.2871 12.4094 15.7496 12.4094C16.212 12.4094 16.5874 12.7848 16.5874 13.2472V18.6917L17.9677 17.5343C18.3225 17.2377 18.8507 17.2837 19.1477 17.6381C19.4447 17.9929 19.3986 18.5212 19.0438 18.8186L16.2874 21.1293C16.2749 21.1397 16.2606 21.1473 16.2477 21.1569C16.2296 21.1703 16.2116 21.1833 16.1928 21.195C16.1668 21.2114 16.14 21.2252 16.1123 21.2386C16.0931 21.2478 16.0746 21.2574 16.0545 21.265C16.0235 21.2771 15.9917 21.2863 15.9594 21.2943C15.9414 21.2989 15.9243 21.3048 15.9058 21.3085C15.8539 21.3182 15.8015 21.3245 15.7492 21.3245C15.6968 21.3245 15.6444 21.3186 15.5925 21.3085C15.5741 21.3052 15.5569 21.2993 15.5389 21.2943C15.5066 21.2859 15.4748 21.2771 15.4438 21.265C15.4237 21.257 15.4052 21.2478 15.386 21.2386C15.3587 21.2252 15.3319 21.2114 15.3055 21.195C15.2867 21.1829 15.2687 21.1703 15.2507 21.1569C15.2377 21.1473 15.2234 21.1397 15.2109 21.1293L12.4545 18.8186C12.0997 18.5212 12.054 17.9925 12.3515 17.6381Z"
+              fill="white"
+            />
+            <path
+              d="M15.4233 9.53614H5V23.7339H26.5V9.53914H15.4462C15.4385 9.53914 15.431 9.53664 15.4233 9.53614ZM7.0625 18.1714C7.0625 18.4474 6.8385 18.6714 6.5625 18.6714C6.2865 18.6714 6.0625 18.4474 6.0625 18.1714V15.3446C6.0625 15.0686 6.2865 14.8446 6.5625 14.8446C6.8385 14.8446 7.0625 15.0686 7.0625 15.3446V18.1714ZM7.0625 13.5011C7.0625 13.7771 6.8385 14.0011 6.5625 14.0011C6.2865 14.0011 6.0625 13.7771 6.0625 13.5011V12.9686C6.0625 12.6926 6.2865 12.4686 6.5625 12.4686C6.8385 12.4686 7.0625 12.6926 7.0625 12.9686V13.5011ZM20.48 16.6366C20.48 19.2449 18.3582 21.3666 15.75 21.3666C13.1418 21.3666 11.02 19.2449 11.02 16.6366C11.02 14.0284 13.1418 11.9066 15.75 11.9066C18.3582 11.9066 20.48 14.0284 20.48 16.6366Z"
+              fill="white"
+            />
+          </svg>
+        </span>
+        <span>В архив</span>
+      </button>
+      {% endif %}
+      </form>
+      {% endif %}
+    </div>
+    <div class="subject-card">
+      {% if product.image %}
+      <div class="subject-card__pictures-cont flex-center">
+        <img
+          class="subject-card__image"
+          src="{{ product.get_image_url }}"
+          height="328"
+          loading="lazy"
+          alt="{{ product.name }}"
+        />
+        <a class="subject-card__barcode-link" href="{% url 'barcode_display_page' content_type_id=product.get_content_type_id object_id=product.pk %}">
+          <img
+            class="subject-card__barcode-image"
+            src="{% url 'generate_barcode_image' content_type_id=product.get_content_type_id object_id=product.pk %}"
+            height="228"
+            loading="lazy"
+            alt="Штрихкод (штучный)"
+          />
+        </a>
+      </div>
+      {% endif %}
+      <div class="table-card-second">
+        <table class="table-second">
+          <tr>
+            <th>Артикул</th>
+            <td>{{ product.sku }}</td>
+          </tr>
+          <tr>
+            <th>Категории</th>
+            <td>{{ product.category }}</td>
+          </tr>
+          <tr>
+            <th>Цена</th>
+            <td>{{ product.price }}</td>
+          </tr>
+          {% if perms.can_view_product_quantity %}
+          <tr>
+            <th>На складе</th>
+            <td>{{ product.total_quantity }}</td>
+          </tr>
+          <tr>
+            <th>Доступно</th>
+            <td>{{ product.available_quantity }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <th>В резерве</th>
+            <td>{{ product.reserved_quantity }}</td>
+          </tr>
+          {% if product.color %}
+          <tr>
+            <th>Цвет</th>
+            <td>{{ product.color }}</td>
+          </tr>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+    <div class="form-cont">
+      <div class="cont__header">
+        <h2 class="cont__title">Новая упаковка +</h2>
+      </div>
+
+      <form class="form-cont__form" method="post">
+        {% csrf_token %}
+        {% if form.errors %}
+          <div class="errors-summary" style="color: red; margin-bottom: 10px;">
+            Пожалуйста, проверьте правильность заполнения полей.
+          </div>
+        {% endif %}
+        <div class="form-cont__form-paragraphs-cont">
+          <div class="form-cont__form-paragraph">
+            <label for="{{ form.name.id_for_label }}">Название упаковки:</label>
+            <input
+              type="text"
+              name="{{ form.name.html_name }}" 
+              id="{{ form.name.id_for_label }}"
+              value="{{ form.name.value|default_if_none:'' }}"
+              placeholder="Например, Кулек"
+              class="form-input {% if form.name.errors %}is-invalid{% endif %}"
+            />
+            {% for error in form.name.errors %}
+              <small class="error-text" style="color: red;">{{ error }}</small>
+            {% endfor %}
+          </div>
+          <div class="form-cont__form-paragraph">
+            <label for="{{ form.quantity.id_for_label }}">Количество в упаковке:</label>
+            <input
+              type="number"
+              id="{{ form.quantity.id_for_label }}"
+              name="{{ form.quantity.name }}"
+              value="{{ form.quantity.value|default:1 }}"
+              min="1"
+              class="form-input {% if form.quantity.errors %}is-invalid{% endif %}"
+            />
+            {% for error in form.quantity.errors %}
+              <small class="error-text" style="color: red;">{{ error }}</small>
+            {% endfor %}
+          </div>
+        </div>
+        <button class="button button--orange" type="submit">
+          Создать упаковку +
+        </button>
+      </form>
+    </div>
+    {% if packages %}
+    <div class="tables-cont tables-cont--second-type">
+      <div class="cont__header cont__header--with-border-top">
+        <h2 class="cont__title">Существующие упаковки</h2>
+      </div>
+      <ul class="cont__list">
+        {% for package in packages %}
+        <li class="cont__item">
+          <article class="table-card-first">
+            <table class="table-first">
+              <tr class="table__row">
+                <th>Название упаковки</th>
+                <td class="table__row--color">{{ package.name }}</td>
+              </tr>
+              <tr class="table__row">
+                <th>Количество в упаковке</th>
+                <td>{{ package.quantity }} шт</td>
+              </tr>
+              <tr class="table__row">
+                <td>
+                  <a class="table__color-text" href="{% url 'barcode_display_page' content_type_id=package.get_content_type_id object_id=package.pk %}">
+                    <span class="content-size">
+                      <svg
+                        width="30"
+                        height="30"
+                        viewBox="0 0 30 30"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <rect
+                          width="30"
+                          height="30"
+                          rx="3"
+                          fill="#00A6F2"
+                          fill-opacity="0.6"
+                        />
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M27 15.116V20.567C27 20.9431 26.6868 21.2484 26.301 21.2484H15.8808C15.495 21.2484 15.1818 20.9431 15.1818 20.567V15.116C15.1818 14.7399 15.495 14.4346 15.8808 14.4346H26.301C26.6868 14.4346 27 14.7399 27 15.116ZM18.5346 15.6417C18.5346 15.5992 18.5173 15.5585 18.4865 15.5285C18.4558 15.4985 18.414 15.4816 18.3705 15.4816H17.6635C17.62 15.4816 17.5782 15.4985 17.5474 15.5285C17.5166 15.5585 17.4993 15.5992 17.4993 15.6417V20.0413C17.4993 20.0838 17.5166 20.1245 17.5474 20.1545C17.5782 20.1845 17.62 20.2014 17.6635 20.2014H18.3705C18.414 20.2014 18.4558 20.1845 18.4865 20.1545C18.5173 20.1245 18.5346 20.0838 18.5346 20.0413V15.6417ZM21.2586 15.7797V19.9033C21.2586 20.0678 21.4154 20.2014 21.6086 20.2014C21.8017 20.2014 21.9586 20.0678 21.9586 19.9033V15.7797C21.9586 15.6152 21.8017 15.4816 21.6086 15.4816C21.4154 15.4816 21.2586 15.6152 21.2586 15.7797ZM22.5279 15.7797V19.9033C22.5279 20.0678 22.6847 20.2014 22.8779 20.2014C23.0711 20.2014 23.2279 20.0678 23.2279 19.9033V15.7797C23.2279 15.6152 23.0711 15.4816 22.8779 15.4816C22.6847 15.4816 22.5279 15.6152 22.5279 15.7797ZM24.6825 15.6417C24.6825 15.5992 24.6652 15.5585 24.6344 15.5285C24.6037 15.4985 24.5619 15.4816 24.5184 15.4816H23.8114C23.7679 15.4816 23.7261 15.4985 23.6953 15.5285C23.6645 15.5585 23.6472 15.5992 23.6472 15.6417V20.0413C23.6472 20.0838 23.6645 20.1245 23.6953 20.1545C23.7261 20.1845 23.7679 20.2014 23.8114 20.2014H24.5184C24.5619 20.2014 24.6037 20.1845 24.6344 20.1545C24.6652 20.1245 24.6825 20.0838 24.6825 20.0413V15.6417ZM25.3518 15.7797V19.9033C25.3518 20.0678 25.5087 20.2014 25.7018 20.2014C25.895 20.2014 26.0518 20.0678 26.0518 19.9033V15.7797C26.0518 15.6152 25.895 15.4816 25.7018 15.4816C25.5087 15.4816 25.3518 15.6152 25.3518 15.7797ZM20.5892 15.6417C20.5892 15.5992 20.5719 15.5585 20.5412 15.5285C20.5104 15.4985 20.4686 15.4816 20.4251 15.4816H19.7181C19.6746 15.4816 19.6328 15.4985 19.602 15.5285C19.5713 15.5585 19.554 15.5992 19.554 15.6417V20.0413C19.554 20.0838 19.5713 20.1245 19.602 20.1545C19.6328 20.1845 19.6746 20.2014 19.7181 20.2014H20.4251C20.4686 20.2014 20.5104 20.1845 20.5412 20.1545C20.5719 20.1245 20.5892 20.0838 20.5892 20.0413V15.6417ZM16.13 15.7797V19.9033C16.13 20.0678 16.2868 20.2014 16.48 20.2014C16.6732 20.2014 16.83 20.0678 16.83 19.9033V15.7797C16.83 15.6152 16.6732 15.4816 16.48 15.4816C16.2868 15.4816 16.13 15.6152 16.13 15.7797ZM13.0796 15.1709L13.6276 15.2709C13.85 15.3115 13.9969 15.5205 13.9552 15.7374L13.531 17.9466C13.4894 18.1635 13.2749 18.3067 13.0524 18.2661L12.4904 18.1635C12.6638 17.2827 12.8968 16.0997 13.0796 15.1709ZM12.6844 13.558L11.552 19.3096C11.4705 19.9519 11.6674 20.5983 12.0953 21.0932C12.332 21.3669 13.0172 21.5909 13.5823 21.7365C14.0738 21.8627 14.4162 22.296 14.4162 22.7915C14.4169 23.0092 14.4169 23.237 14.4169 23.4355C14.4169 23.7472 14.1576 24 13.8378 24H6.80621C6.64096 24 6.48351 23.9311 6.37361 23.8108C6.26376 23.6905 6.21186 23.5301 6.23101 23.37L7.40571 13.558H12.6844ZM16.2726 12.8757H5.26861C4.40921 12.8757 3.62361 12.4023 3.23941 11.653C2.85516 10.9037 2.93826 10.0071 3.45406 9.33708L4.79661 7.59299C5.56861 6.59014 6.77981 6 8.06601 6H16.2726V12.8757ZM19.221 6.8468V12.0289C19.221 12.2534 19.1294 12.4689 18.9665 12.6277C18.8036 12.7865 18.5826 12.8757 18.3523 12.8757H16.9726V6H18.3523C18.5826 6 18.8036 6.08924 18.9665 6.24803C19.1294 6.40683 19.221 6.62221 19.221 6.8468Z"
+                          fill="white"
+                        />
+                      </svg>
+                    </span>
+                    <span>{{ package.barcode }}</span>
+                  </a>
+                </td>
+              </tr>
+              <tr class="table__row">
+                <td
+                  class="table__td-buttons-cont table__td-buttons-cont--alt"
+                >
+                  <a href="{% url 'package_edit' package.pk %}"
+                    title="Редактировать"
+                    class="table__button-with-icon content-size"
+                    type="button"
+                  >
+                    <svg
+                      width="30"
+                      height="30"
+                      viewBox="0 0 30 30"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <rect
+                        width="30"
+                        height="30"
+                        rx="3"
+                        fill="#00A6F2"
+                        fill-opacity="0.6"
+                      />
+                      <path
+                        d="M23.5764 8.71494L20.3481 5.48667C20.0326 5.17111 19.5225 5.17111 19.2069 5.48667L16.7857 7.90787L21.1552 12.2773L23.5764 9.85613C23.892 9.54057 23.892 9.0305 23.5764 8.71494ZM7.10093 17.5927C7.01296 17.6806 6.94598 17.7888 6.90643 17.9082L6.83137 18.131L10.0927 21.3915C10.0927 21.3915 9.28566 22.1986 8.4794 21.3923L6.42784 19.3416L5.29149 22.7506C5.19464 23.0404 5.27051 23.3608 5.48599 23.5763C5.64014 23.7296 5.84675 23.8127 6.0574 23.8127C6.14214 23.8127 6.2293 23.799 6.31243 23.7708L11.1548 22.1566C11.2735 22.1171 11.3816 22.0501 11.4704 21.9621L20.3481 13.0844L15.9787 8.71494L7.10093 17.5927Z"
+                        fill="white"
+                      />
+                    </svg>
+                  </a>
+                  <form action="{% url 'package_delete' package.pk %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                  <button href="{% url 'package_delete' package.pk %}"
+                    onclick="return confirm('Вы уверены, что хотите удалить упаковку на {{ package.quantity }} шт.?')"
+                    title="Удалить"
+                    class="table__button-with-icon content-size"
+                    type="submit"
+                  >
+                    <svg
+                      width="30"
+                      height="30"
+                      viewBox="0 0 30 30"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <rect
+                        width="30"
+                        height="30"
+                        rx="3"
+                        fill="#F28500"
+                        fill-opacity="0.6"
+                      />
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M24 7.75C24.414 7.75 24.75 8.086 24.75 8.5C24.75 8.914 24.414 9.25 24 9.25H6C5.586 9.25 5.25 8.914 5.25 8.5C5.25 8.086 5.586 7.75 6 7.75H24Z"
+                        fill="white"
+                      />
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M19.636 6.245L20.221 8.294C20.286 8.52 20.24 8.764 20.099 8.952C19.957 9.14 19.735 9.25 19.5 9.25H10.5C10.265 9.25 10.043 9.14 9.90096 8.952C9.75996 8.764 9.71396 8.52 9.77896 8.294L10.364 6.245C10.702 5.064 11.781 4.25 13.009 4.25H16.991C18.219 4.25 19.298 5.064 19.636 6.245ZM18.193 6.657C18.04 6.12 17.55 5.75 16.991 5.75H13.009C12.45 5.75 11.96 6.12 11.807 6.657L11.494 7.75H18.506L18.193 6.657Z"
+                        fill="white"
+                      />
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M23.145 10.25L22.363 23.166C22.275 24.618 21.072 25.75 19.618 25.75H10.382C8.92798 25.75 7.72498 24.618 7.63698 23.166L6.85498 10.25H23.145ZM12.246 20.91L11.549 13.941C11.508 13.529 11.14 13.228 10.728 13.269C10.316 13.31 10.015 13.678 10.056 14.09L10.754 21.059C10.795 21.471 11.163 21.772 11.575 21.731C11.987 21.69 12.287 21.322 12.246 20.91ZM19.246 21.059L19.944 14.09C19.985 13.678 19.684 13.31 19.272 13.269C18.86 13.228 18.492 13.529 18.451 13.941L17.754 20.91C17.713 21.322 18.013 21.69 18.425 21.731C18.837 21.772 19.205 21.471 19.246 21.059ZM14.25 14V21C14.25 21.414 14.586 21.75 15 21.75C15.414 21.75 15.75 21.414 15.75 21V14C15.75 13.586 15.414 13.25 15 13.25C14.586 13.25 14.25 13.586 14.25 14Z"
+                        fill="white"
+                      />
+                    </svg>
+                  </button>
+                  </form>
+                </td>
+              </tr>
             </table>
-            <a href="{% url 'product_edit' product.pk %}" class="btn btn-warning btn-sm">Редактировать товар</a>
-            {% if product.pk %}
-            <form action="{% url 'product_archive' product.pk %}" method="post" style="display:inline;">
-                {% csrf_token %}
-                {% if product.is_archived %}
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-arrow-up-circle"></i> Восстановить из архива
-                    </button>
-                {% else %}
-                    <button type="submit" class="btn btn-warning" onclick="return confirm('Архивировать этот товар?')">
-                        <i class="bi bi-archive"></i> В архив
-                    </button>
-                {% endif %}
-            </form>
-            {% endif %}
-            <a href="{% url 'product_list' %}" class="btn btn-secondary btn-sm">К списку товаров</a>
-        </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header"><h5>Штрихкод (штучный)</h5></div>
-                <div class="card-body text-center">
-                    <a class="table__color-text" href="{% url 'barcode_display_page' content_type_id=product.get_content_type_id object_id=product.pk %}">
-                    <img src="{% url 'generate_barcode_image' content_type_id=product.get_content_type_id object_id=product.pk %}" alt="Штрихкод" class="img-fluid mb-2">
-                    <p class="mt-2 font-monospace">{{ product.barcode }}</p>
-                    </a>
-                </div>
-            </div>
-        </div>
+          </article>
+        </li>
+        {% endfor %}
+      </ul>
     </div>
-
-    <hr>
-
-    <div class="row">
-        <div class="col-md-4">
-            <h4>Создать новую упаковку</h4>
-            <form method="post">
-                {% csrf_token %}
-                {{ form.as_p }}
-                <button type="submit" class="btn btn-primary">Создать</button>
-            </form>
-        </div>
-
-        <div class="col-md-8">
-            <h4>Существующие упаковки</h4>
-            {% if packages %}
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Название/Описание</th>
-                            <th>Кол-во</th>
-                            <th>Штрихкод</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for package in packages %}
-                        <tr>
-                            <td>{{ package }}</a></td>
-                            <td>{{ package.quantity }} шт.</td>
-                            <td class="font-monospace"><a href="{% url 'barcode_display_page' content_type_id=package.get_content_type_id object_id=package.pk %}" alt="Штрихкод" class="img-fluid mb-2">{{ package.barcode }}</a></td>
-                            <td>
-                                <a href="{% url 'package_edit' package.pk %}" class="btn btn-sm btn-outline-primary">✏️</a>
-                                <a href="{% url 'package_delete' package.pk %}" class="btn btn-sm btn-outline-danger">🗑️</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text-muted">Для этого товара еще не создано ни одной упаковки.</p>
-            {% endif %}
-        </div>
+    {% else %}
+    <div class="tables-cont tables-cont--second-type">
+      <div class="cont__header cont__header--with-border-top">
+        <h2 class="cont__title">Упаковок нет</h2>
+      </div>
     </div>
-</div>
+    {% endif %}
+      </section>
+</main>
 {% endblock %}
