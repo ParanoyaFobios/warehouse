@@ -1,7 +1,7 @@
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from .models import Product, Shipment, ShipmentItem, Package, ProductCategory, ProductOperation
 from reports.models import ShipmentAuditLog
 from .forms import ProductForm, ShipmentForm, ShipmentItemForm, PackageForm, ProductIncomingForm
@@ -16,7 +16,6 @@ from django.db import transaction
 from django.conf import settings
 from django.template.loader import render_to_string
 from weasyprint import HTML
-import tempfile
 
 # ==============================================================================
 # Продукция
@@ -66,18 +65,23 @@ class ProductCreateView(CreateView):
     success_url = reverse_lazy('product_list')
 
     def form_valid(self, form):
-        messages.success(self.request, 'Продукт успешно создан')
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, f'Продукт "{self.object.name}" успешно создан')
+        return response
 
 class ProductUpdateView(UpdateView):
     model = Product
     form_class = ProductForm
     template_name = 'warehouse2/product_form.html'
-    success_url = reverse_lazy('product_list')
+
+    def get_success_url(self):
+        # Перенаправляем именно в детали обновленного продукта
+        return reverse('product_detail', kwargs={'pk': self.object.pk})
 
     def form_valid(self, form):
-        messages.success(self.request, 'Продукт успешно обновлен')
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, f'Продукт "{self.object.name}" успешно обновлен')
+        return response
 
 class ProductDetailView(FormMixin, DetailView):
     model = Product

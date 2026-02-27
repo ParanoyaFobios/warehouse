@@ -1,32 +1,49 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 <main class="main">
   <section class="section editing-product container">
     <div class="section__header">
+      {% if object %}
       <h1 class="section__header-title flex-center">
-        Подушка эконом 50 х 70
+        {{ object.name }}
       </h1>
-      <a href="#" class="section__header-button button button--orange">
+      <a href="#" class="section__header-button button button--orange" onclick="history.back()">
         Назад
       </a>
+      {% else %}
+      <a href="{% url 'product_list' %}" class="section__header-button button button--orange">
+        Назад
+      </a>
+      {% endif %}
     </div>
-    <form class="editing-card__form-wrapper" action="">
+
+    <form class="editing-card__form-wrapper" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
       <div class="editing-card">
         <div class="cont__header">
-          <h2 class="cont__title">Редактирование продукта</h2>
+          <h2 class="cont__title">{% if object %}Редактирование{% else %}Создание{% endif %} продукта</h2>
         </div>
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
         <div class="editing-card__body">
           <div
             class="editing-card__img-and-btn editing-card__img-and-btn--alt"
           >
             <img
               class="editing-card__image"
-              src="./media/images/image-frame.jpg"
+              src="{% if object.image %}{{ object.image.url }}{% else %}{% static 'images/no-image.jpg' %}{% endif %}"
               height="298"
               loading="lazy"
-              alt="cotton"
+              alt="{{ object.name }}"
             />
-            <button class="width100 button button--orange" type="button">
+            <div style="display: none;">
+              <input type="file" name="{{ form.image.html_name }}" id="real-file-input" accept="image/*">
+            </div>
+            <button class="width100 button button--orange" type="button" onclick="document.getElementById('real-file-input').click()">
               Загрузить картинку
               <span class="content-size">
                 <svg
@@ -62,31 +79,31 @@
             <div class="table-card-third">
               <table class="table-third table-third--alt">
                 <tr>
-                  <th><label for="article">Артикул</label></th>
+                  <th><label for="{{ form.sku.id_for_label }}">Артикул</label></th>
                   <td>
                     <input
                       type="text"
-                      id="article"
-                      name="article"
-                      value="cttn-a2"
+                      name="{{ form.sku.html_name }}"
+                      id="{{ form.sku.id_for_label }}"
+                      value="{{ form.sku.value|default_if_none:'' }}"
                       class="form-input"
                     />
                   </td>
                 </tr>
                 <tr>
-                  <th><label for="name">Название</label></th>
+                  <th><label for="{{ form.name.id_for_label }}">Название</label></th>
                   <td>
                     <input
                       type="text"
-                      id="name"
-                      name="name"
-                      value="Подушка эконом 50 х 70"
+                      name="{{ form.name.html_name }}"
+                      id="{{ form.name.id_for_label }}" 
+                      value="{{ form.name.value|default_if_none:'' }}"
                       class="form-input"
                     />
                   </td>
                 </tr>
                 <tr>
-                  <th><label for="category">Категория</label></th>
+                  <th><label for="{{ form.category.id_for_label }}">Категория</label></th>
                   <td>
                     <div class="custom-dropdown-wrapper" data-dropdown>
                       <button
@@ -97,7 +114,13 @@
                         aria-expanded="false"
                       >
                         <span class="selected-product" data-dropdown-value>
-                          Подушки
+                        {% if form.category.value %}
+                          {% for val, label in form.category.field.choices %}
+                            {% if val|stringformat:"s" == form.category.value|stringformat:"s" %}{{ label }}{% endif %}
+                          {% endfor %}
+                        {% else %}
+                          Выбрать категорию
+                        {% endif %}
                         </span>
                       </button>
 
@@ -105,63 +128,52 @@
                         class="select-list"
                         data-dropdown-list
                         role="listbox"
-                        tabindex="-1"
+                        
                       >
+                      {% for val, label in form.category.field.choices %}
                         <li
                           class="select-item"
                           role="option"
-                          data-value="pillows"
+                          data-value="{{ val }}"
                         >
-                          Подушки
+                          {{ label }}
                         </li>
-                        <li
-                          class="select-item"
-                          role="option"
-                          data-value="blankets"
-                        >
-                          Одеяла
-                        </li>
-                        <li
-                          class="select-item"
-                          role="option"
-                          data-value="mattresses"
-                        >
-                          Матрасы
-                        </li>
+                      {% endfor %}
                       </ul>
 
                       <input
                         type="hidden"
-                        id="category"
-                        name="category"
-                        value="pillows"
+                        name="{{ form.category.html_name }}"
+                        id="{{ form.category.id_for_label }}"
+                        value="{{ form.category.value|default_if_none:'' }}"
                         class="dropdown-hidden-input"
                       />
                     </div>
                   </td>
                 </tr>
                 <tr>
-                  <th><label for="color">Цвет</label></th>
+                  <th><label for="{{ form.color.id_for_label }}">Цвет</label></th>
                   <td>
                     <input
                       type="text"
-                      id="color"
-                      name="color"
-                      value="Звезды"
+                      name="{{ form.color.html_name }}"
+                      id="{{ form.color.id_for_label }}" 
+                      value="{{ form.color.value|default_if_none:'' }}"
                       class="form-input"
                     />
                   </td>
                 </tr>
                 <tr>
                   <th>
-                    <label for="quantity">Цена</label>
+                    <label for="{{ form.price.id_for_label }}">Цена</label>
                   </th>
                   <td>
                     <input
                       type="number"
-                      id="quantity"
-                      name="quantity"
-                      value="100"
+                      step="1"
+                      name="{{ form.price.html_name }}"
+                      id="{{ form.price.id_for_label }}" 
+                      value="{{ form.price.value|stringformat:'.2f'|default:'0.00' }}"
                       min="0"
                       class="form-input"
                     />
@@ -174,9 +186,10 @@
       </div>
       <div class="editing-card__form-buttons">
         <button class="button button--blue" type="submit">Сохранить</button>
-        <button class="button button--orange" type="button">Отмена</button>
+        <a href="{% url 'product_list' %}" class="button button--orange" type="button">Отмена</a>
       </div>
     </form>
+
   </section>
 </main>
 {% endblock %}
