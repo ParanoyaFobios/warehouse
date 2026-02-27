@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>Переучет №{{ inventory_count.id }}</h2>
+
+        {% if inventory_count.status == 'in_progress' and items %}
+        <form action="{% url 'count_complete' inventory_count.pk %}" method="post" onsubmit="return confirm('Вы уверены? После этого редактирование будет невозможно.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning">Завершить переучет</button>
+        </form>
+        {% endif %}
+    </div>
+    <p>Статус: <span class="badge bg-{% if inventory_count.status == 'in_progress' %}warning{% else %}success{% endif %}">{{ inventory_count.get_status_display }}</span></p>
+    <hr>
+    
+    <div class="row">
+        {% if inventory_count.status == 'in_progress' %}
+        <div class="col-lg-5">
+            <div class="card sticky-top" style="top: 20px; z-index: 100;">
+                <div class="card-header"><h4>Добавить/Найти позицию</h4></div>
+                <div class="card-body">
+                    <form method="post" id="add-item-form">
+                        {% csrf_token %}
+                        {{ form.item_identifier }}
+                        <div class="mb-3 position-relative">
+                            <label class="form-label">Поиск</label>
+                            <div class="input-group">
+                                <input type="text" id="stock-search-input" class="form-control" placeholder="Название, артикул, штрихкод..." autocomplete="off">
+                                <button id="scan-btn" style="min-width: 50px" class="btn btn-outline-secondary" type="button" title="Сканировать">📸</button>
+                            </div>
+                            <div id="search-results" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+                        </div>
+                        <div class="mb-3">
+                            {{ form.quantity.label_tag }}
+                            {{ form.quantity }}
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Добавить / Обновить</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="{% if inventory_count.status == 'in_progress' %}col-lg-7{% else %}col-lg-12{% endif %} mt-4 mt-lg-0">
+            <h4>Внесенные позиции ({{ items.count }})</h4>
+            {% for item in items %}
+            <div class="card mb-2">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <strong>{{ item.content_object.name }}</strong>
+                            {% if perms.inventarization.can_reconcile_inventory %}
+                            <br><small class="text-muted">Система: {{ item.system_quantity }} | Расхождение: <span class="fw-bold {% if item.variance > 0 %}text-success{% elif item.variance < 0 %}text-danger{% endif %}">{% if item.variance > 0 %}+{% endif %}{{ item.variance }}</span></small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-5 text-end">
+                            {% if inventory_count.status == 'in_progress' %}
+                            <div class="d-flex gap-2 align-items-center justify-content-end">
+                                <form action="{% url 'item_update' item.pk %}" method="post" class="d-flex gap-2">
+                                    {% csrf_token %}
+                                    {{ item.update_form.quantity }}
+                                </form>
+                                <form action="{% url 'item_delete' item.pk %}" method="post">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">×</button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <p class="mb-0"><strong>Факт: {{ item.actual_quantity }}</strong></p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted">Еще не добавлено ни одной позиции.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+<div id="scanner-container" style="display: none;">
+    <div class="scanner-content">
+        <video id="inventory-video-stream"></video>
+        <div class="scanner-laser"></div> <div id="scanner-status" class="small text-white text-center mt-2">Наведите на штрихкод</div>
+        <button id="close-scanner-btn" class="btn btn-danger btn-sm w-100 mt-3"  onclick="stopLocalScanner()">⏹ Остановить</button>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('stock-search-input');
+    const searchResults = document.getElementById('search-results');
+    const mainForm = document.getElementById('add-item-form');
+    const identifierInput = document.getElementById('id_item_identifier');
+    const quantityInput = document.getElementById('id_quantity');
+    const scanButton = document.getElementById('scan-btn');
+    const inventoryCountId = "{{ inventory_count.id }}";
+    
+    const scannerContainer = document.getElementById('scanner-container');
+    const videoElement = document.getElementById('inventory-video-stream');
+    const closeScannerBtn = document.getElementById('close-scanner-btn');
+    const scannerStatus = document.getElementById('scanner-status');
+
+    let codeReader = null;
+    let overlay = null;
+    // Подгружаем звук как в рабочем скрипте
+    const beepSound = new Audio("{% static 'sounds/bip.mp3' %}");
+
+    function performManualSearch(query) {
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+        const fetchUrl = `{% url 'inventory_stock_search' %}?q=${encodeURIComponent(query)}&inventory_count_id=${inventoryCountId}`;
+        
+        fetch(fetchUrl)
+            .then(r => r.json())
+            .then(data => {
+                searchResults.innerHTML = '';
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(item => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'list-group-item list-group-item-action';
+                        btn.innerHTML = `<strong>${item.name}</strong><br><small class="text-muted">${item.info}</small>`;
+                        btn.onclick = () => {
+                            identifierInput.value = item.id;
+                            searchInput.value = item.name;
+                            quantityInput.value = item.counted_quantity;
+                            searchResults.style.display = 'none';
+                            quantityInput.focus();
+                        };
+                        searchResults.appendChild(btn);
+                    });
+                    searchResults.style.display = 'block';
+                }
+            });
+    }
+
+    searchInput.addEventListener('input', () => performManualSearch(searchInput.value.trim()));
+
+    function processScannedBarcode(barcode) {
+        scannerStatus.textContent = "Поиск товара...";
+        const fetchUrl = `{% url 'inventory_stock_search' %}?q=${encodeURIComponent(barcode)}&inventory_count_id=${inventoryCountId}`;
+        
+        fetch(fetchUrl)
+            .then(r => r.json())
+            .then(data => {
+                if (data.results && data.results.length > 0) {
+                    const found = data.results[0];
+                    identifierInput.value = found.id;
+                    searchInput.value = found.name;
+                    quantityInput.value = found.counted_quantity;
+                    stopScanner(); // Закрываем камеру при успехе
+                    quantityInput.focus();
+                } else {
+                    alert("Товар не найден!");
+                    stopScanner();
+                }
+            });
+    }
+
+    function startScanner() {
+        if (typeof ZXing === 'undefined') return alert("Ошибка: ZXing не загружен");
+        
+        beepSound.load();
+        scannerContainer.style.display = 'flex';
+        
+        // Создаем ридер, если он еще не создан
+        if (!codeReader) {
+            codeReader = new ZXing.BrowserMultiFormatReader();
+        }
+
+        // Продвинутые настройки для запуска именно задней камеры
+        const constraints = {
+            video: {
+                facingMode: { exact: "environment" }, // Принудительно задняя камера
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
+
+        // Сначала пробуем запустить с идеальными настройками (задняя камера)
+        codeReader.decodeFromConstraints(constraints, videoElement, (result, error) => {
+            if (result) {
+                beepSound.play().catch(() => {});
+                processScannedBarcode(result.text);
+            }
+            if (error && !(error instanceof ZXing.NotFoundException)) {
+                console.error("Ошибка сканера:", error);
+            }
+        })
+        .catch(err => {
+            // Если "facingMode: environment" не сработал (например, на ПК нет задней камеры), 
+            // запускаем дефолтный поток
+            console.warn("Не удалось запустить заднюю камеру, пробуем любую:", err);
+            codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
+                if (result) {
+                    beepSound.play().catch(() => {});
+                    processScannedBarcode(result.text);
+                }
+            });
+        });
+    }
+
+    function stopScanner() {
+        if (codeReader) {
+            codeReader.reset();
+            codeReader = null;
+        }
+        scannerContainer.style.display = 'none';
+    }
+
+    scanButton.addEventListener('click', startScanner);
+    closeScannerBtn.addEventListener('click', stopScanner);
+
+    // Скрытие поиска при клике вне поля
+    document.addEventListener('click', (e) => {
+        if (!searchResults.contains(e.target) && e.target !== searchInput) {
+            searchResults.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,160 +1,192 @@
 {% extends "base.html" %}
 {% load static %}
+{% load main_tags %}
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center">
-        <h2>Переучет №{{ inventory_count.id }}</h2>
+<main class="main">
+    <section class="section recount-addition container">
+        <div class="section__header">
+            <h1 class="section__header-title section__header-title--double flex-center">
+                <span class="section__header-title-not-dedicated-block">
+                    Переучет №{{ inventory_count.id }}
+                </span>
+                <span class="section__header-title-dedicated-block">
+                    Статус - <span>{{ inventory_count.get_status_display }}</span>
+                </span>
+            </h1>
+            
+            {% if inventory_count.status == 'in_progress' and items %}
+            <form action="{% url 'count_complete' inventory_count.pk %}" method="post" onsubmit="return confirm('Вы уверены? После этого редактирование будет невозможно.');">
+                {% csrf_token %}
+                <button type="submit" class="section__header-button button button--orange">
+                    Завершить переучет
+                </button>
+            </form>
+            {% endif %}
+        </div>
 
-        {% if inventory_count.status == 'in_progress' and items %}
-        <form action="{% url 'count_complete' inventory_count.pk %}" method="post" onsubmit="return confirm('Вы уверены? После этого редактирование будет невозможно.');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-warning">Завершить переучет</button>
-        </form>
-        {% endif %}
-    </div>
-    <p>Статус: <span class="badge bg-{% if inventory_count.status == 'in_progress' %}warning{% else %}success{% endif %}">{{ inventory_count.get_status_display }}</span></p>
-    <hr>
-    
-    <div class="row">
-        {% if inventory_count.status == 'in_progress' %}
-        <div class="col-lg-5">
-            <div class="card sticky-top" style="top: 20px; z-index: 100;">
-                <div class="card-header"><h4>Добавить/Найти позицию</h4></div>
-                <div class="card-body">
-                    <form method="post" id="add-item-form">
-                        {% csrf_token %}
-                        {{ form.item_identifier }}
-                        <div class="mb-3 position-relative">
-                            <label class="form-label">Поиск</label>
-                            <div class="input-group">
-                                <input type="text" id="stock-search-input" class="form-control" placeholder="Название, артикул, штрихкод..." autocomplete="off">
-                                <button id="scan-btn" style="min-width: 50px" class="btn btn-outline-secondary" type="button" title="Сканировать">📸</button>
-                            </div>
-                            <div id="search-results" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+        <div class="narrow-wrapper">
+            <div class="section__other-buttons-cont">
+                <a class="section__other-buttons-cont-button section__other-buttons-cont-button--orange" href="{% url 'count_list' %}">
+                    <span class="content-size">
+                        <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="30" height="30" rx="3" fill="#F28500" />
+                            <path d="M15.944 24C15.8073 24 15.6706 23.9554 15.5612 23.862L5.24216 15.511C5.08983 15.3892 5 15.1985 5 14.9997C5 14.8008 5.08983 14.6101 5.24216 14.4884L15.5612 6.13733C15.7487 5.98313 16.0065 5.95879 16.2213 6.06429C16.4361 6.17385 16.5728 6.40109 16.5728 6.64862V12.2972H20.5137C21.7245 12.2972 22.7986 12.7273 23.611 13.5389C24.3336 14.2612 24.814 15.2594 24.9546 16.3428C25.0991 17.4303 24.896 18.53 24.3843 19.4349C23.8102 20.4494 22.8923 21.1636 21.7284 21.5004C21.5019 21.5653 21.2597 21.4922 21.0996 21.3137C20.9395 21.1352 20.8926 20.8755 20.9746 20.6442C21.2519 19.8813 21.5058 18.8628 21.1543 18.3312C20.877 17.9132 20.1817 17.7022 19.0842 17.7022H16.5689V23.3467C16.5689 23.5942 16.4322 23.8215 16.2174 23.931C16.1314 23.9797 16.0377 24 15.944 24Z" fill="white" />
+                        </svg>
+                    </span>
+                    <span>Назад к переучетам</span>
+                </a>
+            </div>
+
+            <div class="form-wrapper form-wrapper--m-t-20">
+                {% if inventory_count.status == 'in_progress' %}
+                <form class="form-cont__form" method="post" id="add-item-form">
+                    {% csrf_token %}
+                    {{ form.item_identifier }}
+                    
+                    <div class="form-cont__form-paragraphs-cont form-cont__form-paragraphs-cont--alt form-cont__form-paragraphs-cont--without-first-pad-top">
+                        <div class="cont__header">
+                            <h2 class="cont__title">Добавить позицию/найти</h2>
                         </div>
-                        <div class="mb-3">
+                        
+                        <div class="form-cont__form-paragraph position-relative">
+                            <label for="stock-search-input">Поиск товара (упаковки)</label>
+                            <div class="form-cont__input-with-button">
+                                <input type="text" id="stock-search-input" placeholder="Название, артикул или штрихкод..." class="form-input" autocomplete="off">
+                                <button class="search-bar__elem button button--orange search-bar__button-scanner" type="button" title="Сканировать" id="scan-btn">
+                                    <svg width="30" height="31" viewBox="0 0 30 31" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_183_868)"><path fill-rule="evenodd" clip-rule="evenodd" d="M24.3409 14.2615H14.8155L13.884 11.7483H19.7715C24.0246 11.7483 26.6608 7.23159 24.7979 3.57606C24.7627 3.52333 24.6397 3.29486 24.464 2.99609C27.522 3.06639 29.9824 5.562 29.9824 8.63757C29.9824 11.7483 27.4517 14.2615 24.3409 14.2615ZM13.638 11.0453L10.6503 2.99609H23.6731C23.9192 3.45304 24.1301 3.83968 24.1652 3.8924C25.7996 7.091 23.4974 11.0453 19.7715 11.0453H13.638ZM14.0773 14.2615H10.58C10.4394 14.2615 10.2988 14.1736 10.246 14.033L6.36204 3.47061C6.27416 3.24214 6.44991 2.99609 6.69596 2.99609H9.91213L13.058 11.5198V11.555L14.0773 14.2615Z" fill="white"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M27.1178 27.5306H22.2847C21.8102 27.5306 21.4411 27.144 21.4411 26.687V24.3496C21.5466 24.4023 21.6696 24.4199 21.7926 24.4199H27.6098C27.7329 24.4199 27.8383 24.4023 27.9613 24.3672V26.687C27.9613 27.144 27.5747 27.5306 27.1178 27.5306Z" fill="white"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M27.6099 23.84H21.7926C21.6345 23.84 21.5114 23.7522 21.4587 23.594L18.4886 14.8594H24.341C24.587 14.8594 24.8155 14.8418 25.0264 14.8242C25.8875 17.3374 27.9613 23.3655 27.9613 23.4885C27.9613 23.6819 27.8032 23.84 27.6099 23.84Z" fill="white"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M18.5061 16.7047H17.2935C16.6959 16.7047 16.2039 16.2126 16.2039 15.6151V14.8594H17.8735L18.5061 16.7047Z" fill="white"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M13.5325 26.3704H2.82952C2.2847 26.3704 1.84534 25.9134 1.84534 25.3686V18.7078C1.84534 18.163 2.2847 17.7236 2.82952 17.7236H13.5325C14.0773 17.7236 14.5167 18.163 14.5167 18.7078V25.3686C14.5167 25.9134 14.0773 26.3704 13.5325 26.3704ZM3.9543 24.525C3.76098 24.525 3.60281 24.3669 3.60281 24.1735V19.9029C3.60281 19.446 4.30579 19.446 4.30579 19.9029V24.1735C4.30579 24.3669 4.14762 24.525 3.9543 24.525ZM6.06326 24.525C5.86994 24.525 5.71177 24.3669 5.71177 24.1735V19.9029C5.71177 19.446 6.41476 19.446 6.41476 19.9029V24.1735C6.41476 24.3669 6.25659 24.525 6.06326 24.525ZM8.17223 24.525C7.97891 24.525 7.82073 24.3669 7.82073 24.1735V19.9029C7.82073 19.446 8.52372 19.446 8.52372 19.9029V24.1735C8.52372 24.3669 8.38312 24.525 8.17223 24.525ZM10.2988 24.525C10.1054 24.525 9.94727 24.3669 9.94727 24.1735V19.9029C9.94727 19.446 10.6503 19.446 10.6503 19.9029V24.1735C10.6503 24.3669 10.4921 24.525 10.2988 24.525ZM12.4077 24.525C12.2144 24.525 12.0562 24.3669 12.0562 24.1735V19.9029C12.0562 19.446 12.7592 19.446 12.7592 19.9029V24.1735C12.7592 24.3669 12.6011 24.525 12.4077 24.525Z" fill="white"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M0.369073 19.5862C-0.492087 19.5862 -0.28119 18.3384 -0.28119 17.7936C-0.28119 16.6863 0.615119 15.79 1.72232 15.79H3.2689C4.11248 15.79 4.11248 17.073 3.2689 17.073H1.72232C1.33568 17.073 1.00176 17.4069 1.00176 17.7936C1.00176 18.3384 1.23023 19.5862 0.369073 19.5862ZM15.993 19.5862C15.1318 19.5862 15.3603 18.3384 15.3603 17.7936C15.3603 17.4069 15.0264 17.073 14.6397 17.073H13.0932C12.2496 17.073 12.2496 15.79 13.0932 15.79H14.6397C15.7469 15.79 16.6432 16.6863 16.6432 17.7936C16.6432 18.3384 16.8541 19.5862 15.993 19.5862ZM3.2689 28.2856H1.72232C0.615119 28.2856 -0.28119 27.3893 -0.28119 26.2821C-0.28119 25.7373 -0.492087 24.5071 0.369073 24.5071C1.23023 24.5071 1.00176 25.7373 1.00176 26.2821C1.00176 26.6864 1.33568 27.0027 1.72232 27.0027H3.2689C4.11248 27.0027 4.11248 28.2856 3.2689 28.2856ZM14.6397 28.2856H13.0932C12.2496 28.2856 12.2496 27.0027 13.0932 27.0027H14.6397C15.0264 27.0027 15.3603 26.6864 15.3603 26.2821C15.3603 25.7373 15.1318 24.5071 15.993 24.5071C16.8541 24.5071 16.6432 25.7373 16.6432 26.2821C16.6432 27.3893 15.7469 28.2856 14.6397 28.2856Z" fill="white"></path></g><defs><clipPath id="clip0_183_868"><rect width="30" height="30" fill="white" transform="translate(0 0.5)"></rect></clipPath></defs></svg>
+                                </button>
+                            </div>
+                            <div id="search-results" class="list-group position-absolute w-100 shadow" style="z-index: 1000; display: none; background: white; border: 1px solid #ddd; border-radius: 4px;"></div>
+                        </div>
+                        
+                        <div class="form-cont__form-paragraph">
                             {{ form.quantity.label_tag }}
                             {{ form.quantity }}
                         </div>
-                        <button type="submit" class="btn btn-success w-100">Добавить / Обновить</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <div class="{% if inventory_count.status == 'in_progress' %}col-lg-7{% else %}col-lg-12{% endif %} mt-4 mt-lg-0">
-            <h4>Внесенные позиции ({{ items.count }})</h4>
-            {% for item in items %}
-            <div class="card mb-2">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <strong>{{ item.content_object.name }}</strong>
-                            {% if perms.inventarization.can_reconcile_inventory %}
-                            <br><small class="text-muted">Система: {{ item.system_quantity }} | Расхождение: <span class="fw-bold {% if item.variance > 0 %}text-success{% elif item.variance < 0 %}text-danger{% endif %}">{% if item.variance > 0 %}+{% endif %}{{ item.variance }}</span></small>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-5 text-end">
-                            {% if inventory_count.status == 'in_progress' %}
-                            <div class="d-flex gap-2 align-items-center justify-content-end">
-                                <form action="{% url 'item_update' item.pk %}" method="post" class="d-flex gap-2">
-                                    {% csrf_token %}
-                                    {{ item.update_form.quantity }}
-                                </form>
-                                <form action="{% url 'item_delete' item.pk %}" method="post">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">×</button>
-                                </form>
-                            </div>
-                            {% else %}
-                            <p class="mb-0"><strong>Факт: {{ item.actual_quantity }}</strong></p>
-                            {% endif %}
-                        </div>
                     </div>
-                </div>
-            </div>
-            {% empty %}
-            <p class="text-muted">Еще не добавлено ни одной позиции.</p>
-            {% endfor %}
-        </div>
-    </div>
-</div>
+                    
+                    <div class="form-cont__form-buttons">
+                        <button class="button button--blue" type="submit">
+                            Добавить / Обновить +
+                        </button>
+                    </div>
+                </form>
+                {% endif %}
 
-<div id="scanner-container" style="display: none;">
-    <div class="scanner-content">
-        <video id="inventory-video-stream"></video>
-        <div class="scanner-laser"></div> <div id="scanner-status" class="small text-white text-center mt-2">Наведите на штрихкод</div>
-        <button id="close-scanner-btn" class="btn btn-danger btn-sm w-100 mt-3"  onclick="stopLocalScanner()">⏹ Остановить</button>
+                <div class="cont__header cont__header--with-border-top">
+                    <h2 class="cont__title">
+                        Внесенные позиции
+                        <span class="cont__quantity">{{ items.count }}</span>
+                    </h2>
+                </div>
+                
+                <ul class="cont__list cont__list--single">
+                    {% for item in items %}
+                    <li class="cont__item">
+                        <article class="table-card-first">
+                            <h1 class="table-card-first__title table-card-first__title--m-b-20">
+                                {% if item.content_type.model == 'product' %}
+                                    <a href="{% url 'product_detail' item.object_id %}" class="text-decoration-none">
+                                        {{ item.content_object.name }}
+                                    </a>
+                                {% elif item.content_type.model == 'material' %}
+                                    <a href="{% url 'material_detail' item.object_id %}" class="text-decoration-none">
+                                        {{ item.content_object.name }}
+                                    </a>
+                                {% else %}
+                                    {{ item.content_object.name }}
+                                {% endif %}
+                            </h1>
+                            <div class="table-card-first__bottom-cont">
+                                <div class="progress progress--without-m-t">
+                                    <div class="progress__info progress__info--double">
+                                        {% if perms.inventarization.can_reconcile_inventory %}
+                                        <div class="progress__info-block progress__info-block--p-l-10 progress__info-block--text-s">
+                                            <span class="progress__text">Система</span>
+                                            <span class="progress__quantity">{{ item.system_quantity }} шт</span>
+                                        </div>
+                                        <div class="progress__info-block progress__info-block--p-l-10 progress__info-block--text-s">
+                                            <span class="progress__text">Расхождение</span>
+                                            <span class="progress__quantity {% if item.variance > 0 %}text-success{% elif item.variance < 0 %}text-danger{% endif %}">
+                                                {% if item.variance > 0 %}+{% endif %}{{ item.variance }} шт
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="table-card-first__input-with-button">
+                                    {% if inventory_count.status == 'in_progress' %}
+                                    <form action="{% url 'item_update' item.pk %}" method="post" class="d-flex align-items-center gap-2">
+                                        {% csrf_token %}
+                                        {{ item.update_form.quantity }}
+                                        </form>
+
+                                    <form action="{% url 'item_delete' item.pk %}" method="post">
+                                        {% csrf_token %}
+                                        <button title="Удалить" class="table__button-with-icon content-size" type="submit">
+                                            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <rect width="30" height="30" rx="3" fill="#F28500" fill-opacity="0.6" />
+                                                <path fill-rule="evenodd" clip-rule="evenodd" d="M24 7.75C24.414 7.75 24.75 8.086 24.75 8.5C24.75 8.914 24.414 9.25 24 9.25H6C5.586 9.25 5.25 8.914 5.25 8.5C5.25 8.086 5.586 7.75 6 7.75H24Z" fill="white" />
+                                                <path fill-rule="evenodd" clip-rule="evenodd" d="M19.636 6.245L20.221 8.294C20.286 8.52 20.24 8.764 20.099 8.952C19.957 9.14 19.735 9.25 19.5 9.25H10.5C10.265 9.25 10.043 9.14 9.90096 8.952C9.75996 8.764 9.71396 8.52 9.77896 8.294L10.364 6.245C10.702 5.064 11.781 4.25 13.009 4.25H16.991C18.219 4.25 19.298 5.064 19.636 6.245ZM18.193 6.657C18.04 6.12 17.55 5.75 16.991 5.75H13.009C12.45 5.75 11.96 6.12 11.807 6.657L11.494 7.75H18.506L18.193 6.657Z" fill="white" />
+                                                <path fill-rule="evenodd" clip-rule="evenodd" d="M23.145 10.25L22.363 23.166C22.275 24.618 21.072 25.75 19.618 25.75H10.382C8.92798 25.75 7.72498 24.618 7.63698 23.166L6.85498 10.25H23.145ZM12.246 20.91L11.549 13.941C11.508 13.529 11.14 13.228 10.728 13.269C10.316 13.31 10.015 13.678 10.056 14.09L10.754 21.059C10.795 21.471 11.163 21.772 11.575 21.731C11.987 21.69 12.287 21.322 12.246 20.91ZM19.246 21.059L19.944 14.09C19.985 13.678 19.684 13.31 19.272 13.269C18.86 13.228 18.492 13.529 18.451 13.941L17.754 20.91C17.713 21.322 18.013 21.69 18.425 21.731C18.837 21.772 19.205 21.471 19.246 21.059ZM14.25 14V21C14.25 21.414 14.586 21.75 15 21.75C15.414 21.75 15.75 21.414 15.75 21V14C15.75 13.586 15.414 13.25 15 13.25C14.586 13.25 14.25 13.586 14.25 14Z" fill="white" />
+                                            </svg>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <strong>Факт: {{ item.actual_quantity }} шт</strong>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </article>
+                    </li>
+                    {% empty %}
+                    <li class="cont__item">Позиций пока нет.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div id="scanner-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; flex-direction: column; align-items: center; justify-content: center;">
+    <div style="width: 90%; max-width: 500px; position: relative;">
+        <video id="inventory-video-stream" style="width: 100%; border-radius: 10px;"></video>
+        <div style="position: absolute; top: 50%; left: 10%; right: 10%; height: 2px; background: red; box-shadow: 0 0 10px red; animation: scan-line 2s infinite;"></div>
+        <div id="scanner-status" class="text-white text-center mt-3">Наведите на штрихкод</div>
+        <button id="close-scanner-btn" class="button button--orange w-100 mt-3">Остановить</button>
     </div>
 </div>
 
 <style>
-/* Стили из рабочего скрипта для фиксации видео */
-#scanner-container {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.8);
-    z-index: 9999;
-    display: none;
-    align-items: center;
-    justify-content: center;
-}
-
-.scanner-content {
-    position: relative;
-    width: 90%;
-    max-width: 500px;
-    background: #000;
-    padding: 10px;
-    border-radius: 10px;
-}
-
-#inventory-video-stream {
-    width: 100%;
-    height: 50%;
-    min-height: 200px; /* Чтобы контейнер не схлопывался в 0 */
-    background-color: #222; /* Серый фон, чтобы отличить от черного зависания */
-    border-radius: 5px;
-    display: block;
-    object-fit: cover; /* Важно: заполняет всё окно без искажений */
-}
-
-/* Добавим стили для уверенности, что контейнер не перекрыт чем-то невидимым */
-.scanner-content {
-    z-index: 10001; 
-    position: relative;
-}
-
-.scanner-laser {
-    position: absolute;
-    top: 50%; left: 10%; right: 10%;
-    height: 2px;
-    background: red;
-    box-shadow: 0 0 8px red;
-    animation: scanning 2s infinite;
-}
-
-@keyframes scanning {
-    0% { top: 20%; }
-    50% { top: 80%; }
-    100% { top: 20%; }
-}
-
-#search-results {
-    background: white;
-    border: 1px solid #ddd;
-    display: none;
-}
+    /* Маленький костыль для отображения выпадающего списка поиска */
+    #search-results button {
+        width: 100%;
+        text-align: left;
+        padding: 10px;
+        border: none;
+        background: none;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+    }
+    #search-results button:hover { background: #f8f9fa; }
+    @keyframes scan-line {
+        0% { transform: translateY(-100px); }
+        50% { transform: translateY(100px); }
+        100% { transform: translateY(-100px); }
+    }
+    /* Делаем поля формы красивыми под твою верстку */
+    .form-cont__form-paragraph input {
+        width: 100%;
+    }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('stock-search-input');
     const searchResults = document.getElementById('search-results');
-    const mainForm = document.getElementById('add-item-form');
     const identifierInput = document.getElementById('id_item_identifier');
-    const quantityInput = document.getElementById('id_quantity');
+    const quantityInput = document.getElementById('id_quantity'); // ID из Django формы
     const scanButton = document.getElementById('scan-btn');
     const inventoryCountId = "{{ inventory_count.id }}";
     
@@ -164,9 +196,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const scannerStatus = document.getElementById('scanner-status');
 
     let codeReader = null;
-    let overlay = null;
-    // Подгружаем звук как в рабочем скрипте
     const beepSound = new Audio("{% static 'sounds/bip.mp3' %}");
+
+    // Инъекция классов в Django поля (чтобы они выглядели как в верстке)
+    if (quantityInput) quantityInput.classList.add('form-input');
+    
+    // Также найдем все инпуты количества в списке
+    document.querySelectorAll('input[name="quantity"]').forEach(inp => {
+        if (!inp.id.includes('id_quantity')) inp.classList.add('form-input');
+    });
 
     function performManualSearch(query) {
         if (query.length < 2) {
@@ -183,12 +221,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     data.results.forEach(item => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
-                        btn.className = 'list-group-item list-group-item-action';
-                        btn.innerHTML = `<strong>${item.name}</strong><br><small class="text-muted">${item.info}</small>`;
+                        btn.innerHTML = `<strong>${item.name}</strong><br><small style="color: gray">${item.info}</small>`;
                         btn.onclick = () => {
                             identifierInput.value = item.id;
                             searchInput.value = item.name;
-                            quantityInput.value = item.counted_quantity;
+                            quantityInput.value = item.counted_quantity || 1;
                             searchResults.style.display = 'none';
                             quantityInput.focus();
                         };
@@ -212,8 +249,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     const found = data.results[0];
                     identifierInput.value = found.id;
                     searchInput.value = found.name;
-                    quantityInput.value = found.counted_quantity;
-                    stopScanner(); // Закрываем камеру при успехе
+                    quantityInput.value = found.counted_quantity || 1;
+                    stopScanner();
                     quantityInput.focus();
                 } else {
                     alert("Товар не найден!");
@@ -223,39 +260,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function startScanner() {
-        if (typeof ZXing === 'undefined') return alert("Ошибка: ZXing не загружен");
-        
-        beepSound.load();
         scannerContainer.style.display = 'flex';
-        
-        // Создаем ридер, если он еще не создан
-        if (!codeReader) {
-            codeReader = new ZXing.BrowserMultiFormatReader();
-        }
+        if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
 
-        // Продвинутые настройки для запуска именно задней камеры
         const constraints = {
-            video: {
-                facingMode: { exact: "environment" }, // Принудительно задняя камера
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            }
+            video: { facingMode: { exact: "environment" } }
         };
 
-        // Сначала пробуем запустить с идеальными настройками (задняя камера)
         codeReader.decodeFromConstraints(constraints, videoElement, (result, error) => {
             if (result) {
                 beepSound.play().catch(() => {});
                 processScannedBarcode(result.text);
             }
-            if (error && !(error instanceof ZXing.NotFoundException)) {
-                console.error("Ошибка сканера:", error);
-            }
-        })
-        .catch(err => {
-            // Если "facingMode: environment" не сработал (например, на ПК нет задней камеры), 
-            // запускаем дефолтный поток
-            console.warn("Не удалось запустить заднюю камеру, пробуем любую:", err);
+        }).catch(err => {
+            // Если задней камеры нет
             codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
                 if (result) {
                     beepSound.play().catch(() => {});
@@ -273,10 +291,9 @@ document.addEventListener('DOMContentLoaded', function() {
         scannerContainer.style.display = 'none';
     }
 
-    scanButton.addEventListener('click', startScanner);
-    closeScannerBtn.addEventListener('click', stopScanner);
+    if (scanButton) scanButton.addEventListener('click', startScanner);
+    if (closeScannerBtn) closeScannerBtn.addEventListener('click', stopScanner);
 
-    // Скрытие поиска при клике вне поля
     document.addEventListener('click', (e) => {
         if (!searchResults.contains(e.target) && e.target !== searchInput) {
             searchResults.style.display = 'none';

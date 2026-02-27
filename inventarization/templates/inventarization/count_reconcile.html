@@ -1,101 +1,121 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Сверка переучета №{{ inventory_count.id }}</h2>
-        <div>
-            <form action="{% url 'count_finalize' inventory_count.pk %}" method="post" 
-                  onsubmit="return confirm('Закрыть переучет? Это действие нельзя отменить.');"
-                  class="d-inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-success">Завершить сверку</button>
-            </form>
-            <a href="{% url 'count_list' %}" class="btn btn-secondary">К списку</a>
-        </div>
+<main class="main">
+    <section class="section recount-revise container">
+    <div class="section__header">
+        <h1
+        class="section__header-title section__header-title--double flex-center"
+        >
+        <span class="section__header-title-not-dedicated-block">
+            Сверка переучета №{{ inventory_count.id }}
+        </span>
+        </h1>
+        <form action="{% url 'count_finalize' inventory_count.pk %}"
+        method="post" 
+        onsubmit="return confirm('Закрыть переучет? Это действие нельзя отменить.');"
+        class="d-inline">
+      {% csrf_token %}
+        <button type="submit" class="section__header-button button button--orange">
+        Завершить сверку
+        </button>
+        </form>
     </div>
-
-    <div class="card mb-4">
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <strong>Ответственный:</strong> {{ inventory_count.user.username }}
-                </div>
-                <div class="col-md-4">
-                    <strong>Дата начала:</strong> {{ inventory_count.created_at|date:"d.m.Y H:i" }}
-                </div>
-                <div class="col-md-4">
-                    <strong>Дата завершения:</strong> {{ inventory_count.completed_at|date:"d.m.Y H:i" }}
-                </div>
-            </div>
-            {% if inventory_count.notes %}
-            <div class="mt-2">
-                <strong>Примечания:</strong> {{ inventory_count.notes }}
-            </div>
-            {% endif %}
-        </div>
+    <div class="section__other-buttons-cont">
+        <a
+        class="section__other-buttons-cont-button section__other-buttons-cont-button--orange"
+        href="{% url 'count_list' %}"
+        >
+        <span class="content-size">
+            <svg
+            width="30"
+            height="30"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            >
+            <rect width="30" height="30" rx="3" fill="#F28500" />
+            <path
+                d="M15.944 24C15.8073 24 15.6706 23.9554 15.5612 23.862L5.24216 15.511C5.08983 15.3892 5 15.1985 5 14.9997C5 14.8008 5.08983 14.6101 5.24216 14.4884L15.5612 6.13733C15.7487 5.98313 16.0065 5.95879 16.2213 6.06429C16.4361 6.17385 16.5728 6.40109 16.5728 6.64862V12.2972H20.5137C21.7245 12.2972 22.7986 12.7273 23.611 13.5389C24.3336 14.2612 24.814 15.2594 24.9546 16.3428C25.0991 17.4303 24.896 18.53 24.3843 19.4349C23.8102 20.4494 22.8923 21.1636 21.7284 21.5004C21.5019 21.5653 21.2597 21.4922 21.0996 21.3137C20.9395 21.1352 20.8926 20.8755 20.9746 20.6442C21.2519 19.8813 21.5058 18.8628 21.1543 18.3312C20.877 17.9132 20.1817 17.7022 19.0842 17.7022H16.5689V23.3467C16.5689 23.5942 16.4322 23.8215 16.2174 23.931C16.1314 23.9797 16.0377 24 15.944 24Z"
+                fill="white"
+            />
+            </svg>
+        </span>
+        <span>Назад к переучетам</span>
+        </a>
     </div>
-
-    <h4>Позиции для сверки</h4>
-    
-    {% for item in items %}
-    <div class="card mb-3 {% if item.reconciliation_status == 'reconciled' %}border-success{% endif %}">
-        <div class="card-body">
-            <div class="row align-items-center">
-                
-                <div class="col-md-3">
-                    <h5>{{ item.content_object.name }}</h5>
-                    <small class="text-muted">Тип: {{ item.content_type.model }}</small>
-                    {% if item.reconciliation_status == 'reconciled' %}
-                    <span class="badge bg-success ms-2">Скорректировано</span>
-                    {% endif %}
-                </div>
-                
-                <div class="col-md-6">
-                    <div class="row text-center">
-                        <div class="col-4">
-                            <span class="text-muted">Система</span><br>
-                            <span class="fs-5 {% if item.system_quantity != item.actual_quantity %}text-danger{% endif %}">
-                                {{ item.system_quantity }}
-                            </span>
-                        </div>
-                        <div class="col-4">
-                            <span class="text-muted">Факт</span><br>
-                            <span class="fs-5 fw-bold {% if item.system_quantity != item.actual_quantity %}text-warning{% else %}text-primary{% endif %}">
-                                {{ item.actual_quantity }}
-                            </span>
-                        </div>
-                        <div class="col-4">
-                            <span class="text-muted">Расхождение</span><br>
-                            <span class="fs-5 fw-bold {% if item.variance > 0 %}text-success{% elif item.variance < 0 %}text-danger{% else %}text-muted{% endif %}">
-                                {% if item.variance > 0 %}+{% endif %}{{ item.variance }}
-                            </span>
-                        </div>
+    <div class="general-card">
+        <div class="cont__header">
+        <h2 class="cont__title">Информация</h2>
+        </div>
+        <table class="table-first table-first--narrow m-top40">
+        <tr class="table__row table__row--color table__row--color-string">
+            <th>Ответственный</th>
+            <td>{{ inventory_count.user.username }}</td>
+        </tr>
+        <tr class="table__row">
+            <th>Дата начала</th>
+            <td>{{ inventory_count.created_at|date:"d.m.Y H:i" }}</td>
+        </tr>
+        <tr class="table__row">
+            <th>Дата завершения</th>
+            <td>{{ inventory_count.completed_at|date:"d.m.Y H:i" }}</td>
+        </tr>
+        {% if inventory_count.notes %}
+        <tr class="table__row">
+            <th>Примечания</th>
+            <td>{{ inventory_count.notes }}</td>
+        </tr>
+        {% endif %}
+        </table>
+        <div class="cont__header cont__header--with-border-top m-top40">
+        <h2 class="cont__title">Позиции переучета</h2>
+        </div>
+        <div class="tables-cont tables-cont--first-type tables-cont--m-t-20">
+        <ul class="cont__list cont__list--single">
+            {% for item in items %}
+            <li class="cont__item">
+            <article class="table-card-first">
+                <h1
+                class="table-card-first__title table-card-first__title--m-b-20"
+                >
+                Дилдо короткий
+                </h1>
+                <div class="table-card-first__bottom-cont">
+                <div class="progress progress--without-m-t">
+                    <div class="progress__info progress__info--triple">
+                    <div
+                        class="progress__info-block progress__info-block--p-l-10"
+                    >
+                        <span class="progress__text">Система</span>
+                        <span class="progress__quantity">5 шт</span>
+                    </div>
+                    <div
+                        class="progress__info-block progress__info-block--p-l-10"
+                    >
+                        <span class="progress__text">Факт</span>
+                        <span class="progress__quantity">10 шт</span>
+                    </div>
+                    <div
+                        class="progress__info-block progress__info-block--p-l-10"
+                    >
+                        <span class="progress__text">Расхождение</span>
+                        <span class="progress__quantity">+ 5 шт</span>
+                    </div>
                     </div>
                 </div>
-    
-                <div class="col-md-3 text-center">
-                    {% if item.variance != 0 and item.reconciliation_status == 'pending' %}
-                    <form action="{% url 'count_reconcile_action' inventory_count.pk %}" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="item_id" value="{{ item.id }}">
-                        <button type="submit" class="btn btn-success" 
-                                onclick="return confirm('Вы уверены, что хотите скорректировать системный остаток с {{ item.system_quantity }} до {{ item.actual_quantity }}?')">
-                            Скорректировать
-                        </button>
-                    </form>
-                    {% elif item.reconciliation_status == 'reconciled' %}
-                    <span class="badge bg-success fs-6">Обработано</span>
-                    {% else %}
-                    <span class="text-muted">—</span>
-                    {% endif %}
+                <button
+                    class="width100 button button--orange"
+                    type="button"
+                >
+                    Скорректировать
+                </button>
                 </div>
-                
-            </div>
+            </article>
+            </li>
+            {% endfor %}
+        </ul>
         </div>
     </div>
-    {% empty %}
-    <div class="alert alert-info">Нет позиций для сверки.</div>
-    {% endfor %}
-    
-</div>
+    </section>
+</main>
 {% endblock %}
