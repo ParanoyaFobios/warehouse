@@ -16,6 +16,7 @@ urlpatterns = [
     path('item/<int:pk>/delete/', views.delete_inventory_item, name='item_delete'),
     # Маршруты для сверки
     path('<int:pk>/reconcile/', views.InventoryReconciliationView.as_view(), name='count_reconcile'),
-    path('<int:pk>/reconcile/action/', views.ReconcileInventoryView.as_view(), name='count_reconcile_action'),
+    path('<int:pk>/ajax-actions/', views.InventoryAjaxActions.as_view(), name='inventory_ajax'),
+    path('<int:pk>/send-to-fixing/', views.SendToFixingView.as_view(), name='send_to_fixing'),
     path('<int:pk>/finalize/', views.FinalizeInventoryView.as_view(), name='count_finalize'),
 ]

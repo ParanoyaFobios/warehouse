@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, F, Case, When, Value, IntegerField
 from django.utils import timezone
 from .models import InventoryCount, InventoryCountItem
 from .forms import InventoryItemForm, InventoryItemUpdateForm
@@ -40,62 +40,84 @@ class InventoryCountWorkView(LoginRequiredMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        inventory_count = get_object_or_404(InventoryCount, pk=self.kwargs['pk'])
-        context['inventory_count'] = inventory_count
-        context['items'] = inventory_count.items.all().order_by('-id')
-        for item in context['items']:
+        # Оптимизируем запрос: тянем тип контента сразу
+        inventory_count = get_object_or_404(
+            InventoryCount.objects.prefetch_related('items__content_type'), 
+            pk=self.kwargs['pk']
+        )
+        
+        # Сортировка: сначала те, что требуют пересчета, потом остальные
+        items = inventory_count.items.all().annotate(
+            recount_priority=Case(
+                When(reconciliation_status=InventoryCountItem.ReconciliationStatus.RECOUNT, then=Value(0)),
+                default=Value(1),
+                output_field=IntegerField(),
+            )
+        ).order_by('recount_priority', '-id')
+
+        # Чтобы не создавать формы в цикле в шаблоне (это тяжело), 
+        # подготовим их один раз или будем использовать один инпут
+        for item in items:
             item.update_form = InventoryItemUpdateForm(initial={'quantity': item.actual_quantity})
+
+        context['inventory_count'] = inventory_count
+        context['items'] = items
         return context
 
     def form_valid(self, form):
         inventory_count = get_object_or_404(InventoryCount, pk=self.kwargs['pk'])
-        if inventory_count.status != 'in_progress':
-            messages.error(self.request, "Этот переучет завершен и не может быть изменен.")
+        
+        # Разрешаем правки и в процессе, и в режиме "исправления"
+        allowed_statuses = [InventoryCount.Status.IN_PROGRESS, InventoryCount.Status.FIXING]
+        if inventory_count.status not in allowed_statuses:
+            messages.error(self.request, "Этот переучет нельзя редактировать в текущем статусе.")
             return redirect('count_work', pk=inventory_count.pk)
             
         identifier = form.cleaned_data['item_identifier']
         actual_quantity = form.cleaned_data['quantity']
 
-        try:
-            model_name, obj_id = identifier.split('-')
-            
-            target_model_class = None
-            if model_name == 'product':
-                target_model_class = Product
-            elif model_name == 'material':
-                target_model_class = Material
-            elif model_name == 'package':
-                package = get_object_or_404(Package, pk=obj_id)
-                target_model_class = Product
-                obj_id = package.product.id
-            
-            if not target_model_class:
-                raise ValueError("Неизвестный тип объекта")
+        # Избавляемся от "ёлочки" через словарь (Strategy-like pattern)
+        model_map = {
+            'product': Product,
+            'material': Material,
+            'package': Package,
+        }
 
-            content_object = get_object_or_404(target_model_class, pk=obj_id)
+        try:
+            prefix, obj_id = identifier.split('-')
+            model_class = model_map.get(prefix)
             
-            system_quantity = 0
-            if isinstance(content_object, Product):
-                system_quantity = content_object.available_quantity
-            elif isinstance(content_object, Material):
-                system_quantity = content_object.quantity
+            if not model_class:
+                raise ValueError(f"Неизвестный тип: {prefix}")
+
+            target_obj = get_object_or_404(model_class, pk=obj_id)
             
+            # Если это упаковка, работаем с привязанным товаром
+            if prefix == 'package':
+                target_obj = target_obj.product
+                model_class = Product
+                obj_id = target_obj.id
+
+            # Логика получения системного остатка
+            sys_qty = getattr(target_obj, 'available_quantity', getattr(target_obj, 'quantity', 0))
+
             item, created = InventoryCountItem.objects.update_or_create(
                 inventory_count=inventory_count,
-                content_type=ContentType.objects.get_for_model(target_model_class),
+                content_type=ContentType.objects.get_for_model(model_class),
                 object_id=obj_id,
                 defaults={
-                    'system_quantity': system_quantity,
-                    'actual_quantity': actual_quantity
+                    'system_quantity': sys_qty,
+                    'actual_quantity': actual_quantity,
+                    # ВАЖНО: Если кладовщик пересчитал, сбрасываем статус "RECOUNT" на "PENDING"
+                    'reconciliation_status': InventoryCountItem.ReconciliationStatus.PENDING
                 }
             )
 
-            if created:
-                messages.success(self.request, f"Позиция '{content_object.name}' добавлена.")
-            else:
-                messages.info(self.request, f"Количество для '{content_object.name}' обновлено.")
+            msg = f"Позиция '{target_obj.name}' добавлена." if created else f"Обновлено: {target_obj.name}"
+            messages.success(self.request, msg)
+
         except Exception as e:
-            messages.error(self.request, f"Ошибка при добавлении позиции: {e}")
+            messages.error(self.request, f"Ошибка: {e}")
         
         return redirect('count_work', pk=inventory_count.pk)
 
@@ -108,49 +130,67 @@ class InventoryReconciliationView(LoginRequiredMixin, PermissionRequiredMixin, D
     context_object_name = 'inventory_count'
     permission_required = 'inventarization.can_reconcile_inventory'
 
-    def get_queryset(self):
-        # Показываем только те, что ожидают сверки
-        return InventoryCount.objects.filter(status=InventoryCount.Status.COMPLETED)
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        #передаем связанные items, вся логика будет в шаблоне
-        context['items'] = self.get_object().items.all().select_related('content_type')
+        # Оптимизируем запрос
+        items = self.object.items.select_related('content_type').all()
+        
+        # Считаем статистику для дашборда сверху
+        context['total_items'] = items.count()
+        context['discrepancy_count'] = sum(1 for item in items if item.variance != 0)
+        context['items'] = items
         return context
 
 
-class ReconcileInventoryView(LoginRequiredMixin, PermissionRequiredMixin,View):
-    """
-    Обрабатывает POST-запрос на корректировку ОДНОЙ ПОЗИЦИИ.
-    """
+class InventoryAjaxActions(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = 'inventarization.can_reconcile_inventory'
 
-    def post(self, request, pk, *args, **kwargs):
-        # pk здесь - это pk для InventoryCount
-        inventory_count = get_object_or_404(
-            InventoryCount, pk=pk, status=InventoryCount.Status.COMPLETED
-        )
+    def post(self, request, pk):
+        action = request.POST.get('action')
         item_id = request.POST.get('item_id')
-        item = get_object_or_404(inventory_count.items, pk=item_id)
+        inventory_count = get_object_or_404(InventoryCount, pk=pk)
 
-        # Вызываем основную логику корректировки
-        try:
-            self._adjust_quantity(request.user, inventory_count, item)
-            messages.success(
-                request, 
-                f"Системное количество для '{item.content_object.name}' успешно скорректировано."
-            )
-        except Exception as e:
-            messages.error(request, f"Ошибка при обработке: {e}")
+        # Проверяем, что переучет в нужном статусе
+        if inventory_count.status != InventoryCount.Status.COMPLETED:
+            return JsonResponse({'status': 'error', 'message': 'Статус не позволяет правки'}, status=400)
+
+        if action == 'reconcile_single':
+            item = get_object_or_404(inventory_count.items, pk=item_id)
+            
+            # 1. Если бухгалтер изменил цифру в инпуте, сохраняем её
+            new_actual = request.POST.get('actual_quantity')
+            if new_actual is not None:
+                item.actual_quantity = int(new_actual)
+                item.save()
+
+            # 2. Применяем твою логику корректировки остатков
+            try:
+                self._adjust_stock_logic(request.user, inventory_count, item)
+                return JsonResponse({'status': 'success'})
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+        elif action == 'bulk_approve_zeros':
+            # Массово закрываем то, где расхождений нет
+            inventory_count.items.filter(
+                system_quantity=F('actual_quantity'),
+                reconciliation_status=InventoryCountItem.ReconciliationStatus.PENDING
+            ).update(reconciliation_status=InventoryCountItem.ReconciliationStatus.RECONCILED)
+            return JsonResponse({'status': 'success'})
         
-        return redirect('count_reconcile', pk=pk)
+        elif action == 'mark_recount':
+            item = get_object_or_404(inventory_count.items, pk=item_id)
+            item.reconciliation_status = InventoryCountItem.ReconciliationStatus.RECOUNT
+            # Сохраняем причину, которую ввел бухгалтер в prompt()
+            item.manager_comment = request.POST.get('comment', '')
+            item.save()
+            return JsonResponse({'status': 'success'})
 
-    def _adjust_quantity(self, user, inventory_count, item):
-        if item.variance == 0 or item.reconciliation_status == 'reconciled':
-            return
+        return JsonResponse({'status': 'error', 'message': 'Неизвестное действие'}, status=400)
 
+    def _adjust_stock_logic(self, user, inventory_count, item):
+        """ Твоя оригинальная логика корректировки из вопроса """
         with transaction.atomic():
-            # Получаем свежий объект из БД, а не через GenericForeignKey
             model_class = item.content_type.model_class()
             content_object = model_class.objects.select_for_update().get(pk=item.object_id)
             
@@ -159,23 +199,19 @@ class ReconcileInventoryView(LoginRequiredMixin, PermissionRequiredMixin,View):
 
             if isinstance(content_object, Product):
                 content_object.total_quantity = item.actual_quantity
-                # Явно сохраняем
                 content_object.save(update_fields=['total_quantity'])
-                
                 ProductOperation.objects.create(
                     product=content_object,
                     operation_type=ProductOperation.OperationType.ADJUSTMENT,
                     quantity=variance,
-                    content_type=item.content_type, # используем уже имеющийся тип
+                    content_type=item.content_type,
                     object_id=inventory_count.id,
                     user=user,
                     comment=comment
                 )
-
             elif isinstance(content_object, Material):
                 content_object.quantity = item.actual_quantity
                 content_object.save(update_fields=['quantity'])
-                
                 MaterialOperation.objects.create(
                     material=content_object,
                     operation_type='adjustment',
@@ -184,9 +220,30 @@ class ReconcileInventoryView(LoginRequiredMixin, PermissionRequiredMixin,View):
                     comment=f"{comment}. Корректировка: {variance}"
                 )
             
-            # Обновляем статус самого элемента переучета
             item.reconciliation_status = InventoryCountItem.ReconciliationStatus.RECONCILED
             item.save(update_fields=['reconciliation_status'])
+
+
+class SendToFixingView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = 'inventarization.can_reconcile_inventory'
+
+    def post(self, request, pk):
+        inventory_count = get_object_or_404(InventoryCount, pk=pk, status=InventoryCount.Status.COMPLETED)
+        
+        # Проверяем, пометил ли бухгалтер хоть что-то на пересчет
+        recount_exists = inventory_count.items.filter(
+            reconciliation_status=InventoryCountItem.ReconciliationStatus.RECOUNT
+        ).exists()
+
+        if not recount_exists:
+            messages.error(request, "Сначала пометьте позиции, которые нужно пересчитать.")
+            return redirect('count_reconcile', pk=pk)
+
+        inventory_count.status = InventoryCount.Status.FIXING
+        inventory_count.save()
+        
+        messages.warning(request, f"Переучет №{inventory_count.id} отправлен кладовщику на доработку.")
+        return redirect('count_list')
 
 
 class FinalizeInventoryView(LoginRequiredMixin, PermissionRequiredMixin, View):
@@ -216,19 +273,38 @@ class FinalizeInventoryView(LoginRequiredMixin, PermissionRequiredMixin, View):
         return redirect('count_list')
 
 @login_required
+@transaction.atomic  # Обязательно для работы select_for_update
 def update_inventory_item(request, pk):
-    item = get_object_or_404(InventoryCountItem, pk=pk)
-    if item.inventory_count.status != 'in_progress':
-        messages.error(request, "Нельзя изменить завершенный переучет.")
-        return redirect('count_work', pk=item.inventory_count.pk)
+    # Используем select_for_update, чтобы заблокировать строку в БД до конца транзакции
+    item = get_object_or_404(
+        InventoryCountItem.objects.select_for_update(), 
+        pk=pk
+    )
+    inventory = item.inventory_count
+    
+    # Твоя логика доступа (оставляем как есть)
+    can_edit = (inventory.status == InventoryCount.Status.IN_PROGRESS) or \
+               (inventory.status == InventoryCount.Status.FIXING and 
+                item.reconciliation_status == InventoryCountItem.ReconciliationStatus.RECOUNT)
+
+    if not can_edit:
+        messages.error(request, "Эту позицию сейчас нельзя редактировать.")
+        return redirect('count_work', pk=inventory.pk)
 
     if request.method == 'POST':
         form = InventoryItemUpdateForm(request.POST)
         if form.is_valid():
+            # Обновляем количество
             item.actual_quantity = form.cleaned_data['quantity']
+            
+            # Сбрасываем статус, чтобы бухгалтер видел исправление
+            # Важно: если мы в режиме IN_PROGRESS, статус может быть и так PENDING
+            item.reconciliation_status = InventoryCountItem.ReconciliationStatus.PENDING
+            
             item.save()
             messages.success(request, f"Количество для '{item.content_object.name}' обновлено.")
-    return redirect('count_work', pk=item.inventory_count.pk)
+    
+    return redirect('count_work', pk=inventory.pk)
 
 @login_required
 def delete_inventory_item(request, pk):
@@ -249,28 +325,23 @@ def delete_inventory_item(request, pk):
 @login_required
 def complete_inventory_count(request, pk):
     if request.method == 'POST':
-        # 1. Сначала находим переучет только по его номеру (pk)
         inventory_count = get_object_or_404(InventoryCount, pk=pk)
 
-        # 2. Затем проверяем права доступа: это владелец ИЛИ администратор/менеджер?
-        #    (is_staff обычно используется для доступа к админке)
+        # Проверка прав (как у тебя была)
         if inventory_count.user != request.user and not request.user.has_perm('inventarization.can_reconcile_inventory'):
             messages.error(request, "У вас нет прав...")
             return redirect('count_list')
 
-        # 3. Основная логика остается без изменений
-        if inventory_count.status == 'in_progress':
+        # Разрешаем завершать и обычный переучет, и исправление
+        if inventory_count.status in [InventoryCount.Status.IN_PROGRESS, InventoryCount.Status.FIXING]:
             inventory_count.status = InventoryCount.Status.COMPLETED
             inventory_count.completed_at = timezone.now()
             inventory_count.save()
-            messages.success(request, f"Переучет №{inventory_count.id} завершен и готов к сверке.")
+            messages.success(request, f"Переучет №{inventory_count.id} отправлен на сверку.")
             return redirect('count_list')
         else:
-            messages.error(request, "Этот переучет уже был завершен.")
-            # Перенаправляем на страницу самого переучета, а не в список
+            messages.error(request, "Этот переучет нельзя завершить в текущем статусе.")
             return redirect('count_work', pk=pk)
-    
-    # Если это GET-запрос, просто возвращаем пользователя на страницу переучета
     return redirect('count_work', pk=pk)
 
 @login_required

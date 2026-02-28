@@ -14,13 +14,15 @@
                 </span>
             </h1>
             
-            {% if inventory_count.status == 'in_progress' and items %}
-            <form action="{% url 'count_complete' inventory_count.pk %}" method="post" onsubmit="return confirm('Вы уверены? После этого редактирование будет невозможно.');">
+            {% if inventory_count.status == 'in_progress' or inventory_count.status == 'fixing' %}
+            {% if items %}
+            <form action="{% url 'count_complete' inventory_count.pk %}" method="post" onsubmit="return confirm('Вы уверены? Переучет будет отправлен на проверку бухгалтеру.');">
                 {% csrf_token %}
                 <button type="submit" class="section__header-button button button--orange">
-                    Завершить переучет
+                    {% if inventory_count.status == 'fixing' %}Завершить исправление{% else %}Завершить переучет{% endif %}
                 </button>
             </form>
+            {% endif %}
             {% endif %}
         </div>
 
@@ -35,6 +37,17 @@
                     </span>
                     <span>Назад к переучетам</span>
                 </a>
+
+                {% if inventory_count.status == 'fixing' %}
+                <div class="d-flex gap-3" style="display: none;">
+                    <label class="d-flex align-items-center gap-2" style="cursor: pointer; font-size: 14px;">
+                        <input type="checkbox" id="hide-checked-checkbox"> Скрыть сверенные
+                    </label>
+                    <label class="d-flex align-items-center gap-2" style="cursor: pointer; font-size: 14px; color: #d9534f; font-weight: bold;">
+                        <input type="checkbox" id="show-only-recount" checked> Только на пересчет
+                    </label>
+                </div>
+                {% endif %}
             </div>
 
             <div class="form-wrapper form-wrapper--m-t-20">
@@ -71,18 +84,23 @@
                         </button>
                     </div>
                 </form>
-                {% endif %}
-
                 <div class="cont__header cont__header--with-border-top">
                     <h2 class="cont__title">
                         Внесенные позиции
                         <span class="cont__quantity">{{ items.count }}</span>
                     </h2>
                 </div>
-                
-                <ul class="cont__list cont__list--single">
+                {% elif inventory_count.status == 'fixing' %}
+                <div class="cont__header cont__header--with-border-top">
+                    <h2 class="cont__title">
+                        На перепроверку
+                        <span class="cont__quantity">{{ items.count }}</span>
+                    </h2>
+                </div>
+                {% endif %}
+                <ul class="cont__list cont__list--single" id="inventory-items-list">
                     {% for item in items %}
-                    <li class="cont__item">
+                    <li class="cont__item" data-status="{{ item.reconciliation_status }}">
                         <article class="table-card-first">
                             <h1 class="table-card-first__title table-card-first__title--m-b-20">
                                 {% if item.content_type.model == 'product' %}
@@ -96,6 +114,11 @@
                                 {% else %}
                                     {{ item.content_object.name }}
                                 {% endif %}
+                                {% if item.manager_comment %}
+                            <div class="manager-comment">
+                                <small>Комментарий:</small> {{ item.manager_comment }}
+                            </div>
+                            {% endif %}
                             </h1>
                             <div class="table-card-first__bottom-cont">
                                 <div class="progress progress--without-m-t">
@@ -116,12 +139,19 @@
                                 </div>
                                 
                                 <div class="table-card-first__input-with-button">
-                                    {% if inventory_count.status == 'in_progress' %}
+                                    {% if inventory_count.status == 'in_progress' or item.reconciliation_status == 'recount' %}
                                     <form action="{% url 'item_update' item.pk %}" method="post" class="d-flex align-items-center gap-2">
                                         {% csrf_token %}
                                         {{ item.update_form.quantity }}
+                                        {% if item.reconciliation_status == 'recount' %}
+                                        <button type="submit" class="button button--blue p-2" title="Сохранить" style="min-width: 40px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M5 13L9 17L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </button>
+                                        {% endif %}
                                         </form>
-
+                                        {% if inventory_count.status == 'in_progress' %}
                                     <form action="{% url 'item_delete' item.pk %}" method="post">
                                         {% csrf_token %}
                                         <button title="Удалить" class="table__button-with-icon content-size" type="submit">
@@ -132,6 +162,7 @@
                                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M23.145 10.25L22.363 23.166C22.275 24.618 21.072 25.75 19.618 25.75H10.382C8.92798 25.75 7.72498 24.618 7.63698 23.166L6.85498 10.25H23.145ZM12.246 20.91L11.549 13.941C11.508 13.529 11.14 13.228 10.728 13.269C10.316 13.31 10.015 13.678 10.056 14.09L10.754 21.059C10.795 21.471 11.163 21.772 11.575 21.731C11.987 21.69 12.287 21.322 12.246 20.91ZM19.246 21.059L19.944 14.09C19.985 13.678 19.684 13.31 19.272 13.269C18.86 13.228 18.492 13.529 18.451 13.941L17.754 20.91C17.713 21.322 18.013 21.69 18.425 21.731C18.837 21.772 19.205 21.471 19.246 21.059ZM14.25 14V21C14.25 21.414 14.586 21.75 15 21.75C15.414 21.75 15.75 21.414 15.75 21V14C15.75 13.586 15.414 13.25 15 13.25C14.586 13.25 14.25 13.586 14.25 14Z" fill="white" />
                                             </svg>
                                         </button>
+                                        {% endif %}
                                     </form>
                                     {% else %}
                                     <strong>Факт: {{ item.actual_quantity }} шт</strong>
@@ -183,13 +214,19 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Элементы поиска и ввода
     const searchInput = document.getElementById('stock-search-input');
     const searchResults = document.getElementById('search-results');
     const identifierInput = document.getElementById('id_item_identifier');
-    const quantityInput = document.getElementById('id_quantity'); // ID из Django формы
+    const quantityInput = document.getElementById('id_quantity');
     const scanButton = document.getElementById('scan-btn');
     const inventoryCountId = "{{ inventory_count.id }}";
+
+    // Элементы фильтрации
+    const hideCheckedCheckbox = document.getElementById('hide-checked-checkbox');
+    const showOnlyRecountCheckbox = document.getElementById('show-only-recount');
     
+    // Элементы сканера
     const scannerContainer = document.getElementById('scanner-container');
     const videoElement = document.getElementById('inventory-video-stream');
     const closeScannerBtn = document.getElementById('close-scanner-btn');
@@ -198,14 +235,47 @@ document.addEventListener('DOMContentLoaded', function() {
     let codeReader = null;
     const beepSound = new Audio("{% static 'sounds/bip.mp3' %}");
 
-    // Инъекция классов в Django поля (чтобы они выглядели как в верстке)
+    // --- ЛОГИКА ФИЛЬТРАЦИИ ---
+    function applyFilters() {
+        // Получаем актуальный список элементов каждый раз при вызове
+        const items = document.querySelectorAll('.cont__item');
+        
+        items.forEach(item => {
+            const status = item.getAttribute('data-status');
+            const isReconciled = (status === 'reconciled' || status === 'matched'); // Сверенные
+            const isRecount = (status === 'recount'); // На пересчет
+            
+            let shouldHide = false;
+
+            // Если стоит галочка "Скрыть сверенные" и статус элемента "сверен"
+            if (hideCheckedCheckbox && hideCheckedCheckbox.checked && isReconciled) {
+                shouldHide = true;
+            }
+
+            // Если стоит галочка "Только на пересчет" и статус НЕ "пересчет"
+            if (showOnlyRecountCheckbox && showOnlyRecountCheckbox.checked && !isRecount) {
+                shouldHide = true;
+            }
+
+            // Вместо CSS-класса используем напрямую display, так надежнее
+            item.style.display = shouldHide ? 'none' : 'block';
+        });
+    }
+
+    // Слушатели для чекбоксов
+    if (hideCheckedCheckbox) hideCheckedCheckbox.addEventListener('change', applyFilters);
+    if (showOnlyRecountCheckbox) showOnlyRecountCheckbox.addEventListener('change', applyFilters);
+
+    // Первичный запуск фильтров
+    applyFilters();
+
+    // --- СТИЛИЗАЦИЯ ПОЛЕЙ ---
     if (quantityInput) quantityInput.classList.add('form-input');
-    
-    // Также найдем все инпуты количества в списке
     document.querySelectorAll('input[name="quantity"]').forEach(inp => {
         if (!inp.id.includes('id_quantity')) inp.classList.add('form-input');
     });
 
+    // --- ПОИСК И СКАНИРОВАНИЕ (БЕЗ ИЗМЕНЕНИЙ) ---
     function performManualSearch(query) {
         if (query.length < 2) {
             searchResults.style.display = 'none';
@@ -253,9 +323,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     stopScanner();
                     quantityInput.focus();
                 } else {
-                    alert("Товар не найден!");
+                    alert("Товар не найден: " + barcode);
                     stopScanner();
                 }
+            })
+            .catch(err => {
+                console.error(err);
+                stopScanner();
             });
     }
 
@@ -263,30 +337,20 @@ document.addEventListener('DOMContentLoaded', function() {
         scannerContainer.style.display = 'flex';
         if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
 
-        const constraints = {
-            video: { facingMode: { exact: "environment" } }
-        };
-
-        codeReader.decodeFromConstraints(constraints, videoElement, (result, error) => {
+        codeReader.decodeFromVideoDevice(null, videoElement, (result, error) => {
             if (result) {
                 beepSound.play().catch(() => {});
                 processScannedBarcode(result.text);
             }
         }).catch(err => {
-            // Если задней камеры нет
-            codeReader.decodeFromVideoDevice(undefined, videoElement, (result, error) => {
-                if (result) {
-                    beepSound.play().catch(() => {});
-                    processScannedBarcode(result.text);
-                }
-            });
+            console.error("Scanner error:", err);
+            scannerStatus.textContent = "Ошибка камеры";
         });
     }
 
     function stopScanner() {
         if (codeReader) {
             codeReader.reset();
-            codeReader = null;
         }
         scannerContainer.style.display = 'none';
     }
@@ -294,6 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (scanButton) scanButton.addEventListener('click', startScanner);
     if (closeScannerBtn) closeScannerBtn.addEventListener('click', stopScanner);
 
+    // Закрытие результатов поиска при клике мимо
     document.addEventListener('click', (e) => {
         if (!searchResults.contains(e.target) && e.target !== searchInput) {
             searchResults.style.display = 'none';

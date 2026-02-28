@@ -138,7 +138,7 @@
                 <tr class="table__row">
                 <td class="table__td-buttons-cont">
                     <!-- нужно убирать одну из двух кнопок в зависимости от статуса: -->
-                    {% if count.status != 'in_progress' %}
+                    {% if count.status != 'in_progress' and count.status != 'fixing' %}
                     <a class="width100 button button--blue" href="{% url 'count_work' count.pk %}">
                     Просмотр
                     </a>

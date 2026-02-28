@@ -10,6 +10,7 @@ class InventoryCount(models.Model):
     class Status(models.TextChoices):
         IN_PROGRESS = 'in_progress', 'В процессе'
         COMPLETED = 'completed', 'Завершен (ожидает сверки)'
+        FIXING = 'fixing', 'На пересчете'
         RECONCILED = 'reconciled', 'Скорректирован (закрыт)'
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name="Ответственный кладовщик")
@@ -37,6 +38,7 @@ class InventoryCountItem(models.Model):
     class ReconciliationStatus(models.TextChoices):
         PENDING = 'pending', 'Ожидает сверки'
         RECONCILED = 'reconciled', 'Сверено'
+        RECOUNT = 'recount', 'Пересчитать'
     
     inventory_count = models.ForeignKey(
         InventoryCount,
@@ -65,6 +67,7 @@ class InventoryCountItem(models.Model):
         default=ReconciliationStatus.PENDING,
         verbose_name="Статус сверки"
     )
+    manager_comment = models.TextField(blank=True, verbose_name="Комментарий бухгалтера")
 
     @property
     def variance(self):
