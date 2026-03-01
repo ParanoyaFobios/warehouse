@@ -216,8 +216,11 @@ class ProductionOrderUpdateView(LoginRequiredMixin, UpdateView):
 
 class ProductionOrderDeleteView(LoginRequiredMixin, DeleteView):
     model = ProductionOrder
-    template_name = 'todo/confirm_delete.html'
     success_url = reverse_lazy('portfolio_list')
+
+    # Переопределяем get, чтобы никто не мог зайти на страницу удаления через URL
+    def get(self, *args, **kwargs):
+        return self.post(*args, **kwargs)
 
 # =============================================================================
 # Планировать всё
@@ -514,7 +517,7 @@ class AggregateOrdersView(LoginRequiredMixin, View):
         aggregated_items = (
             ProductionOrderItem.objects
             .filter(production_order_id__in=order_ids)
-            .values('product__name')
+            .values('product', 'product__name')
             .annotate(
                 total_requested=Sum('quantity_requested'),
                 total_planned=Sum('quantity_planned'),

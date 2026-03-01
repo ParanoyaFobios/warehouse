@@ -8,19 +8,24 @@
                     Сверка переучета №{{ inventory_count.id }}
                 </span>
             </h1>
-            <div class="flex-center" style="gap: 10px;">
-                <button id="btn-approve-zeros" class="button button--green" style="height: fit-content;">
-                    Подтвердить "в ноль"
+            <div class="section__header-buttons-cont">
+                <button id="btn-approve-zeros" class="section__header-button button button--blue">
+                    Подтвердить в ноль
                 </button>
-
-                <form action="{% url 'count_finalize' inventory_count.pk %}" method="post" 
-                      onsubmit="return confirm('Закрыть переучет? Это действие нельзя отменить.');" class="d-inline">
+                <form action="{% url 'send_to_fixing' inventory_count.pk %}" method="post" class="section__header-button">
                     {% csrf_token %}
-                    <button type="submit" class="section__header-button button button--orange">
-                        Завершить сверку
+                    <button type="submit" class="button button--orange width100">
+                        Вернуть на пересчет
                     </button>
                 </form>
             </div>
+            <form action="{% url 'count_finalize' inventory_count.pk %}" method="post" 
+                  onsubmit="return confirm('Закрыть переучет? Это действие нельзя отменить.');" class="width100">
+                {% csrf_token %}
+                <button type="submit" class="button button--orange width100">
+                    Завершить сверку
+                </button>
+            </form>
         </div>
 
         <div class="section__other-buttons-cont" style="display: flex; justify-content: space-between; align-items: center;">
@@ -34,20 +39,7 @@
                 <span>Назад</span>
             </a>
 
-            <div class="flex-center" style="gap: 20px;">
-                <label class="flex-center" style="gap: 5px; cursor: pointer; font-size: 14px;">
-                    <input type="checkbox" id="hide-zero-variance" checked> Скрыть совпадения
-                </label>
-
-                <form action="{% url 'send_to_fixing' inventory_count.pk %}" method="post">
-                    {% csrf_token %}
-                    <button type="submit" class="button button--red" style="padding: 5px 15px; font-size: 12px;">
-                        Вернуть на пересчет (Recount)
-                    </button>
-                </form>
-            </div>
         </div>
-
         <div class="general-card">
             <div class="cont__header">
                 <h2 class="cont__title">Информация</h2>
@@ -65,6 +57,13 @@
 
             <div class="cont__header cont__header--with-border-top m-top40">
                 <h2 class="cont__title">Позиции для сверки</h2>
+            </div>
+            <div class="general-card__string-with-checkbox">
+                <span>Скрыть совпадения</span>
+                <label class="table-card-first__title-custom-checkbox custom-checkbox">
+                    <input type="checkbox" id="hide-zero-variance" checked>
+                    <span class="checkmark"></span>
+                  </label>
             </div>
             <div class="tables-cont tables-cont--first-type tables-cont--m-t-20">
                 <ul class="cont__list cont__list--single" id="inventory-items-list">
@@ -87,28 +86,34 @@
                                         </div>
                                         <div class="progress__info-block">
                                             <span class="progress__text">Факт</span>
-                                            <input type="number" class="actual-input" value="{{ item.actual_quantity }}" 
-                                                   id="actual-{{ item.id }}" style="width: 60px; border: 1px solid #ccc; text-align: center;">
+                                            <input type="number" class="form-input form-input--text-center" value="{{ item.actual_quantity }}" 
+                                                   id="actual-{{ item.id }}">
                                         </div>
                                         <div class="progress__info-block">
                                             <span class="progress__text">Разница</span>
                                             <span class="progress__quantity" id="variance-text-{{ item.id }}">
-                                                {% if item.variance > 0 %}+{% endif %}{{ item.variance }}
+                                                {% if item.variance > 0 %}+ {% endif %}{{ item.variance }}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="actions flex-center" style="gap: 10px; margin-top: 15px;">
+                                <div class="table__td-buttons-cont">
                                     {% if item.reconciliation_status == 'pending' or item.reconciliation_status == 'recount' %}
-                                        <button class="button button--orange btn-reconcile" data-id="{{ item.id }}" style="flex: 2;">
+                                        <button class="button button--blue width100 btn-reconcile" data-id="{{ item.id }}">
                                             Скорректировать
                                         </button>
-                                        <button class="button button--red btn-recount" data-id="{{ item.id }}" style="flex: 1;">
+                                        <button class="button button--orange width100 btn-recount" data-id="{{ item.id }}">
                                             Пересчет
                                         </button>
                                     {% else %}
-                                        <span class="status-label">Обработано</span>
+                                        <div class="flex-center-between width100">
+                                            <span class="status-label">Обработано</span>
+                                            <button class="btn-undo" data-id="{{ item.id }}" 
+                                                    style="background: none; border: none; color: #F28500; cursor: pointer; text-decoration: underline; font-size: 12px;">
+                                                Отмена
+                                            </button>
+                                        </div>
                                     {% endif %}
                                 </div>
                             </div>
@@ -122,10 +127,25 @@
 </main>
 
 <style>
-    /* Плавное скрытие строк */
-    .variance-zero { display: none; } 
-    .processed { opacity: 0.5; background-color: #f9f9f9; pointer-events: none; }
-    .actual-input:focus { border-color: #F28500; outline: none; }
+/* Убираем жесткое скрытие из CSS, чтобы JS управлял этим без конфликтов */
+.variance-zero { display: none; } 
+
+/* Стили для обработанных карточек */
+.processed { 
+    pointer-events: none; 
+    filter: grayscale(0.8); /* Делаем цвета приглушенными, но не прозрачными */
+    border: 1px solid #444 !important;
+}
+
+.status-label {
+    color: #888;
+    font-style: italic;
+    font-size: 14px;
+}
+.processed .table__td-buttons-cont,
+.processed .btn-undo {
+pointer-events: auto !important;
+}
 </style>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -135,16 +155,45 @@ $(document).ready(function() {
     const ajaxUrl = "{% url 'inventory_ajax' inventory_count.pk %}";
 
     // 1. Фильтрация "Нулевых"
+    if ($('#hide-zero-variance').is(':checked')) {
+        $('.variance-zero').hide();
+    }
+
     $('#hide-zero-variance').change(function() {
         if(this.checked) {
-            $('.variance-zero').fadeOut();
+            $('.variance-zero').fadeOut(300);
         } else {
-            $('.variance-zero').fadeIn();
+            $('.variance-zero').hide().fadeIn(300);
         }
     });
 
-    // 2. AJAX Скорректировать (Принять правку)
-    $('.btn-reconcile').click(function() {
+    function finalizeRowUI(itemId) {
+        const row = $(`#item-row-${itemId}`);
+        const card = row.find('.table-card-first');
+        const actions = row.find('.table__td-buttons-cont');
+
+        actions.html(`
+            <div class="flex-center-between width100">
+                <span class="status-label">Обработано</span>
+                <button class="btn-undo" data-id="${itemId}" 
+                        style="background: none; border: none; color: #F28500; cursor: pointer; text-decoration: underline; font-size: 12px;">
+                    Отмена
+                </button>
+            </div>
+        `);
+        
+        card.addClass('processed');
+        row.addClass('variance-zero');
+        
+        if ($('#hide-zero-variance').is(':checked')) {
+            row.stop().fadeOut(400);
+        }
+    }
+
+    // ИСПОЛЬЗУЕМ ДЕЛЕГИРОВАНИЕ $(document).on('click', ...), чтобы кнопки работали после замены HTML
+
+    // 2. AJAX Скорректировать
+    $(document).on('click', '.btn-reconcile', function() {
         const btn = $(this);
         const itemId = btn.data('id');
         const actualVal = $(`#actual-${itemId}`).val();
@@ -157,37 +206,32 @@ $(document).ready(function() {
             actual_quantity: actualVal,
             csrfmiddlewaretoken: csrftoken
         }, function(response) {
-            $(`#item-row-${itemId}`).addClass('processed').fadeOut(400);
+            $(`#variance-text-${itemId}`).text('0');
+            finalizeRowUI(itemId);
         }).fail(function(xhr) {
             alert('Ошибка: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'сервер недоступен'));
         });
     });
 
     // 3. AJAX Пометить на пересчет
-    $('.btn-recount').click(function() {
-            const btn = $(this);
-            const itemId = btn.data('id');
-            const comment = prompt("Причина пересчета (необязательно):");
+    $(document).on('click', '.btn-recount', function() {
+        const btn = $(this);
+        const itemId = btn.data('id');
+        const comment = prompt("Причина пересчета (необязательно):");
+        if (comment === null) return; 
 
-            // Если нажали "Отмена" в prompt, ничего не делаем
-            if (comment === null) return; 
-
-            $.post(ajaxUrl, {
-                action: 'mark_recount',
-                item_id: itemId,
-                comment: comment,
-                csrfmiddlewaretoken: csrftoken
-            }, function(response) {
-                // Скрываем строку, так как бухгалтер по этой позиции решение принял
-                $(`#item-row-${itemId}`).fadeOut(400, function() {
-                    alert('Позиция отправлена в список на пересчет');
-                });
-            }).fail(function(xhr) {
-                alert('Ошибка при отправке на пересчет');
-            });
+        $.post(ajaxUrl, {
+            action: 'mark_recount',
+            item_id: itemId,
+            comment: comment,
+            csrfmiddlewaretoken: csrftoken
+        }, function(response) {
+            $(`#item-row-${itemId}`).fadeOut(400);
+            alert('Позиция отправлена в список на пересчет');
         });
+    });
 
-    // 4. AJAX Массовое подтверждение "в ноль"
+    // 4. AJAX Массовое подтверждение
     $('#btn-approve-zeros').click(function() {
         if(!confirm('Подтвердить все позиции, где расхождения отсутствуют?')) return;
 
@@ -195,10 +239,47 @@ $(document).ready(function() {
             action: 'bulk_approve_zeros',
             csrfmiddlewaretoken: csrftoken
         }, function(response) {
-            $('.variance-zero').addClass('processed').fadeOut(600);
+            $('.item-row').each(function() {
+                const row = $(this);
+                // Если разница реально 0 и она еще не обработана
+                if (parseFloat(row.find('[id^="variance-text-"]').text()) === 0 && !row.find('.table-card-first').hasClass('processed')) {
+                    const id = row.attr('id').replace('item-row-', '');
+                    finalizeRowUI(id);
+                }
+            });
             alert('Все совпадающие позиции подтверждены.');
         });
     });
+
+    // 5. AJAX Отмена корректировки
+    $(document).on('click', '.btn-undo', function(e) {
+        e.preventDefault();
+        const btn = $(this);
+        const itemId = btn.data('id');
+        const row = $(`#item-row-${itemId}`);
+
+        $.post(ajaxUrl, {
+            action: 'undo_reconcile',
+            item_id: itemId,
+            csrfmiddlewaretoken: csrftoken
+        }, function(response) {
+            row.find('.table-card-first').removeClass('processed');
+            
+            // Если разница не нулевая была изначально, убираем класс, чтобы фильтр не скрыл её
+            if (parseFloat(row.data('variance')) !== 0) {
+                row.removeClass('variance-zero').show();
+            }
+
+            row.find('.table__td-buttons-cont').html(`
+                <button class="button button--blue width100 btn-reconcile" data-id="${itemId}">
+                    Скорректировать
+                </button>
+                <button class="button button--orange width100 btn-recount" data-id="${itemId}">
+                    Пересчет
+                </button>
+            `);
+        });
+    });
 });
-</script>
+    </script>
 {% endblock %}

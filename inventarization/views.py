@@ -40,23 +40,26 @@ class InventoryCountWorkView(LoginRequiredMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Оптимизируем запрос: тянем тип контента сразу
         inventory_count = get_object_or_404(
             InventoryCount.objects.prefetch_related('items__content_type'), 
             pk=self.kwargs['pk']
         )
-        
-        # Сортировка: сначала те, что требуют пересчета, потом остальные
-        items = inventory_count.items.all().annotate(
-            recount_priority=Case(
-                When(reconciliation_status=InventoryCountItem.ReconciliationStatus.RECOUNT, then=Value(0)),
-                default=Value(1),
-                output_field=IntegerField(),
-            )
-        ).order_by('recount_priority', '-id')
+        # Базовый QuerySet
+        items = inventory_count.items.all()
+        # Если мы в режиме исправления, показываем ТОЛЬКО то, что нужно пересчитать
+        if inventory_count.status == InventoryCount.Status.FIXING:
+            items = items.filter(reconciliation_status=InventoryCountItem.ReconciliationStatus.RECOUNT)
+        else:
+            # В обычном режиме сортируем: сначала новые/приоритетные
+            items = items.annotate(
+                recount_priority=Case(
+                    When(reconciliation_status=InventoryCountItem.ReconciliationStatus.RECOUNT, then=Value(0)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
+            ).order_by('recount_priority', '-id')
 
-        # Чтобы не создавать формы в цикле в шаблоне (это тяжело), 
-        # подготовим их один раз или будем использовать один инпут
+        # Подготовка форм
         for item in items:
             item.update_form = InventoryItemUpdateForm(initial={'quantity': item.actual_quantity})
 
@@ -185,11 +188,19 @@ class InventoryAjaxActions(LoginRequiredMixin, PermissionRequiredMixin, View):
             item.manager_comment = request.POST.get('comment', '')
             item.save()
             return JsonResponse({'status': 'success'})
+        
+        elif action == 'undo_reconcile':
+            item = get_object_or_404(inventory_count.items, pk=item_id)
+            # Возвращаем статус в "ожидание"
+            item.reconciliation_status = InventoryCountItem.ReconciliationStatus.PENDING
+            item.save(update_fields=['reconciliation_status'])
+            
+            return JsonResponse({'status': 'success'})
 
         return JsonResponse({'status': 'error', 'message': 'Неизвестное действие'}, status=400)
 
     def _adjust_stock_logic(self, user, inventory_count, item):
-        """ Твоя оригинальная логика корректировки из вопроса """
+        """ Логика корректировки """
         with transaction.atomic():
             model_class = item.content_type.model_class()
             content_object = model_class.objects.select_for_update().get(pk=item.object_id)

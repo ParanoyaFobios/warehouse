@@ -72,7 +72,7 @@
             </svg>
         </span>
         </h1>
-        <form action="{% url 'count_start' %}" method="post">
+        <form class="width100" action="{% url 'count_start' %}" method="post">
             {% csrf_token %}
         <button type="submit" class="section__header-button button button--orange">
         Новый переучет +
@@ -85,7 +85,7 @@
         <li class="cont__item">
             <article class="table-card-first">
             <h1 class="table-card-first__title">№ {{ count.id }}</h1>
-            <table class="table-first">
+            <table class="table-first table-first--height100">
                 <tr
                 class="table__row table__row--color table__row--color-string"
                 >
@@ -135,7 +135,7 @@
                 </tr>
                 {% endif %}
 
-                <tr class="table__row">
+                <tr class="table__row m-top-auto">
                 <td class="table__td-buttons-cont">
                     <!-- нужно убирать одну из двух кнопок в зависимости от статуса: -->
                     {% if count.status != 'in_progress' and count.status != 'fixing' %}
