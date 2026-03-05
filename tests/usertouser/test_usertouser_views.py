@@ -37,7 +37,7 @@ class TestUsertouserViews:
 
         assert response.status_code == 200
         # Проверяем, что вернулся только фрагмент списка сообщений
-        assert 'message-bubble' in response.content.decode('utf-8')
+        assert 'chat__window-mess' in response.content.decode('utf-8')
         assert Message.objects.filter(content='Новое HTMX сообщение').exists()
 
     def test_delete_chat_removes_from_sidebar(self, client, user, another_user, direct_message):

@@ -1,207 +1,151 @@
 {% extends 'base.html' %}
-
 {% block content %}
-<style>
-    /* --- Стили чата --- */
-    .chat-container {
-        display: flex;
-        height: 85vh; /* Высота почти во весь экран */
-        background-color: #fff;
-        border: 1px solid #dee2e6;
-        border-radius: 0.5rem;
-        overflow: hidden;
-        margin-top: 20px;
-    }
-
-    /* Левая колонка (Список диалогов) */
-    .chat-sidebar {
-        width: 320px;
-        flex-shrink: 0;
-        border-right: 1px solid #dee2e6;
-        display: flex;
-        flex-direction: column;
-        background-color: #f8f9fa;
-    }
-
-    .sidebar-header {
-        padding: 15px;
-        border-bottom: 1px solid #dee2e6;
-        background-color: #fff;
-    }
-
-    .dialogs-list {
-        overflow-y: auto;
-        flex-grow: 1;
-    }
-
-    .dialog-item {
-        display: block;
-        padding: 15px;
-        color: #212529;
-        text-decoration: none;
-        border-bottom: 1px solid #f1f1f1;
-        transition: background-color 0.2s;
-    }
-    .dialog-item:hover {
-        background-color: #e9ecef;
-        text-decoration: none;
-        color: #000;
-    }
-    .dialog-item.active {
-        background-color: #cfe2ff; /* Подсветка активного диалога */
-        border-left: 4px solid #0d6efd;
-    }
-
-    /* Правая колонка (Окно сообщений) */
-    .chat-main {
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-        background-color: #fff;
-        min-width: 0; /* Важно для flexbox */
-    }
-
-    .chat-header {
-        padding: 15px;
-        border-bottom: 1px solid #dee2e6;
-        background-color: #fff;
-        font-weight: bold;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .messages-area {
-        flex-grow: 1;
-        overflow-y: auto;
-        padding: 20px;
-        background-color: #eef2f5; /* Легкий фон подложки */
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    /* Пузыри сообщений */
-    .message-bubble {
-        max-width: 70%;
-        padding: 10px 15px;
-        border-radius: 15px;
-        position: relative;
-        font-size: 0.95rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    }
-
-    /* Мои сообщения (справа, зеленые/синие) */
-    .message-bubble.me {
-        align-self: flex-end;
-        background-color: #d1e7dd; 
-        color: #0f5132;
-        border-bottom-right-radius: 2px;
-    }
-
-    /* Чужие сообщения (слева, белые) */
-    .message-bubble.them {
-        align-self: flex-start;
-        background-color: #fff;
-        color: #212529;
-        border-bottom-left-radius: 2px;
-    }
-
-    .msg-meta {
-        display: block;
-        font-size: 0.75em;
-        margin-top: 4px;
-        text-align: right;
-        opacity: 0.7;
-    }
-
-    /* Футер с формой ввода */
-    .chat-footer {
-        padding: 15px;
-        background-color: #f8f9fa;
-        border-top: 1px solid #dee2e6;
-    }
-</style>
-
-<div class="container-fluid">
-    <div class="chat-container shadow">
-        
-        <div class="chat-sidebar">
-            <div class="sidebar-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Чаты</h5>
-                <a href="{% url 'new_message' %}" class="btn btn-primary btn-sm rounded-pill">
-                    + Новый
-                </a>
-            </div>
-            
-            <div class="dialogs-list">
-                {% for user_obj in dialogs_list %}
-                    <a href="{% url 'chat_detail' user_obj.pk %}" 
-                       class="dialog-item {% if user_obj.pk == opponent.pk %}active{% endif %}">
-                        <div class="d-flex justify-content-between w-100">
-                            <strong class="text-truncate" style="max-width: 150px;">
-                                {{ user_obj.get_full_name|default:user_obj.username }}
-                            </strong>
-                            <small class="text-muted">
-                                {% if user_obj.last_msg_date %}
-                                    {{ user_obj.last_msg_date|date:"d M, H:i" }}
-                                {% endif %}
-                            </small>
-                        </div>
-                    </a>
-                {% empty %}
-                    <div class="p-3 text-center text-muted">Нет активных диалогов</div>
-                {% endfor %}
-            </div>
+{% load static %}
+<main class="main main--dark">
+  <section class="section chat chat--mess">
+    <div class="chat__sidebar">
+      <div class="chat__sidebar-body">
+        <div class="chat__sidebar-header">
+          <h1 class="chat__sidebar-header-title">Чаты</h1>
+          <a href="javascript:void(0)"
+            class="chat__sidebar-button button button--blue"
+            onclick="document.getElementById('overlayNewChat').showModal()"
+          >
+            Новый
+            <span class="content-size">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M16.0057 0.0294991H3.22379C2.78973 -0.0350076 2.34722 0.00661504 1.93128 0.151072C1.51534 0.295529 1.1374 0.538855 0.827363 0.861786C0.517331 1.18472 0.283725 1.57839 0.145038 2.01163C0.0063508 2.44488 -0.0336093 2.9058 0.0283208 3.35792V20L3.22379 16.6716H11.4756C11.5207 16.671 11.5653 16.6605 11.6062 16.6408C11.6472 16.621 11.6837 16.5924 11.7133 16.5568C11.7429 16.5213 11.7649 16.4796 11.7779 16.4346C11.7909 16.3895 11.7946 16.3421 11.7887 16.2955C11.7591 16.0522 11.7446 15.8073 11.745 15.5621C11.745 14.0909 12.3061 12.6799 13.3049 11.6395C14.3037 10.5992 15.6583 10.0147 17.0708 10.0147C17.65 10.0145 18.2254 10.1112 18.7751 10.301C18.8229 10.3186 18.8742 10.3241 18.9245 10.317C18.9748 10.3099 19.0228 10.2904 19.0644 10.2602C19.1061 10.2299 19.1402 10.1898 19.164 10.143C19.1877 10.0963 19.2005 10.0443 19.2011 9.99145V3.35792C19.2631 2.9058 19.2231 2.44488 19.0844 2.01163C18.9457 1.57839 18.7121 1.18472 18.4021 0.861786C18.0921 0.538855 17.7141 0.295529 17.2982 0.151072C16.8822 0.00661504 16.4397 -0.0350076 16.0057 0.0294991ZM5.37541 9.46001C5.23553 9.46074 5.09688 9.43277 4.96738 9.37768C4.83788 9.3226 4.72007 9.24149 4.62067 9.13898C4.41991 8.93195 4.30634 8.65034 4.30492 8.35609C4.30351 8.06184 4.41438 7.77906 4.61313 7.56995C4.81189 7.36084 5.08226 7.24254 5.36475 7.24107H5.37541C5.6579 7.24107 5.92883 7.35796 6.12858 7.56603C6.32834 7.77409 6.44056 8.05629 6.44056 8.35054C6.44056 8.64479 6.32834 8.92699 6.12858 9.13506C5.92883 9.34312 5.6579 9.46001 5.37541 9.46001ZM9.63603 9.46001C9.49615 9.46074 9.35751 9.43277 9.22801 9.37768C9.09851 9.3226 8.98069 9.24149 8.88129 9.13898C8.68054 8.93195 8.56696 8.65034 8.56555 8.35609C8.56414 8.06184 8.675 7.77906 8.87376 7.56995C9.07252 7.36084 9.34288 7.24254 9.62538 7.24107H9.63603C9.91853 7.24107 10.1895 7.35796 10.3892 7.56603C10.589 7.77409 10.7012 8.05629 10.7012 8.35054C10.7012 8.64479 10.589 8.92699 10.3892 9.13506C10.1895 9.34312 9.91853 9.46001 9.63603 9.46001ZM13.8967 9.46001C13.7568 9.46074 13.6181 9.43277 13.4886 9.37768C13.3591 9.3226 13.2413 9.24149 13.1419 9.13898C12.9412 8.93195 12.8276 8.65034 12.8262 8.35609C12.8248 8.06184 12.9356 7.77906 13.1344 7.56995C13.3331 7.36084 13.6035 7.24254 13.886 7.24107H13.8967C14.1792 7.24107 14.4501 7.35796 14.6498 7.56603C14.8496 7.77409 14.9618 8.05629 14.9618 8.35054C14.9618 8.64479 14.8496 8.92699 14.6498 9.13506C14.4501 9.34312 14.1792 9.46001 13.8967 9.46001ZM20 15.0074C20 15.2281 19.9158 15.4397 19.766 15.5958C19.6162 15.7518 19.413 15.8395 19.2011 15.8395H17.3371V17.7811C17.3371 18.0017 17.2529 18.2134 17.1031 18.3694C16.9533 18.5255 16.7501 18.6132 16.5382 18.6132C16.3264 18.6132 16.1232 18.5255 15.9734 18.3694C15.8235 18.2134 15.7394 18.0017 15.7394 17.7811V15.8395H13.8754C13.6635 15.8395 13.4603 15.7518 13.3105 15.5958C13.1607 15.4397 13.0765 15.2281 13.0765 15.0074C13.0765 14.7867 13.1607 14.575 13.3105 14.419C13.4603 14.2629 13.6635 14.1753 13.8754 14.1753H15.7394V12.2337C15.7394 12.013 15.8235 11.8014 15.9734 11.6453C16.1232 11.4893 16.3264 11.4016 16.5382 11.4016C16.7501 11.4016 16.9533 11.4893 17.1031 11.6453C17.2529 11.8014 17.3371 12.013 17.3371 12.2337V14.1753H19.2011C19.413 14.1753 19.6162 14.2629 19.766 14.419C19.9158 14.575 20 14.7867 20 15.0074Z"
+                  fill="white"
+                />
+              </svg>
+            </span>
+          </a>
         </div>
-
-        <div class="chat-main">
-            <div class="chat-header">
-                <div>
-                    <i class="fas fa-user-circle fa-lg text-secondary me-2"></i>
-                    {{ opponent.get_full_name|default:opponent.username }}
-                </div>
-                <form action="{% url 'delete_chat' opponent.pk %}" method="post" 
-                    onsubmit="return confirm('Вы уверены, что хотите удалить всю переписку? Это действие нельзя отменить.');">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-danger btn-sm">
-                        <i class="fas fa-trash-alt"></i> Удалить чат
-                    </button>
-                </form>
-            </div>
-
-            <div class="messages-area" id="messages-scroller" 
-            hx-get="{% url 'chat_detail' opponent.pk %}" 
-            hx-trigger="every 5s" 
-            hx-swap="innerHTML">
-           {% include 'usertouser/includes/message_list.html' %}
-            </div>
-            <div class="chat-footer">
-                <form hx-post="{% url 'chat_detail' opponent.pk %}" 
-                      hx-target="#messages-scroller" 
-                      hx-swap="innerHTML"
-                      hx-on::after-request="this.reset()" 
-                      class="d-flex gap-2">
-                    {% csrf_token %}
-                    <div class="flex-grow-1">
-                        {{ form.content }}
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        Отправить
-                    </button>
-                </form>
-            </div>
-        </div>
+        <ul class="chat__sidebar-list">
+            {% for user_obj in dialogs_list %}
+          <li class="chat__sidebar-item">
+            <a class="chat__sidebar-link" href="{% url 'chat_detail' user_obj.pk %}">
+              <span class="chat__sidebar-link-icon-wrapper">
+                <svg
+                  class="chat-avatar"
+                  viewBox="0 0 40 40"
+                  width="40"
+                  height="40"
+                >
+                  <use href="{% static user_obj.profile.avatar_path %}"></use>
+                </svg>
+              </span>
+              <div class="chat__sidebar-link-middle-part">
+                <h2 class="chat__sidebar-link-title">{{ user_obj.get_full_name|default:user_obj.username }}</h2>
+                <p
+                  class="chat__sidebar-link-role table__td-color table__td-color--orange-trans60"
+                >
+                {{ user_obj.groups.all.0.name }}
+                </p>
+              </div>
+              <div class="chat__sidebar-link-right-part">
+                {% if user_obj.last_msg_date %}
+                <span class="chat__sidebar-link-date">{{ user_obj.last_msg_date|date:"d M, H:i" }}</span>
+                {% endif %}
+                {% if user_obj.unread_count > 0 %}
+                <span class="chat__sidebar-link-quantity flex-center">
+                    {{ user_obj.unread_count }}
+                </span>
+                {% endif %}
+              </div>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
     </div>
-</div>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const scroller = document.getElementById('messages-scroller');
-        if (scroller) {
-            scroller.scrollTop = scroller.scrollHeight;
-        }
-    });
-</script>
-
+    <div class="chat__window">
+      <div class="chat__window-body">
+        <div class="chat__window-header">
+          <h2 class="chat__window-title">{{ opponent.get_full_name|default:opponent.username }}</h2>
+          <p
+            class="chat__window-role table__td-color table__td-color--orange-trans60"
+          >
+          {{ opponent.groups.all.0.name|default:"Без группы" }}
+          </p>
+          <form action="{% url 'delete_chat' opponent.pk %}" method="post" class="m-left-auto"
+          onsubmit="return confirm('Вы уверены, что хотите удалить всю переписку? Это действие нельзя отменить.');">
+          {% csrf_token %}
+          <button
+            title="Удалить"
+            class="button-with-icon content-size"
+            type="submit"
+          >
+            <svg
+              width="30"
+              height="30"
+              viewBox="0 0 30 30"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                width="30"
+                height="30"
+                rx="3"
+                fill="#F28500"
+                fill-opacity="0.6"
+              />
+              <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M24 7.75C24.414 7.75 24.75 8.086 24.75 8.5C24.75 8.914 24.414 9.25 24 9.25H6C5.586 9.25 5.25 8.914 5.25 8.5C5.25 8.086 5.586 7.75 6 7.75H24Z"
+                fill="white"
+              />
+              <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M19.636 6.245L20.221 8.294C20.286 8.52 20.24 8.764 20.099 8.952C19.957 9.14 19.735 9.25 19.5 9.25H10.5C10.265 9.25 10.043 9.14 9.90096 8.952C9.75996 8.764 9.71396 8.52 9.77896 8.294L10.364 6.245C10.702 5.064 11.781 4.25 13.009 4.25H16.991C18.219 4.25 19.298 5.064 19.636 6.245ZM18.193 6.657C18.04 6.12 17.55 5.75 16.991 5.75H13.009C12.45 5.75 11.96 6.12 11.807 6.657L11.494 7.75H18.506L18.193 6.657Z"
+                fill="white"
+              />
+              <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M23.145 10.25L22.363 23.166C22.275 24.618 21.072 25.75 19.618 25.75H10.382C8.92798 25.75 7.72498 24.618 7.63698 23.166L6.85498 10.25H23.145ZM12.246 20.91L11.549 13.941C11.508 13.529 11.14 13.228 10.728 13.269C10.316 13.31 10.015 13.678 10.056 14.09L10.754 21.059C10.795 21.471 11.163 21.772 11.575 21.731C11.987 21.69 12.287 21.322 12.246 20.91ZM19.246 21.059L19.944 14.09C19.985 13.678 19.684 13.31 19.272 13.269C18.86 13.228 18.492 13.529 18.451 13.941L17.754 20.91C17.713 21.322 18.013 21.69 18.425 21.731C18.837 21.772 19.205 21.471 19.246 21.059ZM14.25 14V21C14.25 21.414 14.586 21.75 15 21.75C15.414 21.75 15.75 21.414 15.75 21V14C15.75 13.586 15.414 13.25 15 13.25C14.586 13.25 14.25 13.586 14.25 14Z"
+                fill="white"
+              />
+            </svg>
+          </button>
+          </form>
+        </div>
+        <div class="chat__window-main" id="messages-scroller"
+        hx-get="{% url 'chat_detail' opponent.pk %}" 
+        hx-trigger="every 5s" 
+        hx-swap="innerHTML"
+        style="overflow-y: auto;">
+        {% include 'usertouser/includes/message_list.html' %}
+        </div>
+        <form class="chat__form"
+            hx-post="{% url 'chat_detail' opponent.pk %}" 
+            hx-target="#messages-scroller" 
+            hx-swap="innerHTML"
+            hx-on::after-request="this.reset()">
+      {% csrf_token %}
+      <textarea
+          name="content" 
+          placeholder="Напишите сообщение..."
+          class="chat__form-filefold form-textarea"
+          rows="1"
+          required
+      ></textarea>
+      <button type="submit" class="chat__form-button button button--orange">
+          Отправить
+      </button>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+{% include 'usertouser/includes/new_chat_modal_content.html' %}
 {% endblock %}

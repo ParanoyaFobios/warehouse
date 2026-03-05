@@ -1,16 +1,17 @@
 {% for msg in chat_history %}
-    <div class="message-bubble {% if msg.sender == request.user %}me{% else %}them{% endif %}">
-        <div>{{ msg.content|linebreaksbr }}</div>
-        <span class="msg-meta">
-            {{ msg.timestamp|date:"H:i" }}
-            {% if msg.sender == request.user %}
-                {% if msg.is_read %}✓✓{% else %}✓{% endif %}
-            {% endif %}
-        </span>
-    </div>
+  <p class="chat__window-mess chat__window-mess--{% if msg.sender == request.user %}my{% else %}alien{% endif %}">
+    {{ msg.content|linebreaksbr }}
+    <span class="msg-time" style="font-size: 0.7em; opacity: 0.6;">{{ msg.timestamp|date:"H:i" }}</span>
+    {% if msg.sender == request.user %}
+      {% if msg.is_read %} ✓✓{% else %} ✓{% endif %}
+    {% endif %}
+  </p>
 {% endfor %}
 
 <script>
+    // Прокрутка вниз при каждом обновлении списка сообщений
     var scroller = document.getElementById('messages-scroller');
-    scroller.scrollTop = scroller.scrollHeight;
+    if (scroller) {
+        scroller.scrollTop = scroller.scrollHeight;
+    }
 </script>

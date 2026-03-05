@@ -8,34 +8,44 @@ def global_search_form(request):
     }
 
 def user_avatar_processor(request):
-    """Определяет иконку аватара в зависимости от группы пользователя."""
+    """Определяет иконку аватара по ключевым словам в названии групп пользователя."""
+    
+    DEFAULT_AVATAR = 'icons/avatar-default.svg'
+    
     if not request.user.is_authenticated:
-        return {'user_avatar': 'icons/avatar-default.svg'}
-
-    # Словарь: ID группы -> имя файла иконки
-    # Вы можете легко добавлять сюда новые группы
-    GROUP_AVATARS = {
-        2: 'avatar-manager.svg',    # Менеджер
-        1: 'avatar-storekeeper.svg',     # кладовщик
-        4: 'avatar-production.svg', # производственник
-        5: 'avatar-accountant.svg', # бухгалтер
-    }
-
-    # По умолчанию для всех авторизованных
-    avatar_file = 'avatar.svg'
+        return {'user_avatar': DEFAULT_AVATAR}
 
     if request.user.is_superuser:
-        avatar_file = 'avatar-boss.svg'
-    else:
-        # Получаем ID всех групп, в которых состоит юзер
-        user_group_ids = request.user.groups.values_list('id', flat=True)
-        
-        # Ищем первое совпадение ID группы в нашем словаре
-        for group_id in user_group_ids:
-            if group_id in GROUP_AVATARS:
-                avatar_file = GROUP_AVATARS[group_id]
-                break
+        return {'user_avatar': 'icons/avatar-boss.svg'}
 
-    return {
-        'user_avatar': f'icons/{avatar_file}'
+    # Карта: Ключевое слово в названии группы -> Файл иконки
+    # Порядок важен: первое совпадение выигрывает
+    AVATAR_MAP = {
+    'manager': 'avatar-manager.svg',
+    'менеджер': 'avatar-manager.svg',
+    'store': 'avatar-storekeeper.svg',
+    'склад': 'avatar-storekeeper.svg',
+    'клад': 'avatar-storekeeper.svg',
+    'prod': 'avatar-production.svg',
+    'производст': 'avatar-production.svg',
+    'бухг': 'avatar-accountant.svg',
+    'управл': 'avatar-administrator.svg',
     }
+
+    try:
+        # Получаем все названия групп пользователя одним запросом в нижнем регистре
+        user_group_names = list(request.user.groups.values_list('name', flat=True))
+        user_group_names_lower = [name.lower() for name in user_group_names]
+
+        # Ищем совпадение
+        for key, icon_file in AVATAR_MAP.items():
+            # Если ключевое слово содержится в ЛЮБОМ из названий групп юзера
+            if any(key in group_name for group_name in user_group_names_lower):
+                return {'user_avatar': f'icons/{icon_file}'}
+
+    except Exception:
+        # Если вдруг база недоступна или ошибка в логике — возвращаем дефолт
+        return {'user_avatar': DEFAULT_AVATAR}
+
+    # Если юзер авторизован, но его группы не подошли под описание
+    return {'user_avatar': 'icons/avatar.svg'}
